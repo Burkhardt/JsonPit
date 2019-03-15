@@ -1,3 +1,3 @@
 # JsonPit
 
-    Stores json files across servers (synchronized).
+Stores json files across servers (synchronized).
