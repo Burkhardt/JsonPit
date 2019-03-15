@@ -12,7 +12,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\OsLibCore\OsLibCore.csproj" />
-    <ProjectReference Include="..\RaiUtilsCore\RaiUtilsCore.csproj" />
+    <ProjectReference Include="..\RaiUtils\RaiUtilsCore.csproj" />
   </ItemGroup>
 
 </Project>
