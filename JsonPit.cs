@@ -249,7 +249,7 @@ namespace JsonPitCore
     /// <remarks>
     /// Flagfiles are associated with a particular server.
     /// This means that only one Server will ever be allowed write access to this file. Even if the file is inside a Dropbox
-    /// (which it has to be for HDitem.Persist to work), no other server can change the Server's flag file and only the assigned
+    /// (which it has to be for Persist to work), no other server can change the Server's flag file and only the assigned
     /// Master Server can change the Master.flag file. The Master.flag file is a special case because if the Server is changed the 
     /// owner of the Master.flag file changes accordingly(with the associated JsonFile).
     /// However, although there is just one "owning" server there can be various threads or even programs that try to write the 
