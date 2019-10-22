@@ -1,18 +1,35 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
+    <Title>JsonPit</Title>
+    <PackageId>JsonPit</PackageId>
+    <Version>2.1.0</Version>
+    <Authors>Rainer Burkhardt</Authors>
+    <Description>Stores json files across servers (synchronized).</Description>
+    <!--<PackageDescription>Stores json files across servers (synchronized).</PackageDescription>-->
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <PackageTags>Json, cross-server synchronized</PackageTags>
+    <IsPackable>true</IsPackable>
+    <ProjectURL>https://github.com/Burkhardt/JsonPit</ProjectURL>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <Copyright>© Rainer Burkhardt. All rights reserved.</Copyright>
+    <RepositoryUrl>https://github.com/Burkhardt/JsonPit</RepositoryUrl>
+    <RepositoryType>github</RepositoryType>
+    <PackageReleaseNotes>Version for netstandard2.1</PackageReleaseNotes>
+    <!--<PackageIcon></PackageIcon>-->
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Jil" Version="2.17.0" />
-    <PackageReference Include="Newtonsoft.Json" Version="12.0.1" />
-    <PackageReference Include="Sigil" Version="4.7.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="12.0.2" />
+    <PackageReference Include="Sigil" Version="5.0.0" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\OsLibCore\OsLibCore.csproj" />
-    <ProjectReference Include="..\RaiUtils\RaiUtilsCore.csproj" />
+    <ProjectReference Include="..\RAI.OsLib\RAI.OsLib.csproj" />
+    <ProjectReference Include="..\RAI.Utils\RAI.Utils.csproj" />
   </ItemGroup>
 
 </Project>
