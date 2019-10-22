@@ -27,3 +27,4 @@ bld/
 msbuild.log
 msbuild.err
 msbuild.wrn
+publish/JsonPit.2.1.0.nupkg

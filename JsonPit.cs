@@ -567,8 +567,7 @@ namespace JsonPitCore
         /// <summary>
         /// add or set a property of this PitItem with value - keeps all other properties
         /// </summary>
-        /// <param name="propertyName">name of existing or new property</param>
-        /// <param name="Value">one property as JSON, i.e. { "Subscriber": "demo" } or { "address": { "street": "1 Main St", "city": "A Town" } }</param>
+        /// <param name="objectAsJsonString">one property as JSON, i.e. { "Subscriber": "demo" } or { "address": { "street": "1 Main St", "city": "A Town" } }</param>
         public void SetProperty(string objectAsJsonString)
         {
             Deleted = false;
@@ -590,7 +589,7 @@ namespace JsonPitCore
         /// <summary>
         /// add or set a property of this PitItem with value - keeps all other properties
         /// </summary>
-        /// <param name="obj">i.e. new { Subscriber = SelectedValue }</param>
+        /// <param name="propertyName">name of property</param>
         public void DeleteProperty(string propertyName)
         {
             Deleted = false;  // the PitItem is not Deleted
@@ -1052,6 +1051,7 @@ namespace JsonPitCore
         /// Get the latest PitItem for this key as JObject
         /// </summary>
         /// <param name="key"></param>
+        /// <param name="withDeleted"></param>
         /// <remarks>converts better to dynamic</remarks>
         /// <returns>default(PitItem) or the most recent PitItem as JObject</returns>
         public JObject Get(string key, bool withDeleted = false)
@@ -1081,7 +1081,7 @@ namespace JsonPitCore
         /// <param name="pName"></param>
         /// <returns>an IEnumerable of KeyValuePairs; the value part will be a List of JToken</returns>
         /// <remarks>this way, the array operator can be used directly as expected</remarks>
-        /// <see cref="TestProfileItem"/> 
+        // <see cref="TestProfileItem"/> 
         public IEnumerable<KeyValuePair<DateTimeOffset, List<JToken>>> ValueListsOverTime(string oName, string pName)
         {
             if (!HistoricItems.ContainsKey(oName))
@@ -1109,6 +1109,7 @@ namespace JsonPitCore
         /// Load Json file
         /// </summary>
         /// <param name="undercover">todo: describe undercover parameter on Load</param>
+        /// <param name="preserve"></param>
         public void Load(bool undercover = false, bool preserve = true)
         {
             {
@@ -1143,6 +1144,8 @@ namespace JsonPitCore
         }
         /// <summary>makes JsonFile persistent; performs merge on item level</summary>
         /// <param name="force">todo: describe force parameter on Store</param>
+        /// <param name="pretty"></param>
+        /// <param name="indentChar"></param>
         protected void Store(bool force = false, bool pretty = false, char indentChar = '\t')
         {
             if (HistoricItems == null)
@@ -1709,6 +1712,7 @@ namespace JsonPitCore
         /// <summary>Constructor</summary>
         /// <param name="name"></param>
         /// <param name="comment"></param>
+        /// <param name="invalidate"></param>
         /// <remarks>timestamp of this setting will be set to UtcNow after this</remarks>
         public Item(string name, string comment, bool invalidate = true)
         {
