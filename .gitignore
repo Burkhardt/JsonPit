@@ -18,6 +18,7 @@ project.lock.json
 [Dd]ebugPublic/
 [Rr]elease/
 [Rr]eleases/
+[Pp]ublish/
 x64/
 x86/
 build/
@@ -27,4 +28,3 @@ bld/
 msbuild.log
 msbuild.err
 msbuild.wrn
-publish/JsonPit.2.1.0.nupkg

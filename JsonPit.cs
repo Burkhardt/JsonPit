@@ -11,11 +11,10 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
-//using HDitem.Utilities;
 using RaiUtilsCore;
-using OperatingSystemCore;
+using OsLibCore;
 
-namespace JsonPitCore
+namespace JsonPit
 {
     public class ItemsBase
     {
