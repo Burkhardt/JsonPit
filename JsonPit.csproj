@@ -3,7 +3,7 @@
   <PropertyGroup>
     <Title>JsonPit</Title>
     <PackageId>JsonPit</PackageId>
-    <Version>2.1.1</Version>
+    <Version>2.1.2</Version>
     <Authors>Rainer Burkhardt</Authors>
     <Description>Stores json files across servers (synchronized).</Description>
     <!--<PackageDescription>Stores json files across servers (synchronized).</PackageDescription>-->
