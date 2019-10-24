@@ -759,7 +759,7 @@ namespace JsonPit
     }
     class PitItemEqualityComparer : IEqualityComparer<PitItem>
     {
-        public bool Equals(PitItem d1, PitItem d2) => JsonPitCore.PitItemExtensions.Equals(d1, d2);
+        public bool Equals(PitItem d1, PitItem d2) => JsonPit.PitItemExtensions.Equals(d1, d2);
         public int GetHashCode(PitItem x)
         {
             string s = $"{x.Name}{x.Modified.UtcTicks}";
