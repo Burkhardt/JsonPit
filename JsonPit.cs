@@ -11,8 +11,8 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
-using RaiUtilsCore;
-using OsLibCore;
+using RaiUtils;
+using OsLib;
 
 namespace JsonPit
 {
