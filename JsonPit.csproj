@@ -3,11 +3,11 @@
   <PropertyGroup>
     <Title>JsonPit</Title>
     <PackageId>JsonPit</PackageId>
-    <Version>2.1.2</Version>
+    <Version>2.2</Version>
     <Authors>Rainer Burkhardt</Authors>
     <Description>Stores json files across servers (synchronized).</Description>
     <!--<PackageDescription>Stores json files across servers (synchronized).</PackageDescription>-->
-    <TargetFramework>netstandard2.1</TargetFramework>
+    <TargetFramework>net6.0</TargetFramework>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <PackageTags>Json, cross-server synchronized</PackageTags>
@@ -17,7 +17,7 @@
     <Copyright>© Rainer Burkhardt. All rights reserved.</Copyright>
     <RepositoryUrl>https://github.com/Burkhardt/JsonPit</RepositoryUrl>
     <RepositoryType>github</RepositoryType>
-    <PackageReleaseNotes>Version for netstandard2.1</PackageReleaseNotes>
+    <PackageReleaseNotes>Version for net6.0</PackageReleaseNotes>
     <PackageIcon>hardcastle.png</PackageIcon>
   </PropertyGroup>
 
