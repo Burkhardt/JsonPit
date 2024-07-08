@@ -80,3 +80,4 @@
 - ◯ Full synchronization and CloudDrive handling.
 - ⬜️ Garbage collection for pruning history.
 - ⬜️ Docker image development, NuGet package, and project website creation.
+
