@@ -14,6 +14,17 @@ using System.Threading;
 using RaiUtils;
 using OsLib;
 
+
+// TODO write tests for all operations 2024-07-05
+// 
+// change: JsonPit is a directory and a file by the same name
+// i.e. ~/MyStuff/Nations/Nations.json and ~/MyStuff/Persons/Persons.json
+// change files are in the same directory as the JsonPit file
+// linked files can be in subdirectories or at the top level
+// i.e. ~/MyStuff/Nations/img/finland.jpg or ~/MyStuff/Persons/BenFranklin.jpg
+// the links from the JsonPit file would be relative to the JsonPit folder
+// i.e. img/finland.jpg or BenFranklin.jpg
+
 namespace JsonPit
 {
 	public class ItemsBase
@@ -109,7 +120,7 @@ namespace JsonPit
 		/// <returns>timestamp</returns>
 		public virtual DateTimeOffset GetFileChanged()
 		{
-			var info = new System.IO.FileInfo(Name);
+			var info = new System.IO.FileInfo(JsonFile.FullName);
 			return info.LastWriteTimeUtc;
 		}
 		/// <summary>
@@ -130,7 +141,7 @@ namespace JsonPit
 			// was: 
 			//var info = new System.IO.FileInfo(Name);
 			//if (!info.Exists)
-			if (!File.Exists(Name))
+			if (!File.Exists(JsonFile.FullName))
 				return false;
 			return GetFileChanged() > GetMemChanged();
 		}
@@ -154,27 +165,26 @@ namespace JsonPit
 		{
 			get
 			{
-				var file = new RaiFile(Name);
+				var file = new RaiFile(JsonFile.Path + "Changes" + Os.DIRSEPERATOR);
 				file.mkdir();
-				file.Path = file.Path + file.Name;
 				return file.Path;
 			}
 		}
-		public string Name
+		public PitFile JsonFile
 		{
-			get { return jsonFileName; }
+			get { return jsonFile; }
 			set
 			{
 				const string defExt = "json";
-				var file = new RaiFile(value);
+				var file = new PitFile(value);
 				if (string.IsNullOrEmpty(file.Ext))
 					file.Ext = defExt;
 				if (file.Ext != defExt)
 					throw new Exception($"Name of json file has to end in .{defExt}");
-				jsonFileName = file.FullName;
+				jsonFile = file;
 			}
 		}
-		private string jsonFileName;
+		private PitFile jsonFile;
 		protected bool descending;
 		public JsonPitBase(bool readOnly = true, bool backup = false, bool unflagged = false, bool descending = false)
 		{
@@ -643,7 +653,7 @@ namespace JsonPit
 		/// <param name="comment"></param>
 		/// <param name="invalidate"></param>
 		/// <remarks>timestamp of this setting will be set to UtcNow after this</remarks>
-		public PitItem(string name, string comment, bool invalidate = true)
+		public PitItem(string name, bool invalidate = true, string comment = "")
 		{
 			this.Name = name;
 			Note = comment;
@@ -653,18 +663,19 @@ namespace JsonPit
 		}
 		/// <summary>Constructor</summary>
 		/// <param name="name"></param>
-		/// <param name="comment"></param>
 		/// <param name="extendWith">i.e. new { someProperty = "some value" }</param>
-		public PitItem(string name, string comment, object extendWith)
-			: this(name, comment, JSON.SerializeDynamic(extendWith))
+		/// <param name="comment">optional comment for this PitItem object</param>
+		/// <remarks>will add internal properties like timestamp</remarks>
+		public PitItem(string name, object extendWith, string comment = "")
+			: this(name, JSON.SerializeDynamic(extendWith), comment)
 		{
 		}
 		/// <summary>Constructor</summary>
 		/// <param name="name"></param>
-		/// <param name="comment"></param>
 		/// <param name="extendWithAsJson">i.e. @"{""gender"": ""f""}"</param>
+		/// <param name="comment"></param>
 		/// <remarks>timestamp of this setting will be set to UtcNow after this</remarks>
-		public PitItem(string name, string comment, string extendWithAsJson)
+		public PitItem(string name, string extendWithAsJson, string comment = "")
 		{
 			this.Name = name;
 			Note = comment;
@@ -679,8 +690,8 @@ namespace JsonPit
 		/// <param name="invalidate"></param>
 		/// <param name="timestamp"></param>
 		/// <remarks>timestamp of this setting will be set to UtcNow after this</remarks>
-		public PitItem(string name, string comment, bool invalidate, DateTimeOffset timestamp)
-			: this(name, comment, invalidate)
+		public PitItem(string name, bool invalidate, DateTimeOffset timestamp, string comment = "")
+			: this(name, invalidate, comment)
 		{
 			Modified = timestamp;
 		}
@@ -879,7 +890,7 @@ namespace JsonPit
 		/// <param name="version">"" => get version from JsonPit module; null => no version in path</param>
 		/// <returns>FullName</returns>
 		public static string defaultPitName(string pit, string subscriber, string version = null)
-		{
+		{	//deprecated, don't use
 			if (version != null && version.Length == 0)
 				version = Version;
 			if (!pit.ToLower().Contains("_p"))
@@ -1103,7 +1114,6 @@ namespace JsonPit
 			}
 		}
 		public string Subscriber { get; private set; }
-		public string PitName { get; private set; }
 		/// <summary>
 		/// Load Json file
 		/// </summary>
@@ -1114,7 +1124,7 @@ namespace JsonPit
 			{
 				try // http://www.newtonsoft.com/json/help/html/SerializingJSON.htm
 				{
-					var jsonArrayOfArrayOfObject = File.ReadAllText(Name);
+					var jsonArrayOfArrayOfObject = File.ReadAllText(JsonFile.FullName);
 					#region quick analyze content
 					for (int i = 0, square = 0; i < jsonArrayOfArrayOfObject.Length && i < 100 && square < 2; i++)
 					{
@@ -1149,22 +1159,21 @@ namespace JsonPit
 		{
 			if (HistoricItems == null)
 				return;
-			var diskFile = new RaiFile(Name);
 			#region only save if necessary
 			if (force || Invalid())
 			{
 				if (ReadOnly)
-					throw new IOException("JsonFile " + Name + " was set to readonly mode but an attempt was made to execute JsonFile.Store");
+					throw new IOException("JsonFile " + JsonFile.Name + " was set to readonly mode but an attempt was made to execute JsonFile.Store");
 				Exception inner = null;
 				if (HistoricItems.Count() > 0)    // passing in empty settings is not a valid way to delete the content of a settings file; silently refuse storing a new version
 				{
 					if (Backup)
-						diskFile.backup();
-					else diskFile.rm();
-					new RaiFile(Name).mkdir();  // does nothing if dir was there; otherwise creates the dir and awaits materialization
+						JsonFile.backup();
+					else JsonFile.rm();
+					JsonFile.mkdir();  // does nothing if dir was there; otherwise creates the dir and awaits materialization
 
 					#region buffered writing with JsonTextWriter
-					using (FileStream fs = File.Open(Name, FileMode.CreateNew))
+					using (FileStream fs = File.Open(JsonFile.FullName, FileMode.CreateNew))
 					{
 						using (StreamWriter sw = new StreamWriter(fs))
 						{
@@ -1201,7 +1210,7 @@ namespace JsonPit
 					#endregion
 
 					var changeTime = GetLastestItemChanged();
-					File.SetLastWriteTimeUtc(Name, changeTime.DateTime);
+					File.SetLastWriteTimeUtc(JsonFile.FullName, changeTime.DateTime);
 					if (!unflagged)
 					{
 						var masterFlag = MasterFlag();
@@ -1221,7 +1230,7 @@ namespace JsonPit
 				else
 				{
 					throw new IOException("attempt to write a JsonFile with no items into "
-					+ diskFile.FullName + "; the current memory representation should reflect the old file's items which it does not!", inner);
+					+ JsonFile.FullName + "; the current memory representation should reflect the old file's items which it does not!", inner);
 				}
 			}
 			#endregion
@@ -1237,7 +1246,7 @@ namespace JsonPit
 			if (backup != null)
 				Backup = (bool)backup;
 			if (ReadOnly)
-				throw new IOException("JsonFile " + Name + " was set to readonly mode but an attempt was made to execute JsonFile.Save");
+				throw new IOException("JsonFile " + JsonFile.Name + " was set to readonly mode but an attempt was made to execute JsonFile.Save");
 			Monitor.Enter(_locker);
 			try
 			{
@@ -1260,7 +1269,7 @@ namespace JsonPit
 		/// <seealso cref="MergeChanges"/>
 		private void CreateChangeFiles()
 		{
-			var compareFile = new Pit(Name, undercover: true, unflagged: true);  // if undercover, Load does not update the time stamp in the flag file for the local server, ie RAPTOR133.info
+			var compareFile = new Pit(JsonFile.FullName, undercover: true, unflagged: true);  // if undercover, Load does not update the time stamp in the flag file for the local server, ie RAPTOR133.info
 			foreach (var name in Keys)
 			{
 				// FIX: sth goes wrong in the following line or in the line before foreach;
@@ -1316,7 +1325,7 @@ namespace JsonPit
 						Pit pit;
 						foreach (var pitItems in this)
 						{
-							pit = new Pit(path: file);
+							pit = new Pit(pitDirectory: file);
 							foreach (var changeItems in pit)
 								pitItems.Merge(changeItems);
 						}
@@ -1347,7 +1356,7 @@ namespace JsonPit
 			if (masterUpdates && RunningOnMaster()) 
 			{
 				//throw new DataMisalignedException($"Some process changed the main file without permission => inconsistent data in {nameof(Reload)}, file {this.Name}");
-				throw new Exception($"Some process changed the main file without permission => inconsistent data in {nameof(Reload)}, file {this.Name}");
+				throw new Exception($"Some process changed the main file without permission => inconsistent data in {nameof(Reload)}, file {JsonFile.Name}");
 			}
 			if (masterUpdates)
 			{   // we need the new master; let's save our changes first
@@ -1415,46 +1424,39 @@ namespace JsonPit
 		}
 		/// <summary>Get or Add whole List; list contains most recent items including deleted ones</summary>
 		/// <remarks>use SettingNames or Select to get a list without deleted entries; does not return the history of an item</remarks>
-		/// <param name="pitName">a name: might cause problems if name contains characters that cause problems with the file system or the URI</param>
 		/// <param name="autoload"></param>
 		/// <param name="backup"></param>
 		/// <param name="descending"></param>
 		/// <param name="ignoreCase"></param>
 		/// <param name="orderBy"></param>
-		/// <param name="path">the path can include the pitName; will be overridden by pitName if given</param>
+		/// <param name="pitDirectory">the path can include the pitName; will be assumed otherwise,i.e. ~/People/ => ~/People/People.json</param>
 		/// <param name="readOnly"></param>
 		/// <param name="subscriber"></param>
 		/// <param name="undercover"></param>
 		/// <param name="unflagged"></param>
 		/// <param name="values">as returned by e.g. JArray.Parse(File.ReadAllText(fName))</param>
 		/// <param name="version">"" (default) for get the version from the code; null for no version in path</param>
-		public Pit(string path = null, IEnumerable<PitItems> values = null, string pitName = null, string subscriber = null, Func<PitItem, string> orderBy = null, bool descending = false,
+		public Pit(string pitDirectory, IEnumerable<PitItems> values = null, string subscriber = null, Func<PitItem, string> orderBy = null, bool descending = false,
 						bool readOnly = true, bool backup = false, bool undercover = false, bool unflagged = false, bool autoload = true, bool ignoreCase = false, string version = "")
 			: base(readOnly, backup, unflagged, descending)
 		{
-			if (string.IsNullOrEmpty(path) && string.IsNullOrEmpty(pitName))
-				throw new ArgumentException("Either 'path' or 'pitName' must be provided.");
-			// var f = new RaiFile(path);
-			// if (string.IsNullOrEmpty(f.Name))
-			// 		throw new ArgumentException("The provided 'path' must contain a complete filename with extension.");
-			PitName = pitName ?? new RaiFile(path).Name; //PitName = pitName ?? f.Name;
+			var pit = new RaiFile(pitDirectory);
+			if (string.IsNullOrEmpty(pit.Name))
+			{
+				pit.Name = new DirectoryInfo(pit.Path).Name;    // subdirectory in which the file sits
+			}
+			pit.Ext = "json";
+			JsonFile = new PitFile(pit.NameWithExtension, pit.Path);
 			Subscriber = subscriber;
 			this.orderBy = orderBy ?? new Func<PitItem, string>(x => x.Name);
 			this.descending = descending;
-			var file = path == null ? new RaiFile(defaultPitName(PitName, Subscriber, version)) : new RaiFile(path);
-			if (string.IsNullOrEmpty(PitName))
-				PitName = file.Name;
-			file.Name = PitName;
-			if (string.IsNullOrEmpty(file.Ext))
-				file.Ext = "json";
-			Name = Os.NormSeperator(file.FullName);
 			HistoricItems = new ConcurrentDictionary<string, PitItems>();
 			#region values treatment
 			initValues(values);
 			#endregion
 			if (autoload)   // new option autoload: false reduces file io if Reload is not necessary
 			{
-				if (File.Exists(Name))
+				if (JsonFile.Exists())
 					Load(undercover, preserve: true);   // does not pick up the change files
 				MergeChanges(); // this one does, calls Store()
 				#region replaces Merge() 
@@ -1470,9 +1472,9 @@ namespace JsonPit
 				#endregion
 			}
 		}
-		public Pit(JArray values, string path = null, string pitName = null, string subscriber = null, Func<PitItem, string> orderBy = null, bool descending = false,
+		public Pit(JArray values, string pitDirectory, string subscriber = null, Func<PitItem, string> orderBy = null, bool descending = false,
 				bool readOnly = true, bool backup = false, bool undercover = false, bool unflagged = false, bool autoload = true, bool ignoreCase = false, string version = "")
-			: this(path, Enumerable.Empty<PitItems>(), pitName, subscriber, orderBy, descending, readOnly, backup, undercover, unflagged, autoload, ignoreCase, version)
+			: this(pitDirectory, Enumerable.Empty<PitItems>(), subscriber, orderBy, descending, readOnly, backup, undercover, unflagged, autoload, ignoreCase, version)
 		{
 			initValues(values);
 		}
@@ -1508,7 +1510,7 @@ namespace JsonPit
 			if (!ReadOnly)
 			{
 				Save(backup: true, force: false);
-				Debug.WriteLine($"{PitName} saved to {Name}");
+				Debug.WriteLine($"{JsonFile.Name} saved to {JsonFile.Path}");
 			}
 			//else
 			//{

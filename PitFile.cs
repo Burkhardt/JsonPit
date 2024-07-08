@@ -8,36 +8,41 @@ namespace JsonPit
 {
 	/// <summary>
 	/// PitFiles are files within a directory as used by JsonPit.
-	/// The have a directory property and can be moved, copied, and deleted.
+	/// They have a directory property and can be moved, copied, and deleted.
 	/// They are used to store files in the JsonPit folder.
 	/// Supported file extensions are: webp, png, jpeg, ogg, mov, xls, xlsm, docx, pdf.
 	/// </summary>
 	public class PitFile : RaiFile
 	{
 		// Supported file extensions
-		public static readonly string[] SupportedExtensions = { "webp", "png", "jpeg", "ogg", "mov", "xls", "xlsm", "docx", "pdf" };
-
+		public static readonly string[] SupportedExtensions = { "webp", "png", "jpeg", "ogg", "mov", "xls", "xlsm", "docx", "pdf", "json" };
 		/// <summary>
 		/// PitFile constructor
 		/// </summary>
-		/// <param name="name">name of a file to be located inside a JsonPit, e.g. Notes.pdf</param>
-		/// <param name="jsonPitFile">full path of a JsonPit, i.e myJsonPit.FullPath, e.g. </param>
+		/// <param name="pitName">Name of a file to be located inside a JsonPit Nations/, e.g., Notes.pdf or Nations.json</param>
+		/// <param name="jsonPitDirectory">Full path of a JsonPit, e.g., ~/Nations/ if the JsonPit json file is ~/Nations/Nations.json</param>
 		/// <exception cref="InvalidOperationException"></exception>
-		public PitFile(string name, string jsonPitFile) : base(new RaiPath(jsonPitFile).Path)
+		public PitFile(string pitName, string jsonPitDirectory) : base(jsonPitDirectory)
 		{
-			
-			var rfName = new RaiFile(name);
+			var rfName = new RaiFile(pitName);
 			Name = rfName.Name;
 			Ext = rfName.Ext;
 			if (!SupportedExtensions.Contains(Ext))
 				throw new InvalidOperationException("Unsupported document type for PitFile " + FullName + ".");
-			var jsonPitFolder = new RaiFile(jsonPitFile);
+
+			var jsonPitFolder = new RaiFile(jsonPitDirectory);
 			if (!jsonPitFolder.Path.Contains(jsonPitFolder.Name))   // somewhere in the path is fine
 			{
 				Path = jsonPitFolder.Path + jsonPitFolder.Name + Os.DIRSEPERATOR;
-				cp(jsonPitFolder);	// copy the file to the JsonPit folder
+				cp(jsonPitFolder); // Copy the file to the JsonPit folder
+			}
+			else
+			{
+				Path = jsonPitFolder.Path;
+				// cp(rfName); // Copy the file to the JsonPit folder => should be already here
 			}
 		}
+
 		/// <summary>
 		/// Constructor from a RaiFile; check for name conventions
 		/// </summary>
@@ -49,27 +54,8 @@ namespace JsonPit
 				throw new InvalidOperationException("Unsupported document type for PitFile " + FullName + ".");
 			if (string.IsNullOrEmpty(Path))
 				throw new InvalidOperationException("PitFile path cannot be empty for a PitFile; Needs to reside inside a PitFolder.");
-			// no further checking for folder name compliance
 		}
-
-		// Move file to a new location within the JsonPit folder
-		public int mv(RaiFile from)
-		{
-			return base.mv(from);
-		}
-
-		// Copy file to a new location within the JsonPit folder
-		public int cp(RaiFile dest)
-		{
-			return base.cp(dest);
-		}
-
-		// Delete the file
-		public new void rm()
-		{
-			base.rm();
-		}
-
+	
 		// Get all files within a specific JsonPit folder
 		public static List<RaiFile> GetAllFiles(string pitFolder)
 		{

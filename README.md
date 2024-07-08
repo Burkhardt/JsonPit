@@ -19,3 +19,5 @@ JsonPit
 - PitItems
 - Pit
 - Item
+
+@see [JsonPit/GettingStarted.md](JsonPit/GettingStarted.md)
