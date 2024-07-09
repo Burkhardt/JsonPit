@@ -97,5 +97,6 @@ Eigene TODOs
 
 * Unit Tests sind weg ... hab ich die nicht im JsonPit Repository?
 * gibt es ein übergeordnetes Repository dass alles lädt? Macht das überhaupt Sinn? Warum ist auf MacZulu auf einmal ein JsonPit.sln file da?
+  * Das sln file auf MacZulu ist verkehrt, enthält z.B. nicht OsLib ⇒wie bekomme ich das hochgeladen? Eigenes Repository? Auf jeden Fall brauche ich die Tests.
 * Warum ist der Branch für JsonPit Master, nicht Main? ⇒ Ändern
 * Das Umbrella-Project ist das eine .sln oder ein .csproj?
