@@ -93,8 +93,9 @@
 - ⬜️ Garbage collection for pruning history.
 - ⬜️ Docker image development, NuGet package, and project website creation.
 
-
 Eigene TODOs
 
 * Unit Tests sind weg ... hab ich die nicht im JsonPit Repository?
-* gibt es ein übergeordnetes Repository dass alles lädt? Macht das überhaupt Sinn?
+* gibt es ein übergeordnetes Repository dass alles lädt? Macht das überhaupt Sinn? Warum ist auf MacZulu auf einmal ein JsonPit.sln file da?
+* Warum ist der Branch für JsonPit Master, nicht Main? ⇒ Ändern
+* Das Umbrella-Project ist das eine .sln oder ein .csproj?
