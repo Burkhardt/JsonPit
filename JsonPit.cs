@@ -1,4 +1,4 @@
-﻿using Jil;
+using Jil;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
@@ -216,10 +216,10 @@ namespace JsonPit
 		/// string formats for time must be in format "o", parse in Time.get fails otherwise
 		/// </summary>
 		public override string ToString() => $"{Value}|{Time.UtcDateTime.ToString("o")}";   // writes Z instead of +00:00 see roundtrip lab
-		/// <summary>constructor</summary>
-		/// <param name="value"></param>
-		/// <param name="time">internally uses DateTimeOffset.UtcNow if omitted</param>
-		/// <remarks>converts null-value to "" because the file will store it the same way anyway</remarks>
+																							/// <summary>constructor</summary>
+																							/// <param name="value"></param>
+																							/// <param name="time">internally uses DateTimeOffset.UtcNow if omitted</param>
+																							/// <remarks>converts null-value to "" because the file will store it the same way anyway</remarks>
 		public TimestampedValue(object value, DateTimeOffset? time = null)
 		{
 			Value = value == null ? string.Empty : value.ToString();
@@ -745,12 +745,12 @@ namespace JsonPit
 			return false;
 		}
 		static public long dtSharp = 0; //30;	// distance of this amount of ticks or less means equal - 0 means exact
-		/// <summary>
-		/// compares timestamps to be almost the same
-		/// </summary>
-		/// <param name="dto1"></param>
-		/// <param name="dto2"></param>
-		/// <returns></returns>
+										/// <summary>
+										/// compares timestamps to be almost the same
+										/// </summary>
+										/// <param name="dto1"></param>
+										/// <param name="dto2"></param>
+										/// <returns></returns>
 		static public bool isLike(this DateTimeOffset dto1, DateTimeOffset dto2)
 		{
 			return Math.Abs(dto1.UtcTicks - dto2.UtcTicks) <= dtSharp;
@@ -890,7 +890,7 @@ namespace JsonPit
 		/// <param name="version">"" => get version from JsonPit module; null => no version in path</param>
 		/// <returns>FullName</returns>
 		public static string defaultPitName(string pit, string subscriber, string version = null)
-		{   //deprecated, don't use
+		{	//deprecated, don't use
 			if (version != null && version.Length == 0)
 				version = Version;
 			if (!pit.ToLower().Contains("_p"))
@@ -1353,7 +1353,7 @@ namespace JsonPit
 			var masterUpdates = MasterUpdatesAvailable();
 			var foreignChanges = ForeignChangesAvailable();
 			//bool ownChanges = this.Infos.Invalid();
-			if (masterUpdates && RunningOnMaster())
+			if (masterUpdates && RunningOnMaster()) 
 			{
 				//throw new DataMisalignedException($"Some process changed the main file without permission => inconsistent data in {nameof(Reload)}, file {this.Name}");
 				throw new Exception($"Some process changed the main file without permission => inconsistent data in {nameof(Reload)}, file {JsonFile.Name}");
