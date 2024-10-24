@@ -724,13 +724,14 @@ namespace JsonPit
 				if (Deleted) Console.WriteLine(ex); // to be able to see ex in the debuggercd ..
 			}
 			Dirty = true;
-			try // if it comes from a json string it might not have the Modified property
+			try 
 			{
+				// if it comes from a json string it might not have the Modified property
 				Modified = (DateTimeOffset)this[nameof(Modified)];
 			}
 			catch (Exception )
 			{
-				Modified = DateTimeOffset.UtcNow;
+				Modified = DateTimeOffset.UtcNow;	// will be added here
 			}
 			Name = (string)this[nameof(Name)];
 			Note = (string)this[nameof(Note)];
