@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Title>JsonPit</Title>
+    <PackageId>JsonPit</PackageId>
+    <Version>2.2</Version>
+    <Authors>Rainer Burkhardt</Authors>
+    <Description>Stores json files across servers (synchronized).</Description>
+    <!--<PackageDescription>Stores json files across servers (synchronized).</PackageDescription>-->
+    <TargetFramework>net8.0</TargetFramework>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <PackageTags>Json, cross-server synchronized</PackageTags>
+    <IsPackable>true</IsPackable>
+    <ProjectURL>https://github.com/Burkhardt/JsonPit</ProjectURL>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <Copyright>© Rainer Burkhardt. All rights reserved.</Copyright>
+    <RepositoryUrl>https://github.com/Burkhardt/JsonPit</RepositoryUrl>
+    <RepositoryType>github</RepositoryType>
+    <PackageReleaseNotes>Version for net6.0</PackageReleaseNotes>
+    <PackageIcon>hardcastle.png</PackageIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Jil" Version="2.17.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="Sigil" Version="5.0.0" />
+    <ProjectReference Include="..\RaiUtils\RaiUtils.csproj" />
+    <ProjectReference Include="..\OsLib\OsLib.csproj" />
+    <None Include="hardcastle.png" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+</Project>
