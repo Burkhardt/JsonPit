@@ -17,7 +17,7 @@
     <Copyright>© Rainer Burkhardt. All rights reserved.</Copyright>
     <RepositoryUrl>https://github.com/Burkhardt/JsonPit</RepositoryUrl>
     <RepositoryType>github</RepositoryType>
-    <PackageReleaseNotes>Version for net6.0</PackageReleaseNotes>
+    <PackageReleaseNotes>Version for net8.0</PackageReleaseNotes>
     <PackageIcon>hardcastle.png</PackageIcon>
   </PropertyGroup>
 
@@ -25,6 +25,7 @@
     <PackageReference Include="Jil" Version="2.17.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="Sigil" Version="5.0.0" />
+    <PackageReference Include="xunit" Version="2.9.2" />
     <ProjectReference Include="..\RaiUtils\RaiUtils.csproj" />
     <ProjectReference Include="..\OsLib\OsLib.csproj" />
     <None Include="hardcastle.png" Pack="true" PackagePath="" />

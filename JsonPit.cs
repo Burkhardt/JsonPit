@@ -13,6 +13,7 @@ using System.Reflection;
 using System.Threading;
 using RaiUtils;
 using OsLib;
+using System.Dynamic;
 
 
 // TODO write tests for all operations 2024-07-05
@@ -1123,6 +1124,23 @@ namespace JsonPit
 				if (this[key] != null && !this[key].Deleted)
 					yield return Get(key);
 			}
+		}
+
+		public IEnumerable<dynamic> AllUndeletedDynamic()
+		{
+			return AllUndeleted().Select(jObj =>
+			{
+				dynamic expando = new ExpandoObject();
+				var dict = (IDictionary<string, object>)expando;
+
+				foreach (var property in jObj.Properties())
+				{
+					dict[property.Name] = property.Value.Type == JTokenType.Object || property.Value.Type == JTokenType.Array
+						? property.Value.ToObject<object>()
+						: property.Value;
+				}
+				return expando;
+			});
 		}
 		public string Subscriber { get; private set; }
 		/// <summary>
