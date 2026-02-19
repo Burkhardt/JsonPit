@@ -20,4 +20,4 @@ JsonPit
 - Pit
 - Item
 
-@see [JsonPit/GettingStarted.md](JsonPit/GettingStarted.md)
+@see [GettingStarted.md](GettingStarted.md)
