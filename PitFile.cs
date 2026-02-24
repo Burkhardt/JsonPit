@@ -21,11 +21,8 @@ namespace JsonPit
 		/// </summary>
 		/// <param name="fullName">Full path of a JsonPit, e.g., ~/Nations/ if the JsonPit json file is ~/Nations/Nations.json</param>
 		/// <exception cref="InvalidOperationException"></exception>
-		public PitFile(string fullName) : base(fullName)
+		public PitFile(string fullName) : base(fullName, defaultExt: "pit")
 		{
-			var canName = new CanonicalFile(fullName);	// make sure the directory convention of CanonicalFile is followed
-			if (!SupportedExtensions.Contains(Ext))
-				Ext = "pit"; // default to pit
 		}
 
 		/// <summary>

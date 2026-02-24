@@ -28,15 +28,21 @@ using System.Dynamic;
 
 namespace JsonPit
 {
+	/// <summary>
+	/// Base container holding a key identifier for item groups.
+	/// </summary>
 	public class ItemsBase
 	{
 		/// <summary>Identifying name, i.e. JsonFileName from enclosing JsonFile</summary>
-		public string key;
+		public string Key;
 		public ItemsBase(string key = null)
 		{
-			this.key = key;
+			this.Key = key;
 		}
 	}
+	/// <summary>
+	/// Common base for pits with config, flags, and persistence helpers.
+	/// </summary>
 	public class JsonPitBase
 	{
 		public static string Version
@@ -198,6 +204,9 @@ namespace JsonPit
 			this.descending = descending;
 		}
 	}
+	/// <summary>
+	/// Value with an attached timestamp and round-trip string format.
+	/// </summary>
 	public class TimestampedValue
 	{
 		/// <summary>
@@ -287,6 +296,9 @@ namespace JsonPit
 	/// Be careful when using the Properties .Server and .Time as get - it will cause a disk operation everytime you use it.
 	/// Every setter and Update will not only cause one or two Reads but also a Write.
 	/// </remarks>
+	/// <summary>
+	/// Flag file used to track master ownership and last update time.
+	/// </summary>
 	public class MasterFlagFile : TextFile
 	{
 		private static object Locker = new object();
@@ -378,6 +390,9 @@ namespace JsonPit
 				Update(originator: server);
 		}
 	}
+	/// <summary>
+	/// Flag file used to track the current process and last update time.
+	/// </summary>
 	public class ProcessFlagFile : MasterFlagFile
 	{
 		public static string CurrentProcessId()
@@ -536,6 +551,9 @@ namespace JsonPit
 	//}
 	//#endregion
 	public enum Compare { JSON, ByProperty };
+	/// <summary>
+	/// JSON-backed item with metadata and change tracking.
+	/// </summary>
 	public class PitItem : JObject
 	{
 		//public static explicit operator JObject(PitItem pitItem)
@@ -554,7 +572,7 @@ namespace JsonPit
 			{
 				return (DateTimeOffset)this[nameof(Modified)];
 			}
-			set
+			internal set
 			{
 				this[nameof(Modified)] = value.ToUniversalTime();
 			}
@@ -581,15 +599,26 @@ namespace JsonPit
 		/// add or set a property of this PitItem with value - keeps all other properties
 		/// </summary>
 		/// <param name="objectAsJsonString">one property as JSON, i.e. { "Subscriber": "demo" } or { "address": { "street": "1 Main St", "city": "A Town" } }</param>
-		public void SetProperty(string objectAsJsonString)
+		public bool SetProperty(string objectAsJsonString)
 		{
-			Deleted = false;
-			Invalidate();
-			foreach (var kvp in JObject.Parse(objectAsJsonString))
+			var obj = JObject.Parse(objectAsJsonString);
+			bool changed = false;
+			foreach (var kvp in obj)
 			{
-				this[kvp.Key] = kvp.Value;
-				//break;	not any more - can now be used to assign all properties of objects of subclasses // use just the first property of the passed-in Json-Object
+				var existing = this[kvp.Key];      // JToken? (null if absent)
+				var incoming = kvp.Value;
+				if (!JToken.DeepEquals(existing, incoming))
+				{
+					this[kvp.Key] = incoming;
+					changed = true;
+				}
 			}
+			if (changed)
+			{
+				Deleted = false;
+				Invalidate(); // updates Modified once
+			}
+			return changed;
 		}
 		/// <summary>
 		/// add or set a property of this PitItem with value - keeps all other properties
@@ -622,7 +651,7 @@ namespace JsonPit
 			Deleted = true;
 			if (backDate100)
 				Modified = DateTimeOffset.UtcNow - new TimeSpan(0, 0, 0, 100);  // backdate delete for 100ms
-			Invalidate(preserveTimestamp: backDate100); // changes modified
+			Invalidate(); // changes modified
 			var s = $"[{Modified.ToUniversalTime().ToString("u")}] deleted";
 			if (!string.IsNullOrEmpty(by))
 				s += " by " + by;
@@ -640,17 +669,82 @@ namespace JsonPit
 		/// <summary>call to indicate that the memory representation of the PitItem now equals the file representation</summary>
 		virtual public void Validate() { Dirty = false; }
 		/// <summary>call to indicate that the memory representation of the PitItem differs from the file representation</summary>
-		/// <param name="preserveTimestamp">does not update modified (only sets the dirty flag) if true</param>
-		virtual public void Invalidate(bool preserveTimestamp = false)
+		virtual public void Invalidate()
 		{
 			Dirty = true;
-			if (!preserveTimestamp)
-				Modified = DateTimeOffset.UtcNow;
+			Modified = DateTimeOffset.UtcNow;
 		}
 		public override string ToString()
 		{
 			var jsonSerializerSettings = new JsonSerializerSettings() { DateTimeZoneHandling = DateTimeZoneHandling.Utc };
 			return JsonConvert.SerializeObject(this, jsonSerializerSettings); //return JSON.SerializeDynamic(this, JsonPitBase.jilOptions);
+		}
+		/// <summary>Extend</summary>
+		/// <param name="json">JSON string with additional properties to add to this PitItem</param>
+		/// <remarks>extend an existing PitItem with additional properties</remarks>
+		public bool Extend(string json)
+		{
+			var token = JToken.Parse(json);
+			bool changed = token switch
+			{
+				JObject obj => ExtendWith(obj),
+				JArray arr => ExtendWith(arr),
+				_ => false
+			};
+			if (changed)
+			{
+				Deleted = false;
+				Invalidate(); // updates Modified once
+			}
+			return changed;
+		}
+		/// <summary>
+		/// Extend an existing PitItem with additional properties aka Schema extension
+		/// </summary>
+		/// <param name="obj"></param>
+		public virtual bool ExtendWith(JObject obj)
+		{
+			bool changed = false;
+			foreach (var attr in obj)
+			{
+				if (!JToken.DeepEquals(this[attr.Key], attr.Value))
+				{
+					this[attr.Key] = attr.Value;
+					changed = true;
+				}
+			}
+			return changed;
+		}
+		/// <summary>
+		/// Extend an existing PitItem with all properties ob object in an array of objects aka multiple Schema extension
+		/// </summary>
+		/// <param name="arr">none, one or several objects, not necessarily of the same type</param>
+		public virtual bool ExtendWith(JArray arr)
+		{
+			bool changed = false;
+			foreach (var el in arr)
+			{
+				if (el is JObject row)
+				{
+					foreach (var attr in row)
+					{
+						if (!JToken.DeepEquals(this[attr.Key], attr.Value))
+						{
+							this[attr.Key] = attr.Value;
+							changed = true;
+						}
+					}
+				}
+				else
+				{
+					if (!JToken.DeepEquals(this["_"], el))
+					{
+						this["_"] = el;
+						changed = true;
+					}
+				}
+			}
+			return changed;
 		}
 		/// <summary>Constructor</summary>
 		/// <param name="name"></param>
@@ -685,15 +779,14 @@ namespace JsonPit
 			Note = comment;
 			Invalidate();
 			Deleted = false;
-			foreach (var token in JObject.Parse(extendWithAsJson))
-				this[token.Key] = token.Value;
+			Extend(extendWithAsJson);
 		}
 		/// <summary>Constructor</summary>
 		/// <param name="name"></param>
 		/// <param name="comment"></param>
 		/// <param name="invalidate"></param>
-		/// <param name="timestamp"></param>
-		/// <remarks>timestamp of this setting will be set to UtcNow after this</remarks>
+		/// <param name="timestamp">instead of UtcNow use this timestamp for Modified when storing</param>
+		/// <remarks>use the timestamp parameter when you want to reconstruct a PitItem with a specific Modified</remarks>
 		public PitItem(string name, bool invalidate, DateTimeOffset timestamp, string comment = "")
 			: this(name, invalidate, comment)
 		{
@@ -725,14 +818,14 @@ namespace JsonPit
 				if (Deleted) Console.WriteLine(ex); // to be able to see ex in the debuggercd ..
 			}
 			Dirty = true;
-			try 
+			try
 			{
 				// if it comes from a json string it might not have the Modified property
 				Modified = (DateTimeOffset)this[nameof(Modified)];
 			}
-			catch (Exception )
+			catch (Exception)
 			{
-				Modified = DateTimeOffset.UtcNow;	// will be added here
+				Modified = DateTimeOffset.UtcNow;   // will be added here
 			}
 			Name = (string)this[nameof(Name)];
 			Note = (string)this[nameof(Note)];
@@ -742,7 +835,7 @@ namespace JsonPit
 		}
 	}
 	/// <summary>
-	/// 
+	/// Helpers for comparing items and aligning timestamps.
 	/// </summary>
 	public static class PitItemExtensions
 	{
@@ -780,6 +873,9 @@ namespace JsonPit
 			return dto1;
 		}
 	}
+	/// <summary>
+	/// Equality comparer for PitItem based on Name and Modified.
+	/// </summary>
 	class PitItemEqualityComparer : IEqualityComparer<PitItem>
 	{
 		public bool Equals(PitItem d1, PitItem d2) => JsonPit.PitItemExtensions.Equals(d1, d2);
@@ -789,95 +885,111 @@ namespace JsonPit
 			return s.GetHashCode();
 		}
 	}
+	/// <summary>
+	/// History stack of PitItem versions for a single key.
+	/// </summary>
 	public class PitItems : ItemsBase, IEnumerable<PitItem>
 	{
 		public List<PitItem> Items = new List<PitItem>();
-		private void Sort(bool preserve = true)
+		public object SyncRoot { get; } = new();
+		private void Sort()
 		{
-			if (Items == null || Items.Count == 0)
-				return;
-			var q = from _ in Items select _;
-			var comparer = new PitItemEqualityComparer();
-			var distinct = q.Distinct(comparer);            // TODO: debug this and check if it works for some test cases
-			var sorted = distinct.OrderBy(x => x.Modified);
-			#region make sure the dirty flag is set according to preserve since the history has changed although nothing has changed in the top position
-			sorted.Last().Invalidate(preserve);
-			#endregion
-			Items = sorted.ToList();
+			lock (SyncRoot)
+			{
+				if (Items == null || Items.Count == 0)
+					return;
+				var q = from _ in Items select _;
+				var comparer = new PitItemEqualityComparer();
+				var distinct = q.Distinct(comparer);            // TODO: debug this and check if it works for some test cases
+				var sorted = distinct.OrderBy(x => x.Modified);
+				Items = sorted.ToList();
+			}
 		}
 		#region Stack methods for List to simulate the logic that the most recent item is retrieved by Peek() and that new items are pushing the older ones to the past
 		/// <summary>
-		///  insert new element if it was not there already and keep Items ordered by Modified
+		/// Insert new element and keep Items ordered by Modified.
+		/// NOTE: This method must be called under an external lock (e.g. lock(this) in Pit.Add).
 		/// </summary>
-		/// <param name="item"></param>
-		/// <param name="preserve"></param>
-		public void Push(PitItem item, bool preserve = true)
+		public void Push(PitItem item)
 		{
-			if (Items == null)
-				Items = new List<PitItem>();
-			if (Items.Count() > 0 && Peek().Modified > item.Modified) // new item is older than the latest
+			lock (SyncRoot)
 			{
-				#region
-				item.Invalidate(preserve);
-				// TODO inefficient solution; find insert point would be faster since the Stack was already sorted
-				Items.Add(item);   // push it in anyway; invalidating anything but the top is not helping
-				Sort(preserve);
-				#endregion
-			}
-			else
-			{
-				item.Invalidate(preserve);
+				if (Items == null)
+					Items = new List<PitItem>();
+
 				Items.Add(item);
+
+				// Keep order by Modified (ascending) so Peek() returns newest.
+				if (Items.Count > 1 && Items[^2].Modified > item.Modified)
+					Sort(); // keep your existing Sort signature for now
+
+				// MaxCount trimming (if MaxCount > 0, it caps history)
+				if (MaxCount > 0)
+				{
+					while (Items.Count > MaxCount)
+						Items.RemoveAt(0);
+				}
 			}
-			#region consider MaxCount
-			if (MaxCount > 0)
-			{
-				while (Items.Count() > MaxCount)
-					Items.RemoveAt(0);
-			}
-			#endregion
 		}
 		public PitItem Peek(DateTimeOffset? timestamp = null)
 		{
-			if (Count == 0)
-				return default(PitItem);
-			if (timestamp == null)
-				return Items.Last();
-			for (int i = Count - 1; i > -1; i--)
-				if (timestamp > Items[i].Modified)
-					return Items[i];
-			return default(PitItem);    //			return Items.Last();
+			lock (SyncRoot)
+			{
+				if (Items == null || Items.Count == 0)
+					return default(PitItem);
+				if (timestamp == null)
+					return Items.Last();
+				for (int i = Items.Count - 1; i > -1; i--)
+					if (timestamp > Items[i].Modified)
+						return Items[i];
+				return default(PitItem);    //			return Items.Last();
+			}
 		}
 		public JObject Get(DateTimeOffset? timestamp = null)
 		{
 			return Peek(timestamp);
 		}
 		public int MaxCount { get; set; } = 5;
-		public int Count => Items.Count;
+		public int Count
+		{
+			get
+			{
+				lock (SyncRoot)
+				{
+					return Items?.Count ?? 0;
+				}
+			}
+		}
 		#endregion
 		public IEnumerator<PitItem> GetEnumerator()
 		{
-			return ((IEnumerable<PitItem>)Items).GetEnumerator();
+			List<PitItem> snapshot;
+			lock (SyncRoot)
+			{
+				snapshot = Items == null ? new List<PitItem>() : Items.ToList();
+			}
+			return snapshot.GetEnumerator();
 		}
 		IEnumerator IEnumerable.GetEnumerator()
 		{
-			return ((IEnumerable<PitItem>)Items).GetEnumerator();
+			return GetEnumerator();
 		}
 		public PitItems(IEnumerable<PitItem> fromCollection)
 		{
 			foreach (var item in fromCollection)
 				Push(item);
 			Sort();
-			this.key = key ?? Items.First().Name;
+			this.Key = Key ?? Items.First().Name;
 		}
-		public PitItems()
+		public PitItems(string key = null, IEnumerable<PitItem> value = null, int maxCount = 5) : base(key)
 		{
-		}
-		public PitItems(string key = null, IEnumerable<PitItem> value = null, bool preserve = true) : base(key)
-		{
+			MaxCount = maxCount;
 			Items = value == null ? new List<PitItem>() : value.ToList();
-			Sort(preserve);
-			this.key = key ?? Items.First().Name;
+			if (Items?.Count > 0)
+			{
+				Key = key ?? Items.First().Name;
+				Sort();
+			}
 		}
 		/// <summary>
 		/// joins all, removes duplicates, sorts
@@ -891,18 +1003,23 @@ namespace JsonPit
 		}
 	}
 	/// <summary>
-	/// JsonPit is a file that contains Items
+	/// JsonPit file container with item history and persistence.
 	/// </summary>
 	public class Pit : JsonPitBase, IEnumerable<PitItems>
 	{
 		private Func<PitItem, string> orderBy;
+		/// <summary>
+		/// Default maximum number of items to keep in history for new PitItems
+		/// <values>0 = unlimited</values>
+		/// </summary>
+		public int DefaultMaxCount { get; }
 		/// <summary>Createsfile names like C:/Dropbox/demo/DyBrands.json</summary>
 		/// <param name="subscriber">acts as subdirectory</param>
 		/// <param name="pit">works like type name for DynamicItem - affects the file's name</param>
 		/// <param name="version">"" => get version from JsonPit module; null => no version in path</param>
 		/// <returns>FullName</returns>
 		public static string defaultPitName(string pit, string subscriber, string version = null)
-		{	//deprecated, don't use
+		{   //deprecated, don't use
 			if (version != null && version.Length == 0)
 				version = Version;
 			if (!pit.ToLower().Contains("_p"))
@@ -969,7 +1086,10 @@ namespace JsonPit
 			var isThere = HistoricItems.Keys.Contains(itemName, Comparer); // settings.ContainsKey(settingName);
 			if (withDeleted)
 				return isThere;
-			return isThere && !HistoricItems[itemName].Last().Deleted;  // the item is considered deleted only if the latest value is marked as deleted
+			if (!isThere)
+				return false;
+			var top = HistoricItems[itemName].Peek();
+			return top != null && !top.Deleted;  // the item is considered deleted only if the latest value is marked as deleted
 		}
 		//public PitItemMemory Infos { get; set; }
 		/// <summary>
@@ -1002,10 +1122,17 @@ namespace JsonPit
 		{
 			get
 			{
-				if (!HistoricItems.ContainsKey(key) || HistoricItems[key].Count == 0
-					|| HistoricItems[key].Items == null || HistoricItems[key].Peek().Deleted)
+				if (!HistoricItems.TryGetValue(key, out var list))
 					return default(PitItem);
-				return HistoricItems[key].Peek();
+				lock (list.SyncRoot)
+				{
+					if (list.Items == null || list.Items.Count == 0)
+						return default(PitItem);
+					var top = list.Peek();
+					if (top == null || top.Deleted)
+						return default(PitItem);
+					return top;
+				}
 			}
 		}
 		/// <summary>
@@ -1022,29 +1149,44 @@ namespace JsonPit
 		{
 			set
 			{
-				var pitItem = this[value.Name];
-				pitItem.SetProperty(value);
-				this.PitItem = pitItem;
+				var pitItem = this[value.Name] ?? new PitItem(value.Name);
+				if (pitItem.SetProperty(value))
+					Add(pitItem);
 			}
 		}
-		/// <summary>add one setting at the end; same as array operator setter but with extra parameter preserve</summary>
-		/// <param name="item"></param>
-		/// <param name="preserve">set true, if you want to add a new or recovered setting and preserve the item's deleted and modified</param>
-		/// <remarks>don't add item if the latest item in the history has the same timestamp</remarks>
-		/// <returns>false, if the item was not pushed (identical timestamps of current value and new value</returns>
-		public bool Add(PitItem item, bool preserve = true)
+		/// <summary>
+		/// Add a PitItem as a new historic version (keyed by <see cref="PitItem.Name"/>).
+		/// </summary>
+		/// <remarks>
+		/// Duplicate rule: if the current top item is equal to <paramref name="item"/> when ignoring
+		/// <see cref="PitItem.Modified"/>, then no new version is pushed.
+		/// This prevents history growth when the payload is identical and only the timestamp differs.
+		/// </remarks>
+		public bool Add(PitItem item)
 		{
-			var list = HistoricItems.ContainsKey(item.Name) ? HistoricItems[item.Name] : null;
-			if (list != null)
+			var list = HistoricItems.GetOrAdd(item.Name, _ => new PitItems());
+
+			lock (list.SyncRoot)
 			{
-				var q = from listItem in list where listItem.Equals(item) select listItem.Name;
-				if (q.Count() > 0)
-					return false;   // nothing added because this same listItem was already there
+				var top = list.Peek();
+				if (top != null && EqualsIgnoringModified(top, item))
+					return false;
+
+				list.Push(item); // Push should NOT invalidate; mutations should do that.
+				return true;
 			}
-			else list = new PitItems();
-			item.Invalidate(preserve);  // just set the Dirty flag, Modified is preserved
-			list.Push(item, preserve);
-			return HistoricItems.TryAdd(item.Name, list);  // assume that sb else added the itemStack if result false
+		}
+
+		private static bool EqualsIgnoringModified(PitItem a, PitItem b)
+		{
+			// Deep clone so we can remove Modified without mutating originals.
+			var ja = (JObject)a.DeepClone();
+			var jb = (JObject)b.DeepClone();
+
+			ja.Remove("Modified");
+			jb.Remove("Modified");  // do we need PitItem.Modified?
+
+			return JToken.DeepEquals(ja, jb);
 		}
 		/// <summary>logical delete; sets deleted flag</summary>
 		/// <param name="itemName"></param>
@@ -1083,6 +1225,22 @@ namespace JsonPit
 			return (JObject)this[key];
 		}
 		/// <summary>
+		/// Get the PitItem as of a specific timestamp (from history).
+		/// </summary>
+		/// <param name="key"></param>
+		/// <param name="timestamp"></param>
+		/// <param name="withDeleted"></param>
+		/// <returns>the most recent item at or before the timestamp, or default if missing</returns>
+		public PitItem GetAt(string key, DateTimeOffset timestamp, bool withDeleted = false)
+		{
+			if (!HistoricItems.ContainsKey(key))
+				return default(PitItem);
+			var item = HistoricItems[key].Peek(timestamp);
+			if (!withDeleted && item != null && item.Deleted)
+				return default(PitItem);
+			return item;
+		}
+		/// <summary>
 		/// Extracts the values of one property of a PitItem over time
 		/// </summary>
 		/// <param name="oName">name of the object</param>
@@ -1092,7 +1250,13 @@ namespace JsonPit
 		{
 			if (!HistoricItems.ContainsKey(oName))
 				return Enumerable.Empty<KeyValuePair<DateTimeOffset, JToken>>();
-			var q = from item in HistoricItems[oName].Items
+			var list = HistoricItems[oName];
+			List<PitItem> snapshot;
+			lock (list.SyncRoot)
+			{
+				snapshot = list.Items == null ? new List<PitItem>() : list.Items.ToList();
+			}
+			var q = from item in snapshot
 					select new KeyValuePair<DateTimeOffset, JToken>(item.Modified, item.Deleted ? null : (JToken)item[pName]);
 			return q;
 		}
@@ -1147,123 +1311,100 @@ namespace JsonPit
 		/// Load Json file
 		/// </summary>
 		/// <param name="undercover">todo: describe undercover parameter on Load</param>
-		/// <param name="preserve"></param>
-		public void Load(bool undercover = false, bool preserve = true)
+		public void Load(bool undercover = false)
 		{
+			if (!JsonFile.Exists())
+				return;
+			var loadedOk = false;
+			var hasData = false;
+			try // http://www.newtonsoft.com/json/help/html/SerializingJSON.htm
 			{
-				try // http://www.newtonsoft.com/json/help/html/SerializingJSON.htm
+				var jsonArrayOfArrayOfObject = File.ReadAllText(JsonFile.FullName);
+				#region quick analyze content
+				bool emptyFile = string.IsNullOrEmpty(jsonArrayOfArrayOfObject) || jsonArrayOfArrayOfObject.Length < 2;
+				for (int i = 0, square = 0; i < jsonArrayOfArrayOfObject.Length && i < 100 && square < 2; i++)
 				{
-					var jsonArrayOfArrayOfObject = File.ReadAllText(JsonFile.FullName);
-					#region quick analyze content
-					for (int i = 0, square = 0; i < jsonArrayOfArrayOfObject.Length && i < 100 && square < 2; i++)
-					{
-						if (jsonArrayOfArrayOfObject[i] == '[')
-							square++;
-						else if (jsonArrayOfArrayOfObject[i] == '{')
-							throw new FormatException("JSON file format is not compatible with JsonPit");
-					}
-					#endregion
-					if (!string.IsNullOrEmpty(jsonArrayOfArrayOfObject))
-					{
-						initValues(JArray.Parse(jsonArrayOfArrayOfObject), preserve);
-					}
+					if (jsonArrayOfArrayOfObject[i] == '[')
+						square++;
+					else if (jsonArrayOfArrayOfObject[i] == '{')
+						throw new FormatException("JSON file format is not compatible with JsonPit");
 				}
-				catch (InvalidOperationException)
-				{
-					throw;
-				}
-				finally
-				{
-					if (!(undercover || unflagged))
-						ProcessFlag().Update(GetLastestItemChanged());
-					Interlocked.Exchange(ref usingPersistence, 0);
-				}
+				#endregion
+				HistoricItems = new ConcurrentDictionary<string, PitItems>(Comparer);
+				if (!emptyFile)
+					initValues(JArray.Parse(jsonArrayOfArrayOfObject));
+				hasData = !emptyFile;
+				loadedOk = true;
+			}
+			catch (InvalidOperationException)
+			{
+				throw;
+			}
+			finally
+			{
+				if (loadedOk && hasData && !(undercover || unflagged))
+					ProcessFlag().Update(GetLastestItemChanged());
+				Interlocked.Exchange(ref usingPersistence, 0);
 			}
 		}
 		/// <summary>makes JsonFile persistent; performs merge on item level</summary>
 		/// <param name="force">todo: describe force parameter on Store</param>
 		/// <param name="pretty"></param>
 		/// <param name="indentChar"></param>
+		/// <remarks>empty pits are now allowed to persist if a file exists; this is a behavior change from earlier versions</remarks>
 		protected void Store(bool force = false, bool pretty = false, char indentChar = '\t')
 		{
 			if (HistoricItems == null)
 				return;
-			#region only save if necessary
-			if (force || Invalid())
+
+			var jfExists = JsonFile.Exists();
+			if (!jfExists && !HistoricItems.Any())
+				return; // nothing here => don't create disk file
+
+			if (!jfExists || force || Invalid())
 			{
 				if (ReadOnly)
 					throw new IOException("JsonFile " + JsonFile.Name + " was set to readonly mode but an attempt was made to execute JsonFile.Store");
-				Exception inner = null;
-				if (HistoricItems.Count() > 0)    // passing in empty settings is not a valid way to delete the content of a settings file; silently refuse storing a new version
-				{
-					if (Backup)
-						JsonFile.backup();
-					else JsonFile.rm();
-					JsonFile.mkdir();  // does nothing if dir was there; otherwise creates the dir and awaits materialization
 
-					#region buffered writing with JsonTextWriter
-					using (FileStream fs = File.Open(JsonFile.FullName, FileMode.CreateNew))
-					{
-						using (StreamWriter sw = new StreamWriter(fs))
-						{
-							using (JsonTextWriter jw = new JsonTextWriter(sw))
-							{
-								jw.Formatting = pretty ? Formatting.Indented : Formatting.None;
-								jw.IndentChar = indentChar;
-								jw.Indentation = 1;
-								var serializer = new JsonSerializer();
-								//serializer.DateParseHandling = DateParseHandling.DateTimeOffset;
-								serializer.DateFormatHandling = DateFormatHandling.IsoDateFormat;
-								serializer.Serialize(jw, this);
-							}
-						}
-					}
-					#endregion
-					#region store dynamic objects - currently using Jil
-					////var items = descending ?
-					////	(from item in Infos.ItemsAsObjects select item).OrderByDescending<dynamic, string>(x => x.Name) :
-					////	(from item in Infos.ItemsAsObjects select item).OrderBy<dynamic, string>(x => x.Name);
-					////// TODO use OrderBy predicate
-					////var s = JSON.SerializeDynamic(items, jilOptions);
-					//{
-					//	var outer = new List<PitItem[]>();
-					//	PitItem[] valArray = null;
-					//	foreach (var stack in Infos)
-					//	{
-					//		valArray = (from o in stack select o).ToArray();
-					//		outer.Add(valArray);
-					//	}
-					//	var s = JsonConvert.SerializeObject(outer);
-					//	File.WriteAllText(Name, s);
-					//}
-					#endregion
+				JsonFile.mkdir();  // ensure destination dir exists (cloud-aware)
 
-					var changeTime = GetLastestItemChanged();
-					File.SetLastWriteTimeUtc(JsonFile.FullName, changeTime.DateTime);
-					if (!unflagged)
-					{
-						var masterFlag = MasterFlag();
-						masterFlag.Update(changeTime);      // set the new JsonFile timestamp to the flag file master.info
-						ProcessFlag().Update(changeTime);   // make sure the server's flag file also has the date current
-					}
-					#region Validate each setting
-					// 	means: this setting has been stored to disk; however, in a concurrent environment it does not mean, 
-					// that the setting on disk still has the same value as the one in memory since it could have been changed 
-					// elsewhere and synchronized back to this machine
-					foreach (var kvp in HistoricItems)
-					{
-						kvp.Value.Peek().Validate();
-					}
-					#endregion
-				}
-				else
+				// 1) Write TMP first (prefer random name to avoid collisions)
+				var tmpFile = new TmpFile(JsonFile.FullName, ext: "tmp");
+				if (tmpFile.Exists())
+					tmpFile.rm();
+
+				using (FileStream fs = File.Open(tmpFile.FullName, FileMode.CreateNew))
+				using (StreamWriter sw = new StreamWriter(fs))
+				using (JsonTextWriter jw = new JsonTextWriter(sw))
 				{
-					throw new IOException("attempt to write a JsonFile with no items into "
-					+ JsonFile.FullName + "; the current memory representation should reflect the old file's items which it does not!", inner);
+					jw.Formatting = pretty ? Formatting.Indented : Formatting.None;
+					jw.IndentChar = indentChar;
+					jw.Indentation = 1;
+
+					var serializer = new JsonSerializer
+					{
+						DateFormatHandling = DateFormatHandling.IsoDateFormat
+					};
+					serializer.Serialize(jw, this);
 				}
+
+				// 2) Now replace/move TMP onto JsonFile (this is where mv() should do File.Replace)
+				//    IMPORTANT: destination is JsonFile (this), source is tmpFile (from)
+				JsonFile.mv(tmpFile, replace: true, keepBackup: Backup);
+
+				// 3) Apply timestamps/flags etc.
+				var changeTime = GetLastestItemChanged();
+				File.SetLastWriteTimeUtc(JsonFile.FullName, changeTime.UtcDateTime);
+
+				if (!unflagged)
+				{
+					MasterFlag().Update(changeTime);
+					ProcessFlag().Update(changeTime);
+				}
+
+				foreach (var kvp in HistoricItems)
+					kvp.Value.Peek().Validate();
 			}
-			#endregion
-			//Infos.Validate();
 		}
 		/// <summary>makes File persistent - thread safe</summary>
 		/// <param name="backup">backs up current xml file if true, or not if false, or uses the item passed in to the constructor if null</param>
@@ -1417,7 +1558,7 @@ namespace JsonPit
 			foreach (var kvp in HistoricItems)
 				yield return kvp.Value;
 		}
-		private void initValues(JArray values, bool preserve = true)
+		private void initValues(JArray values)
 		{
 			PitItems stack;
 			dynamic top;
@@ -1427,7 +1568,7 @@ namespace JsonPit
 				{
 					// looks like Modified does not get converted in a DateTimeOffset in UTC (Zulu notation)
 					var q = from o in inner select new PitItem((JObject)o);
-					stack = new PitItems(q.Last().Name, q, preserve); // new PitItem((dynamic)o)); // (PitItem)o);	// reminder: implement explicit cast
+					stack = new PitItems(q.Last().Name, q, maxCount: DefaultMaxCount); // new PitItem((dynamic)o)); // (PitItem)o);	// reminder: implement explicit cast
 					top = (dynamic)inner.Last();
 					HistoricItems.TryAdd((string)top.Name, stack);
 				}
@@ -1444,7 +1585,7 @@ namespace JsonPit
 					if (pitItems.Count > 0)
 					{
 						var q = from o in pitItems select new PitItem(o);
-						stack = new PitItems(q.Last().Name, q); // new PitItem((dynamic)o)); // (PitItem)o);	// reminder: implement explicit cast
+						stack = new PitItems(q.Last().Name, q, maxCount: DefaultMaxCount); // new PitItem((dynamic)o)); // (PitItem)o);	// reminder: implement explicit cast
 						top = (dynamic)pitItems.Last();
 						HistoricItems.TryAdd((string)top.Name, stack);
 					}
@@ -1469,7 +1610,7 @@ namespace JsonPit
 						bool readOnly = true, bool backup = false, bool undercover = false, bool unflagged = false, bool autoload = true, bool ignoreCase = false, string version = "")
 			: base(readOnly, backup, unflagged, descending)
 		{
-			JsonFile = new PitFile(pitDirectory);	// @TODO consider using the subscriber in the JsonFile path or name
+			JsonFile = new PitFile(pitDirectory);   // @TODO consider using the subscriber in the JsonFile path or name
 			Subscriber = subscriber;
 			this.orderBy = orderBy ?? new Func<PitItem, string>(x => x.Name);
 			this.descending = descending;
@@ -1480,7 +1621,7 @@ namespace JsonPit
 			if (autoload)   // new option autoload: false reduces file io if Reload is not necessary
 			{
 				if (JsonFile.Exists())
-					Load(undercover, preserve: true);   // does not pick up the change files
+					Load(undercover);   // does not pick up the change files
 				MergeChanges(); // this one does, calls Store()
 				#region replaces Merge() 
 				// TODO sth went probably missing here
@@ -1548,7 +1689,7 @@ namespace JsonPit
 		}
 	}
 	/// <summary>
-	/// /// enables advanced synchronization via modified
+	/// Base item with modified tracking and dirty state management.
 	/// </summary>
 	public class Item : ICloneable
 	{
@@ -1556,7 +1697,7 @@ namespace JsonPit
 		/// <summary>Identifying name</summary>
 		public string Name { get; set; }
 		/// <summary>has to be set to DateTimeOffset.UtcNow explicitely</summary>
-		public DateTimeOffset Modified { get; set; }
+		public DateTimeOffset Modified { get; internal set; }
 		virtual public DateTimeOffset Changed()
 		{
 			return Modified;
@@ -1569,7 +1710,7 @@ namespace JsonPit
 				Deleted = true;
 				if (backDate100)
 					Modified = DateTimeOffset.UtcNow - new TimeSpan(0, 0, 0, 100);  // backdate delete for 100ms
-				Invalidate(preserveTimestamp: backDate100); // changes modified
+				Invalidate(); // changes modified
 				var s = $"[{Modified.ToUniversalTime().ToString("u")}] deleted";
 				if (!string.IsNullOrEmpty(by))
 					s += " by " + by;
@@ -1588,12 +1729,10 @@ namespace JsonPit
 		/// <summary>call to indicate that the memory representation of the XmlSettings&lt;T&gt; now equals the file representation</summary>
 		virtual public void Validate() { Dirty = false; }
 		/// <summary>call to indicate that the memory representation of the XmlSettings&lt;T&gt; differs from the file representation</summary>
-		/// <param name="preserveTimestamp">does not update modified (only sets the dirty flag) if true</param>
-		virtual public void Invalidate(bool preserveTimestamp = false)
+		virtual public void Invalidate()
 		{
 			Dirty = true;
-			if (!preserveTimestamp)
-				Modified = DateTimeOffset.UtcNow;
+			Modified = DateTimeOffset.UtcNow;
 		}
 		public string Note { get; set; }
 		/// <summary>
