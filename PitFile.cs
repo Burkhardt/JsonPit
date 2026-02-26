@@ -14,6 +14,7 @@ namespace JsonPit
 	/// </summary>
 	public class PitFile : CanonicalFile
 	{
+		
 		// Supported file extensions
 		public static readonly string[] SupportedExtensions = { "webp", "png", "jpeg", "ogg", "mov", "xls", "xlsm", "docx", "pdf", "json", "pit" };
 		/// <summary>
@@ -24,6 +25,8 @@ namespace JsonPit
 		public PitFile(string fullName) : base(fullName, defaultExt: "pit")
 		{
 		}
+
+		public int mv(PitFile src, bool replace = false, bool keepBackup = false) => base.mv(src, replace, keepBackup);
 
 		/// <summary>
 		/// Get all files within a specific JsonPit folder, optionally without the CanonicalFile

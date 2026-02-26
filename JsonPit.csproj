@@ -24,9 +24,12 @@
 		<PackageReference Include="Jil" Version="2.17.0" />
 		<PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
 		<PackageReference Include="Sigil" Version="5.0.0" />
-		<PackageReference Include="RaiUtilsCore" Version="2.3.1" />
-		<PackageReference Include="OsLibCore" Version="2.3.1" />
 		<None Include="hardcastle.png" Pack="true" PackagePath="" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\OsLib\OsLib.csproj" />
+		<ProjectReference Include="..\RaiUtils\RaiUtils.csproj" />
 	</ItemGroup>
 
 </Project>

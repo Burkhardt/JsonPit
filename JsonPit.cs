@@ -67,7 +67,7 @@ namespace JsonPit
 			get
 			{
 				if (configDirDefault == null)
-					configDirDefault = Os.winInternal($"{Os.CloudStorageRoot}Config{Os.DIRSEPERATOR}");
+					configDirDefault = new RaiPath($"{Os.CloudStorageRoot}Config").Path;
 				return configDirDefault;
 			}
 			set
@@ -301,6 +301,7 @@ namespace JsonPit
 	/// </summary>
 	public class MasterFlagFile : TextFile
 	{
+		public int mv(MasterFlagFile src, bool replace = false, bool keepBackup = false) => mv((RaiFile)src, replace, keepBackup);
 		private static object Locker = new object();
 		public new void Save(bool backup = false)
 		{
@@ -395,6 +396,7 @@ namespace JsonPit
 	/// </summary>
 	public class ProcessFlagFile : MasterFlagFile
 	{
+		public int mv(ProcessFlagFile src, bool replace = false, bool keepBackup = false) => mv((RaiFile)src, replace, keepBackup);
 		public static string CurrentProcessId()
 		{
 			var p = System.Diagnostics.Process.GetCurrentProcess();
@@ -1200,7 +1202,15 @@ namespace JsonPit
 				return true;
 			try
 			{
-				var item = HistoricItems[itemName].Last();
+				if (!HistoricItems.TryGetValue(itemName, out var list))
+					return true;
+				PitItem item;
+				lock (list.SyncRoot)
+				{
+					item = list.Peek();
+				}
+				if (item == null)
+					return true;
 				if (item.Delete(by, backDate))  // will not delete a deleted item again (conserves timestamp and note)
 					PitItem = item; // invalidates
 			}
@@ -1220,8 +1230,10 @@ namespace JsonPit
 		/// <returns>default(PitItem) or the most recent PitItem as JObject</returns>
 		public JObject Get(string key, bool withDeleted = false)
 		{
+			if (!HistoricItems.TryGetValue(key, out var list))
+				return default(PitItem);
 			if (withDeleted)
-				return HistoricItems[key].Peek();
+				return list.Peek();
 			return (JObject)this[key];
 		}
 		/// <summary>
@@ -1390,7 +1402,8 @@ namespace JsonPit
 
 				// 2) Now replace/move TMP onto JsonFile (this is where mv() should do File.Replace)
 				//    IMPORTANT: destination is JsonFile (this), source is tmpFile (from)
-				JsonFile.mv(tmpFile, replace: true, keepBackup: Backup);
+				JsonFile.mv(tmpFile, true, true);
+				//JsonFile.mv(tmpFile, replace: true, keepBackup: Backup);
 
 				// 3) Apply timestamps/flags etc.
 				var changeTime = GetLastestItemChanged();
@@ -1444,9 +1457,22 @@ namespace JsonPit
 			{
 				// FIX: sth goes wrong in the following line or in the line before foreach;
 				// the last item receives a UtcNow timestamp => timestamp needs to be unchanged in comparison to the one(s) stored in the file
-				if (!compareFile.ContainsKey(name) // means: item does not exist on disk
-					|| (HistoricItems[name].Last().Modified > compareFile.HistoricItems[name].Last().Modified)) // memSetting is newer than diskSetting
-					CreateChangeFile(HistoricItems[name].Last());
+				if (!HistoricItems.TryGetValue(name, out var list))
+					continue;
+				var latest = list.Peek();
+				if (latest == null)
+					continue;
+				if (!compareFile.ContainsKey(name)) // means: item does not exist on disk
+				{
+					CreateChangeFile(latest);
+					continue;
+				}
+				if (compareFile.HistoricItems.TryGetValue(name, out var compareList))
+				{
+					var compareLatest = compareList.Peek();
+					if (compareLatest != null && latest.Modified > compareLatest.Modified) // memSetting is newer than diskSetting
+						CreateChangeFile(latest);
+				}
 			}
 		}
 		/// <summary>
