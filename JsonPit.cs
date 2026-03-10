@@ -591,8 +591,18 @@ namespace JsonPit
 	/// <summary>
 	/// History stack of PitItem versions for a single key using immutable data structures for thread safety.
 	/// </summary>
-	public record PitItems(string Key, ImmutableList<PitItem> History, int MaxCount = 5) : ItemsBase(Key), IEnumerable<PitItem>
+	public class PitItems : ItemsBase, IEnumerable<PitItem>
 	{
+		public ImmutableList<PitItem> History { get; private set; }
+		public ImmutableList<PitItem> Items => History;
+		public int MaxCount { get; set; } = 5;
+
+		public PitItems(string key, ImmutableList<PitItem> history, int maxCount = 5) : base(key)
+		{
+			History = history ?? ImmutableList<PitItem>.Empty;
+			MaxCount = maxCount;
+		}
+
 		public static PitItems Create(string key, int maxCount = 5) => 
 			new PitItems(key, ImmutableList<PitItem>.Empty, maxCount);
 
@@ -612,7 +622,7 @@ namespace JsonPit
 				newHistory = newHistory.RemoveRange(0, newHistory.Count - MaxCount);
 			}
 
-			return this with { History = newHistory };
+			return new PitItems(Key, newHistory, MaxCount);
 		}
 
 		public PitItem Peek(DateTimeOffset? timestamp = null)
