@@ -2,6 +2,11 @@
 
     Stores json files across servers (synchronized).
 
+## 3.2.1
+
+- Aligns JsonPit with the shared cloud-root contract used across OsLib, RaiUtils, and the upcoming Python companion packages.
+- Keeps `Pit` usage stable on Ubuntu by favoring explicit Google Drive configuration through OsLib.
+
 ## namespace
 
 JsonPit
@@ -61,6 +66,19 @@ JsonPit
 
 - Pit: `Add`, `Get`, `GetAt`, `Delete`, `Save`, `MergeChanges`, `Keys`
 </details>
+
+## cloud root convention
+
+JsonPit resolves cloud-backed storage locations through OsLib, most commonly via `Os.CloudStorageRoot`.
+
+For Ubuntu development machines, especially when Google Drive is mounted through `rclone`, GNOME integration, or a team-specific mount path, prefer explicit configuration instead of probe-only discovery.
+
+Recommended shared contract:
+- Use `OSLIB_CLOUD_ROOT_GOOGLEDRIVE` to point at the active Google Drive mount.
+- Use `OSLIB_CLOUD_CONFIG` to point at a machine-local `cloudstorage.ini` file when the mount path differs per machine.
+- Reuse the same INI keys as OsLib: `dropbox`, `onedrive`, `googledrive` or `google_drive`, `icloud` or `icloud_drive`.
+
+That keeps JsonPit aligned with OsLib in .NET today and with the upcoming Python `OsLib`, `RaiUtils`, and `JsonPit` packages later.
 
 <details>
 <summary>Item: Base item with modified tracking and dirty state management.</summary>

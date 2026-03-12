@@ -3,7 +3,7 @@
 	<PropertyGroup>
 		<Title>JsonPit</Title>
 		<PackageId>JsonPit</PackageId>
-		<Version>3.2.0</Version>
+		<Version>3.2.1</Version>
 		<Authors>Rainer Burkhardt</Authors>
 		<Description>Stores json files across servers (synchronized).</Description>
 		<TargetFramework>net10.0</TargetFramework>
@@ -16,8 +16,9 @@
 		<Copyright>© Rainer Burkhardt. All rights reserved.</Copyright>
 		<RepositoryUrl>https://github.com/Burkhardt/JsonPit</RepositoryUrl>
 		<RepositoryType>github</RepositoryType>
-		<PackageReleaseNotes>Version for net10.0</PackageReleaseNotes>
+		<PackageReleaseNotes>3.2.1 aligns JsonPit with the shared cloud-root contract used by OsLib and RaiUtils companion packages.</PackageReleaseNotes>
 		<PackageIcon>hardcastle.png</PackageIcon>
+		<DefaultItemExcludes>$(DefaultItemExcludes);JsonPit.Tests\**</DefaultItemExcludes>
 	</PropertyGroup>
 
 	<ItemGroup>

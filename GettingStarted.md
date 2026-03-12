@@ -5,6 +5,21 @@ JsonPit is a lightweight file-based storage system for structured data. This gui
 
 ### Prerequisites
 - Ensure you have the necessary dependencies installed, such as `Newtonsoft.Json` and `OsLib`.
+- On Ubuntu and similar Linux setups, configure the cloud root explicitly before relying on `Os.CloudStorageRoot`.
+
+Recommended Google Drive setup for Mzansi-style development paths:
+
+```bash
+export OSLIB_CLOUD_ROOT_GOOGLEDRIVE="$HOME/GoogleDrive-Mzansi"
+```
+
+If you prefer a config file instead of shell environment variables:
+
+```ini
+googledrive=/home/me/GoogleDrive-Mzansi
+```
+
+This keeps JsonPit aligned with the same cloud-root convention used by OsLib and the upcoming Python companion packages.
 
 ### Creating and Using a JsonPit
 
