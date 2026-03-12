@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="JsonPit.csproj" />
+  <Project Path="JsonPit.Tests/JsonPit.Tests.csproj" />
+  <Project Path="../OsLib/OsLib.csproj" />
+  <Project Path="../RaiUtils/RaiUtils.csproj" />
+</Solution>
