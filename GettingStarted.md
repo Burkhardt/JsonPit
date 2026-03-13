@@ -9,15 +9,15 @@ JsonPit is a lightweight file-based storage system for structured data. This gui
 
 Recommended Google Drive setup for Mzansi-style development paths:
 
-```bash
-export OSLIB_CLOUD_ROOT_GOOGLEDRIVE="$HOME/GoogleDrive-Mzansi"
+```json
+{
+   "cloud": {
+      "googledrive": "/home/me/GoogleDrive-Mzansi/"
+   }
+}
 ```
 
-If you prefer a config file instead of shell environment variables:
-
-```ini
-googledrive=/home/me/GoogleDrive-Mzansi
-```
+Store that in `~/.config/RAIkeep/osconfig.json` on macOS/Linux or `%APPDATA%\RAIkeep\osconfig.json` on Windows.
 
 This keeps JsonPit aligned with the same cloud-root convention used by OsLib and the upcoming Python companion packages.
 

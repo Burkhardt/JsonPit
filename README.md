@@ -74,9 +74,9 @@ JsonPit resolves cloud-backed storage locations through OsLib, most commonly via
 For Ubuntu development machines, especially when Google Drive is mounted through `rclone`, GNOME integration, or a team-specific mount path, prefer explicit configuration instead of probe-only discovery.
 
 Recommended shared contract:
-- Use `OSLIB_CLOUD_ROOT_GOOGLEDRIVE` to point at the active Google Drive mount.
-- Use `OSLIB_CLOUD_CONFIG` to point at a machine-local `cloudstorage.ini` file when the mount path differs per machine.
-- Reuse the same INI keys as OsLib: `dropbox`, `onedrive`, `googledrive` or `google_drive`, `icloud` or `icloud_drive`.
+- Use `osconfig.json` to point `cloud.googledrive` at the active Google Drive mount.
+- Keep that file at `~/.config/RAIkeep/osconfig.json` on macOS/Linux or `%APPDATA%\RAIkeep\osconfig.json` on Windows.
+- Reuse the same `cloud` keys as OsLib: `dropbox`, `onedrive`, `googledrive`, `icloud`.
 
 That keeps JsonPit aligned with OsLib in .NET today and with the upcoming Python `OsLib`, `RaiUtils`, and `JsonPit` packages later.
 

@@ -1,16 +1,13 @@
 using System;
 using System.IO;
-using System.Linq;
 using OsLib;
-using System.Threading.Tasks;
 using Xunit;
 using System.Threading;
-using System.Diagnostics.CodeAnalysis;
-using System.Net;
+using System.Threading.Tasks;
 
 namespace JsonPit.Tests
 {
-	public sealed class Pit_Add_Concurrency_Tests
+	public sealed class Pit_Add_Concurrency_Tests : IDisposable
 	{
 		#region unique id per test per threat
 		private static long RefreshedNonce = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
@@ -22,24 +19,42 @@ namespace JsonPit.Tests
 			}
 		}
 		#endregion
-		private static string JsonPitTest_PitFileName = JsonPitTestEnvironment.CloudFile("PitFiles", "Test", "JsonPitTests");
-		private static Pit jsonPitTestsPit = new Pit(JsonPitTest_PitFileName, readOnly: false);
+		private static string CreateUniquePitFileName() => JsonPitTestEnvironment.CloudFile("PitFiles", "Test", "JsonPitTests-" + Guid.NewGuid().ToString("N"));
+		private string jsonPitTestPitFileName = CreateUniquePitFileName();
+		private Pit jsonPitTestsPit;
 		
-		// delete the existing pit before creating a new one
-		private static void Create_JsonPitTests_Pit()
+		private void CleanupPit()
 		{
-			if (jsonPitTestsPit == null)
-				jsonPitTestsPit = new Pit(JsonPitTest_PitFileName, readOnly: false);
-			if (jsonPitTestsPit.JsonFile.Exists())
-				jsonPitTestsPit.JsonFile.rm();
-			jsonPitTestsPit = new Pit(JsonPitTest_PitFileName, readOnly: false);
+			if (jsonPitTestsPit != null)
+			{
+				jsonPitTestsPit.ReadOnly = true;
+				jsonPitTestsPit = null;
+			}
+
+			var pitRoot = new RaiFile(jsonPitTestPitFileName);
+			pitRoot.Name = pitRoot.Name;
+			var canonicalDirectory = pitRoot.Path + pitRoot.Name + Os.DIRSEPERATOR;
+			if (Directory.Exists(canonicalDirectory))
+				Directory.Delete(canonicalDirectory, recursive: true);
+		}
+
+		private void Create_JsonPitTests_Pit()
+		{
+			CleanupPit();
+			jsonPitTestPitFileName = CreateUniquePitFileName();
+			jsonPitTestsPit = new Pit(jsonPitTestPitFileName, readOnly: false);
 		}
 		/// open or save and reopen the pit
-		private static void Open_JsonPitTests_Pit()
+		private void Open_JsonPitTests_Pit()
 		{
 			if (jsonPitTestsPit != null)
 				jsonPitTestsPit.Save();
-			else jsonPitTestsPit = new Pit(JsonPitTest_PitFileName, readOnly: false);
+			else jsonPitTestsPit = new Pit(jsonPitTestPitFileName, readOnly: false);
+		}
+
+		public void Dispose()
+		{
+			CleanupPit();
 		}
 
 		[Fact]

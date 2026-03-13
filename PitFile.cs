@@ -1,8 +1,6 @@
 using OsLib;
-using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 
 namespace JsonPit
 {
@@ -10,18 +8,17 @@ namespace JsonPit
 	/// PitFiles are files within a directory as used by JsonPit.
 	/// They have a directory property and can be moved, copied, and deleted.
 	/// They are used to store files in the JsonPit folder.
-	/// Supported file extensions are: webp, png, jpeg, ogg, mov, xls, xlsm, docx, pdf.
+	/// Supported file extension is: pit.
 	/// </summary>
 	public class PitFile : CanonicalFile
 	{
 		
 		// Supported file extensions
-		public static readonly string[] SupportedExtensions = { "webp", "png", "jpeg", "ogg", "mov", "xls", "xlsm", "docx", "pdf", "json", "pit" };
+		public static readonly string[] SupportedExtensions = { "pit" };
 		/// <summary>
 		/// PitFile constructor
 		/// </summary>
-		/// <param name="fullName">Full path of a JsonPit, e.g., ~/Nations/ if the JsonPit json file is ~/Nations/Nations.json</param>
-		/// <exception cref="InvalidOperationException"></exception>
+		/// <param name="fullName">Full path of a JsonPit, e.g., ~/Nations/ if the canonical Pit file is ~/Nations/Nations.pit</param>
 		public PitFile(string fullName) : base(fullName, defaultExt: "pit")
 		{
 		}
