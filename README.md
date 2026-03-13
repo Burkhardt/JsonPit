@@ -2,10 +2,10 @@
 
     Stores json files across servers (synchronized).
 
-## 3.2.1
+## 3.3.0
 
-- Aligns JsonPit with the shared cloud-root contract used across OsLib, RaiUtils, and the upcoming Python companion packages.
-- Keeps `Pit` usage stable on Ubuntu by favoring explicit Google Drive configuration through OsLib.
+- Aligns JsonPit with OsLib's `Os.Config` and `osconfig.json` contract.
+- Keeps `Pit` usage stable by using config-driven cloud-root resolution rather than machine-local override variables.
 
 ## namespace
 
@@ -89,3 +89,7 @@ That keeps JsonPit aligned with OsLib in .NET today and with the upcoming Python
 ---
 
 @see [GettingStarted.md](GettingStarted.md) for usage examples or checkout the unit tests
+
+## release notes
+
+- Current release notes: [RELEASE_NOTES_3.3.0.md](RELEASE_NOTES_3.3.0.md)
