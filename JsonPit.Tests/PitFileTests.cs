@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using OsLib;
 using Xunit;
 
@@ -8,9 +9,11 @@ namespace JsonPit.Tests
 {
 	public class PitFileTests
 	{
-		private static RaiPath NewTestRoot()
+		private static RaiPath NewTestRoot([CallerMemberName] string testName = "")
 		{
-			return new RaiPath(Os.TempDir) / "RAIkeep" / "jsonpit-tests" / "pitfile" / Guid.NewGuid().ToString("N");
+			var root = new RaiPath(Os.TempDir) / "RAIkeep" / "jsonpit-tests" / "pitfile" / SanitizeSegment(testName);
+			Cleanup(root);
+			return root;
 		}
 
 		private static void Cleanup(RaiPath root)
@@ -25,6 +28,20 @@ namespace JsonPit.Tests
 			}
 		}
 
+		private static string SanitizeSegment(string value)
+		{
+			if (string.IsNullOrWhiteSpace(value))
+				return "test";
+
+			var invalid = Path.GetInvalidFileNameChars();
+			var cleaned = new string(value
+				.Select(ch => invalid.Contains(ch) || char.IsWhiteSpace(ch) ? '-' : ch)
+				.ToArray())
+				.Trim('-');
+
+			return string.IsNullOrWhiteSpace(cleaned) ? "test" : cleaned;
+		}
+
 		[Fact]
 		public void GetAllFiles_ReturnsOnlyPitFiles()
 		{
@@ -37,10 +54,10 @@ namespace JsonPit.Tests
 				var nested = new RaiPath(pit.Path) / "Nested";
 				nested.mkdir();
 
-				File.WriteAllText(new RaiFile(pit.Path + "extra.pit").FullName, "pit");
-				File.WriteAllText(new RaiFile(nested.Path + "nested.pit").FullName, "pit");
-				File.WriteAllText(new RaiFile(pit.Path + "sidecar.json").FullName, "json");
-				File.WriteAllText(new RaiFile(pit.Path + "preview.png").FullName, "png");
+				new TextFile(new RaiFile(pit.Path + "extra.pit").FullName, "pit");
+				new TextFile(new RaiFile(nested.Path + "nested.pit").FullName, "pit");
+				new TextFile(new RaiFile(pit.Path + "sidecar.json").FullName, "json");
+				new TextFile(new RaiFile(pit.Path + "preview.png").FullName, "png");
 
 				var files = pit.GetAllFiles(pit.Path, excludeCanonicalFile: true).OrderBy(x => x).ToArray();
 

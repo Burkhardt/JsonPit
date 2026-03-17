@@ -19,7 +19,7 @@ namespace JsonPit.Tests
 			}
 		}
 		#endregion
-		private static string CreateUniquePitFileName() => JsonPitTestEnvironment.CloudFile("PitFiles", "Test", "JsonPitTests-" + Guid.NewGuid().ToString("N"));
+		private static string CreateUniquePitFileName() => RAIkeepTestEnvironment.CloudFile("PitFiles", "Test", "JsonPitTests");
 		private string jsonPitTestPitFileName = CreateUniquePitFileName();
 		private Pit jsonPitTestsPit;
 		

@@ -10,6 +10,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using Xunit;
 using OsLib;
@@ -26,12 +27,12 @@ namespace JsonPit.Tests
 		/// by initializing Seconds in the beginning of the test suite run and by incrementing Seconds in the beginning of each test.
 		/// I make sure Seconds stays the same within a test.
 		private long Seconds = (long)(DateTime.Now - new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Local)).TotalSeconds;
-		private static string PitPath = JsonPitTestEnvironment.CloudPath("ObjectPit");
+		private static string PitPath = RAIkeepTestEnvironment.CloudPath("ObjectPit");
 		private Pit pit = Open_ObjectPit_Pit();
 
 		private static Pit Open_ObjectPit_Pit()
 		{
-			// var dir = Path.Combine(Path.GetTempPath(), "JsonPitTests", Guid.NewGuid().ToString("N")) + Path.DirectorySeparatorChar;
+			// var dir = Path.Combine(Path.GetTempPath(), "JsonPitTests", "TempDirTests") + Path.DirectorySeparatorChar;
 			// // Pit claims it won't throw if missing, but creating it is fine too:
 			// Directory.CreateDirectory(dir);
 			return new Pit(PitPath, readOnly: false);
@@ -142,7 +143,7 @@ namespace JsonPit.Tests
 		public void JsonPit_StepByStepExample_Test()
 		{
 			// Initialize the JsonPit
-			var examplesPit = new Pit(pitDirectory: JsonPitTestEnvironment.CloudPath("Examples"), readOnly: false);
+			var examplesPit = new Pit(pitDirectory: RAIkeepTestEnvironment.CloudPath("Examples"), readOnly: false);
 			// no file not found exception will be thrown if the path does not exist
 
 			// Create a PitItem
@@ -187,7 +188,7 @@ namespace JsonPit.Tests
 		public void DirectAccess_Test()
 		{
 			// Pit 
-			var Families = new Pit(JsonPitTestEnvironment.CloudPath("UnitTest"), readOnly: false);
+			var Families = new Pit(RAIkeepTestEnvironment.CloudPath("UnitTest"), readOnly: false);
 			var Burkhardt = new PitItem("Burkhardt");
 			Burkhardt["Address"] = "123 Main St";
 			Burkhardt["Father"] = "John Doe";
@@ -240,11 +241,39 @@ namespace JsonPit.Tests
 
 	public sealed class Pit_GetAt_Tests
 	{
+		private static string CreatePitPath([CallerMemberName] string testName = "")
+		{
+			var root = (new RaiPath(Path.GetTempPath())) / "JsonPitTests" / "GetAtTests" / SanitizeSegment(testName);
+			Cleanup(root.Path);
+			return root.Path;
+		}
+
+		private static void Cleanup(string path)
+		{
+			var dir = new RaiFile(path);
+			if (Directory.Exists(dir.Path))
+				dir.rmdir(depth: 10, deleteFiles: true);
+		}
+
+		private static string SanitizeSegment(string value)
+		{
+			if (string.IsNullOrWhiteSpace(value))
+				return "test";
+
+			var invalid = Path.GetInvalidFileNameChars();
+			var cleaned = new string(value
+				.Select(ch => invalid.Contains(ch) || char.IsWhiteSpace(ch) ? '-' : ch)
+				.ToArray())
+				.Trim('-');
+
+			return string.IsNullOrWhiteSpace(cleaned) ? "test" : cleaned;
+		}
+
 		[Fact]
 		public void GetAt_ReturnsItemAtOrBeforeTimestamp()
 		{
-			var pitPath = ((new RaiPath(Path.GetTempPath())) / "JsonPitTests" / "GetAtTests" / Guid.NewGuid().ToString("N")).Path;
-			var symbol = "T" + Guid.NewGuid().ToString("N").Substring(0, 8).ToUpperInvariant();
+			var pitPath = CreatePitPath();
+			var symbol = "TGETAT";
 			try
 			{
 				var pit = new Pit(pitPath, readOnly: false, unflagged: true, autoload: false);
@@ -276,17 +305,15 @@ namespace JsonPit.Tests
 			}
 			finally
 			{
-				var dir = new RaiFile(pitPath);
-				if (Directory.Exists(dir.Path))
-					dir.rmdir(depth: 10, deleteFiles: true);
+				Cleanup(pitPath);
 			}
 		}
 
 		[Fact]
 		public void GetAt_RespectsDeletedFlag()
 		{
-			var pitPath = ((new RaiPath(Path.GetTempPath())) / "JsonPitTests" / "GetAtTests" / Guid.NewGuid().ToString("N")).Path;
-			var symbol = "T" + Guid.NewGuid().ToString("N").Substring(0, 8).ToUpperInvariant();
+			var pitPath = CreatePitPath();
+			var symbol = "TDELETE";
 			try
 			{
 				var pit = new Pit(pitPath, readOnly: false, unflagged: true, autoload: false);
@@ -313,9 +340,7 @@ namespace JsonPit.Tests
 			}
 			finally
 			{
-				var dir = new RaiFile(pitPath);
-				if (Directory.Exists(dir.Path))
-					dir.rmdir(depth: 10, deleteFiles: true);
+				Cleanup(pitPath);
 			}
 		}
 	}

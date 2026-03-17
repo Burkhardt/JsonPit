@@ -71,16 +71,17 @@ namespace JsonPit.Tests
 			providerRoot = new RaiPath(providerRoot).Path;
 			if (!Directory.Exists(providerRoot))
 			{
-				root = new RaiPath(providerRoot) / "RAIkeep" / "jsonpit-cloud-integration-tests" / provider.ToString() / Guid.NewGuid().ToString("N");
+				root = new RaiPath(providerRoot) / "RAIkeep" / "jsonpit-cloud-integration-tests" / provider.ToString();
 				reason = $"provider root does not exist: {providerRoot}";
 				return false;
 			}
 
-			root = new RaiPath(providerRoot) / "RAIkeep" / "jsonpit-cloud-integration-tests" / provider.ToString() / Guid.NewGuid().ToString("N");
+			root = new RaiPath(providerRoot) / "RAIkeep" / "jsonpit-cloud-integration-tests" / provider.ToString();
 			reason = string.Empty;
 
 			try
 			{
+				Cleanup(root);
 				root.mkdir();
 				return true;
 			}
