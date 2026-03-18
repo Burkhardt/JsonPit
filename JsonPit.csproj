@@ -28,9 +28,21 @@
 		<None Include="hardcastle.png" Pack="true" PackagePath="" />
 	</ItemGroup>
 
-	<ItemGroup>
-		<ProjectReference Include="..\OsLib\OsLib.csproj" />
-		<ProjectReference Include="..\RaiUtils\RaiUtils.csproj" />
+	<PropertyGroup>
+		<OsLibProjectPath Condition="Exists('../OsLib/OsLib.csproj')">../OsLib/OsLib.csproj</OsLibProjectPath>
+		<OsLibProjectPath Condition="'$(OsLibProjectPath)' == '' and Exists('../JsonPitSolution/OsLib/OsLib.csproj')">../JsonPitSolution/OsLib/OsLib.csproj</OsLibProjectPath>
+		<RaiUtilsProjectPath Condition="Exists('../RaiUtils/RaiUtils.csproj')">../RaiUtils/RaiUtils.csproj</RaiUtilsProjectPath>
+		<RaiUtilsProjectPath Condition="'$(RaiUtilsProjectPath)' == '' and Exists('../JsonPitSolution/RaiUtils/RaiUtils.csproj')">../JsonPitSolution/RaiUtils/RaiUtils.csproj</RaiUtilsProjectPath>
+	</PropertyGroup>
+
+	<ItemGroup Condition="'$(OsLibProjectPath)' != '' and '$(RaiUtilsProjectPath)' != ''">
+		<ProjectReference Include="$(OsLibProjectPath)" />
+		<ProjectReference Include="$(RaiUtilsProjectPath)" />
+	</ItemGroup>
+
+	<ItemGroup Condition="'$(OsLibProjectPath)' == '' or '$(RaiUtilsProjectPath)' == ''">
+		<PackageReference Include="OsLibCore" Version="3.4.0" />
+		<PackageReference Include="RaiUtilsCore" Version="3.4.0" />
 	</ItemGroup>
 
 </Project>

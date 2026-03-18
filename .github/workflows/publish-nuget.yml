@@ -35,10 +35,10 @@ jobs:
           fi
 
       - name: Restore
-        run: dotnet restore JsonPit.slnx
+        run: dotnet restore JsonPit.csproj
 
       - name: Build
-        run: dotnet build JsonPit.slnx --configuration Release --no-restore
+        run: dotnet build JsonPit.csproj --configuration Release --no-restore
 
       - name: Pack
         run: dotnet pack JsonPit.csproj --configuration Release --no-build --output artifacts
