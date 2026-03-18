@@ -2,10 +2,23 @@
 
     Stores json files across servers (synchronized).
 
-## 3.3.0
+## Start Here
 
-- Aligns JsonPit with OsLib's `Os.Config` and `osconfig.json` contract.
-- Keeps `Pit` usage stable by using config-driven cloud-root resolution rather than machine-local override variables.
+If you want to use JsonPit 3.4.0 from NuGet in another service or agent workflow, start with [GettingStarted.md](GettingStarted.md).
+
+That guide now covers:
+
+- package setup for `JsonPit`, `RaiUtilsCore`, and `OsLibCore`
+- current `Pit` and `PitItem` usage patterns
+- the recommended long-lived in-memory server usage pattern
+- querying and enumeration patterns that are actually supported
+- persistence and synchronized-storage expectations
+- a practical `PersonPit` example for OTW / AfricaStage style backend work
+
+## 3.4.0
+
+- Keeps JsonPit aligned with the shared 3.4.0 package set used together with `OsLibCore` and `RaiUtilsCore`.
+- Adds stronger onboarding documentation for implementation agents using JsonPit from NuGet packages.
 
 ## namespace
 
@@ -75,7 +88,7 @@ For Ubuntu development machines, especially when Google Drive is mounted through
 
 Recommended shared contract:
 - Use `osconfig.json` to point `cloud.googledrive` at the active Google Drive mount.
-- Keep that file at `~/.config/RAIkeep/osconfig.json` on macOS/Linux or `%APPDATA%\RAIkeep\osconfig.json` on Windows.
+- Keep that file at `~/.config/RAIkeep/osconfig.json`.
 - Reuse the same `cloud` keys as OsLib: `dropbox`, `onedrive`, `googledrive`, `icloud`.
 
 That keeps JsonPit aligned with OsLib in .NET today and with the upcoming Python `OsLib`, `RaiUtils`, and `JsonPit` packages later.
@@ -88,8 +101,8 @@ That keeps JsonPit aligned with OsLib in .NET today and with the upcoming Python
 
 ---
 
-@see [GettingStarted.md](GettingStarted.md) for usage examples or checkout the unit tests
+@see [GettingStarted.md](GettingStarted.md) for the practical onboarding guide, or check the unit tests for lower-level API examples.
 
 ## release notes
 
-- Current release notes: [RELEASE_NOTES_3.3.0.md](RELEASE_NOTES_3.3.0.md)
+- Latest release notes: [RELEASE_NOTES_3.4.0.md](RELEASE_NOTES_3.4.0.md)
