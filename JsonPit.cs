@@ -23,7 +23,7 @@ namespace JsonPit
 	/// </summary>
 	public class ItemsBase
 	{
-		/// <summary>Identifying name, i.e. JsonFileName from enclosing JsonFile</summary>
+		/// <summary>Identifying id, i.e. JsonFileName from enclosing JsonFile</summary>
 		public string Key;
 		public ItemsBase(string key = null)
 		{
@@ -348,10 +348,10 @@ namespace JsonPit
 	/// </summary>
 	public class PitItem : JObject
 	{
-		public string Name
+		public string Id
 		{
-			get { return (string)this[nameof(Name)]; }
-			set { this[nameof(Name)] = value; }
+			get { return (string)(this[nameof(Id)] ?? this["Name"]); }
+			set { this[nameof(Id)] = value; }
 		}
 		public DateTimeOffset Modified
 		{
@@ -370,7 +370,7 @@ namespace JsonPit
 			{
 				var q = from _ in Properties() where _.Name == "Deleted" select _;
 				if (q.Count() == 0)
-					throw new KeyNotFoundException($"Deleted does not exist in Item {Name}");
+					throw new KeyNotFoundException($"Deleted does not exist in Item {Id}");
 				return (bool)this[nameof(Deleted)];
 			}
 			set { this[nameof(Deleted)] = value; }
@@ -382,24 +382,7 @@ namespace JsonPit
 		}
 		public bool SetProperty(string objectAsJsonString)
 		{
-			var obj = JObject.Parse(objectAsJsonString);
-			bool changed = false;
-			foreach (var kvp in obj)
-			{
-				var existing = this[kvp.Key];
-				var incoming = kvp.Value;
-				if (!JToken.DeepEquals(existing, incoming))
-				{
-					this[kvp.Key] = incoming;
-					changed = true;
-				}
-			}
-			if (changed)
-			{
-				Deleted = false;
-				Invalidate();
-			}
-			return changed;
+			return ExtendWith(JObject.Parse(objectAsJsonString));
 		}
 		public void SetProperty(object obj)
 		{
@@ -441,30 +424,36 @@ namespace JsonPit
 		public bool Extend(string json)
 		{
 			var token = JToken.Parse(json);
-			bool changed = token switch
+			return token switch
 			{
 				JObject obj => ExtendWith(obj),
 				JArray arr => ExtendWith(arr),
 				_ => false
 			};
+		}
+		public virtual bool ExtendWith(JObject obj)
+		{
+			var normalized = (JObject)obj.DeepClone();
+			if (normalized[nameof(Id)] == null && normalized["Name"] != null)
+				normalized[nameof(Id)] = normalized["Name"];
+			normalized.Remove("Name");
+
+			var originalClone = (JObject)this.DeepClone();
+			var mergeSettings = new JsonMergeSettings
+			{
+				MergeArrayHandling = MergeArrayHandling.Replace,
+				MergeNullValueHandling = MergeNullValueHandling.Ignore
+			};
+
+			this.Merge(normalized, mergeSettings);
+
+			var changed = !JToken.DeepEquals(originalClone, this);
 			if (changed)
 			{
 				Deleted = false;
 				Invalidate();
 			}
-			return changed;
-		}
-		public virtual bool ExtendWith(JObject obj)
-		{
-			bool changed = false;
-			foreach (var attr in obj)
-			{
-				if (!JToken.DeepEquals(this[attr.Key], attr.Value))
-				{
-					this[attr.Key] = attr.Value;
-					changed = true;
-				}
-			}
+
 			return changed;
 		}
 		public virtual bool ExtendWith(JArray arr)
@@ -492,36 +481,43 @@ namespace JsonPit
 					}
 				}
 			}
+			if (changed)
+			{
+				Deleted = false;
+				Invalidate();
+			}
 			return changed;
 		}
-		public PitItem(string name, bool invalidate = true, string comment = "")
+		public PitItem(string id, bool invalidate = true, string comment = "")
 		{
-			this.Name = name;
+			this.Id = id;
 			Note = comment;
 			if (invalidate)
 				Invalidate();
 			Deleted = false;
 		}
-		public PitItem(string name, object extendWith, string comment = "")
-			: this(name, JSON.SerializeDynamic(extendWith), comment)
+		public PitItem(string id, object extendWith, string comment = "")
+			: this(id, JSON.SerializeDynamic(extendWith), comment)
 		{
 		}
-		public PitItem(string name, string extendWithAsJson, string comment = "")
+		public PitItem(string id, string extendWithAsJson, string comment = "")
 		{
-			this.Name = name;
+			this.Id = id;
 			Note = comment;
 			Invalidate();
 			Deleted = false;
 			Extend(extendWithAsJson);
 		}
-		public PitItem(string name, bool invalidate, DateTimeOffset timestamp, string comment = "")
-			: this(name, invalidate, comment)
+		public PitItem(string id, bool invalidate, DateTimeOffset timestamp, string comment = "")
+			: this(id, invalidate, comment)
 		{
 			Modified = timestamp;
 		}
 		public PitItem(PitItem other, DateTimeOffset? timestamp = null)
 			: base(other)
 		{
+			Id = other.Id;
+			Remove("Name");
 			Modified = timestamp == null ? (DateTimeOffset)other[nameof(Modified)] : (DateTimeOffset)timestamp;
 		}
 		public PitItem(JObject from)
@@ -545,7 +541,8 @@ namespace JsonPit
 			{
 				Modified = DateTimeOffset.UtcNow;
 			}
-			Name = (string)this[nameof(Name)];
+			Id = (string)(this[nameof(Id)] ?? this["Name"]);
+			Remove("Name");
 			Note = (string)this[nameof(Note)];
 		}
 		public PitItem()
@@ -561,7 +558,7 @@ namespace JsonPit
 				return true;
 			else if (pi1 == null | pi2 == null)
 				return false;
-			else if (pi1.Name == pi2.Name && pi1.Modified.isLike(pi2.Modified))
+			else if (pi1.Id == pi2.Id && pi1.Modified.isLike(pi2.Modified))
 				return pi1.ToString() == pi2.ToString();
 			return false;
 		}
@@ -583,7 +580,7 @@ namespace JsonPit
 		public bool Equals(PitItem d1, PitItem d2) => JsonPit.PitItemExtensions.Equals(d1, d2);
 		public int GetHashCode(PitItem x)
 		{
-			string s = $"{x.Name}{x.Modified.UtcTicks}";
+			string s = $"{x.Id}{x.Modified.UtcTicks}";
 			return s.GetHashCode();
 		}
 	}
@@ -664,7 +661,7 @@ namespace JsonPit
 				if(list.Count > 1)
 					list = list.Sort((a, b) => a.Modified.CompareTo(b.Modified));
 					
-				Key = key ?? list.FirstOrDefault()?.Name;
+				Key = key ?? list.FirstOrDefault()?.Id;
 			}
 			History = list;
 		}
@@ -725,20 +722,20 @@ namespace JsonPit
 		public ICollection<string> Keys => HistoricItems.Keys;
 		public bool ContainsKey(string key) => HistoricItems.ContainsKey(key);
 		
-		public bool Contains(string itemName, bool withDeleted = false)
+		public bool Contains(string itemId, bool withDeleted = false)
 		{
-			var isThere = HistoricItems.Keys.Contains(itemName, Comparer);
+			var isThere = HistoricItems.Keys.Contains(itemId, Comparer);
 			if (withDeleted)
 				return isThere;
 			if (!isThere)
 				return false;
-			var top = HistoricItems[itemName].Peek();
+			var top = HistoricItems[itemId].Peek();
 			return top != null && !top.Deleted;
 		}
 
 		public bool Invalid()
 		{
-			var query = from kvp in HistoricItems where !kvp.Value.Peek().Valid() select kvp.Value.Peek().Name;
+			var query = from kvp in HistoricItems where !kvp.Value.Peek().Valid() select kvp.Value.Peek().Id;
 			return query.Count() > 0;
 		}
 
@@ -772,8 +769,10 @@ namespace JsonPit
 		{
 			set
 			{
-				var pitItem = this[value.Name] ?? new PitItem(value.Name);
-				if (pitItem.SetProperty(value))
+				var payload = NormalizeIdentityPayload((object)value);
+				var itemId = GetIdentifier(payload);
+				var pitItem = this[itemId] ?? new PitItem(itemId);
+				if (pitItem.ExtendWith(payload))
 					Add(pitItem);
 			}
 		}
@@ -785,7 +784,7 @@ namespace JsonPit
 		{
 			while (true)
 			{
-				var currentStore = HistoricItems.GetOrAdd(item.Name, key => PitItems.Create(key, DefaultMaxCount));
+				var currentStore = HistoricItems.GetOrAdd(item.Id, key => PitItems.Create(key, DefaultMaxCount));
 
 				var top = currentStore.Peek();
 				if (top != null && EqualsIgnoringModified(top, item))
@@ -793,11 +792,33 @@ namespace JsonPit
 
 				var newStore = currentStore.Push(item);
 
-				if (HistoricItems.TryUpdate(item.Name, newStore, currentStore))
+				if (HistoricItems.TryUpdate(item.Id, newStore, currentStore))
 				{
 					return true;
 				}
 			}
+		}
+
+		private static JObject NormalizeIdentityPayload(object value)
+		{
+			JObject payload;
+			if (value is JObject obj)
+				payload = (JObject)obj.DeepClone();
+			else
+				payload = JObject.FromObject(value);
+
+			if (payload["Id"] == null && payload["Name"] != null)
+				payload["Id"] = payload["Name"];
+			payload.Remove("Name");
+			return payload;
+		}
+
+		private static string GetIdentifier(JObject payload)
+		{
+			var itemId = (string)(payload["Id"] ?? payload["Name"]);
+			if (string.IsNullOrWhiteSpace(itemId))
+				throw new ArgumentException("Payload must contain Id or legacy Name.", nameof(payload));
+			return itemId;
 		}
 
 		private static bool EqualsIgnoringModified(PitItem a, PitItem b)
@@ -809,13 +830,13 @@ namespace JsonPit
 			return JToken.DeepEquals(ja, jb);
 		}
 
-		public bool Delete(string itemName, string by = null, bool backDate = true)
+		public bool Delete(string itemId, string by = null, bool backDate = true)
 		{
-			if (string.IsNullOrEmpty(itemName))
+			if (string.IsNullOrEmpty(itemId))
 				return true;
 			try
 			{
-				if (!HistoricItems.TryGetValue(itemName, out var list))
+				if (!HistoricItems.TryGetValue(itemId, out var list))
 					return true;
 					
 				var item = list.Peek();
@@ -880,6 +901,26 @@ namespace JsonPit
 				if (this[key] != null && !this[key].Deleted)
 					yield return Get(key);
 			}
+		}
+
+		public void ExportJson(string exportFilePath, DateTimeOffset? at = null, bool pretty = true)
+		{
+			var exportItems = new JArray();
+
+			foreach (var key in Keys)
+			{
+				PitItem item;
+				if (at == null)
+					item = this[key];
+				else
+					item = GetAt(key, at.Value, withDeleted: false);
+
+				if (item != null)
+					exportItems.Add(item);
+			}
+
+			var formatting = pretty ? Formatting.Indented : Formatting.None;
+			File.WriteAllText(exportFilePath, exportItems.ToString(formatting));
 		}
 
 		public IEnumerable<dynamic> AllUndeletedDynamic()
@@ -1010,19 +1051,19 @@ namespace JsonPit
 		private void CreateChangeFiles()
 		{
 			var compareFile = new Pit(JsonFile.FullName, undercover: true, unflagged: true);
-			foreach (var name in Keys)
+			foreach (var itemId in Keys)
 			{
-				if (!HistoricItems.TryGetValue(name, out var list))
+				if (!HistoricItems.TryGetValue(itemId, out var list))
 					continue;
 				var latest = list.Peek();
 				if (latest == null)
 					continue;
-				if (!compareFile.ContainsKey(name))
+				if (!compareFile.ContainsKey(itemId))
 				{
 					CreateChangeFile(latest);
 					continue;
 				}
-				if (compareFile.HistoricItems.TryGetValue(name, out var compareList))
+				if (compareFile.HistoricItems.TryGetValue(itemId, out var compareList))
 				{
 					var compareLatest = compareList.Peek();
 					if (compareLatest != null && latest.Modified > compareLatest.Modified)
@@ -1132,17 +1173,33 @@ namespace JsonPit
 
 		private void initValues(JArray values)
 		{
-			dynamic top;
-			foreach (JArray inner in values)
+			foreach (JToken token in values)
 			{
-				if (inner.HasValues)
+				switch (token)
 				{
-					var q = from o in inner select new PitItem((JObject)o);
-					var stack = PitItems.Create(q.Last().Name, DefaultMaxCount);
-					foreach (var item in q) stack = stack.Push(item);
-					
-					top = (dynamic)inner.Last();
-					HistoricItems.TryAdd((string)top.Name, stack);
+					case JObject obj:
+						var newItem = new PitItem(obj);
+						var newStack = PitItems.Create(newItem.Id, DefaultMaxCount).Push(newItem);
+						HistoricItems.TryAdd(newItem.Id, newStack);
+						break;
+
+					case JArray inner when inner.HasValues:
+						var q = from o in inner.OfType<JObject>() select new PitItem(o);
+						if (!q.Any())
+							break;
+
+						var stack = PitItems.Create(q.Last().Id, DefaultMaxCount);
+						foreach (var item in q)
+							stack = stack.Push(item);
+
+						HistoricItems.TryAdd(q.Last().Id, stack);
+						break;
+
+					case JArray:
+						break;
+
+					default:
+						throw new FormatException($"JSON file format is not compatible with JsonPit: unsupported token type {token.Type}");
 				}
 			}
 		}
@@ -1151,17 +1208,14 @@ namespace JsonPit
 		{
 			if (values != null && values.Count() > 0)
 			{
-				dynamic top;
 				foreach (var pitItems in values)
 				{
 					if (pitItems.Count > 0)
 					{
 						var q = from o in pitItems select new PitItem(o);
-						var stack = PitItems.Create(q.Last().Name, DefaultMaxCount);
+						var stack = PitItems.Create(q.Last().Id, DefaultMaxCount);
 						foreach (var item in q) stack = stack.Push(item);
-						
-						top = (dynamic)pitItems.Last();
-						HistoricItems.TryAdd((string)top.Name, stack);
+						HistoricItems.TryAdd(q.Last().Id, stack);
 					}
 				}
 			}
@@ -1173,7 +1227,7 @@ namespace JsonPit
 		{
 			JsonFile = new PitFile(pitDirectory);
 			Subscriber = subscriber;
-			this.orderBy = orderBy ?? new Func<PitItem, string>(x => x.Name);
+			this.orderBy = orderBy ?? new Func<PitItem, string>(x => x.Id);
 			this.descending = descending;
 			HistoricItems = new ConcurrentDictionary<string, PitItems>();
 			initValues(values);
@@ -1207,7 +1261,7 @@ namespace JsonPit
 	/// </summary>
 	public class Item : ICloneable
 	{
-		public string Name { get; set; }
+		public string Id { get; set; }
 		public DateTimeOffset Modified { get; internal set; }
 		virtual public DateTimeOffset Changed()
 		{
@@ -1244,7 +1298,7 @@ namespace JsonPit
 		}
 		public virtual bool Matches(Item x)
 		{
-			return x.Name == Name;
+			return x.Id == Id;
 		}
 		public virtual bool Matches(SearchExpression se)
 		{
@@ -1291,8 +1345,8 @@ namespace JsonPit
 		}
 		public virtual void Merge(Item second)
 		{
-			if (Name != second.Name)
-				throw new ArgumentException("Error: " + Name + ".Merge(" + second.Name + ") is an invalid call - Names must be equal.");
+			if (Id != second.Id)
+				throw new ArgumentException("Error: " + Id + ".Merge(" + second.Id + ") is an invalid call - Ids must be equal.");
 			if (Changed().UtcTicks == second.Changed().UtcTicks)
 			{
 				Dirty = false;
@@ -1334,9 +1388,9 @@ namespace JsonPit
 			}
 			else Dirty = true;
 		}
-		public Item(string name, string comment, bool invalidate = true)
+		public Item(string id, string comment, bool invalidate = true)
 		{
-			this.Name = name;
+			this.Id = id;
 			Note = comment;
 			if (invalidate)
 				Invalidate();

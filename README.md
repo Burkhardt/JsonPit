@@ -59,7 +59,7 @@ JsonPit
 <details>
 <summary>PitItem: JSON-backed item with metadata and change tracking.</summary>
 
-- PitItem: `Name`, `Modified`, `Deleted`, `Note`, `SetProperty`, `DeleteProperty`
+- PitItem: `Id`, `Modified`, `Deleted`, `Note`, `SetProperty`, `DeleteProperty`
 </details>
 
 <details>
@@ -96,7 +96,7 @@ That keeps JsonPit aligned with OsLib in .NET today and with the upcoming Python
 <details>
 <summary>Item: Base item with modified tracking and dirty state management.</summary>
 
-- Item: `Name`, `Modified`, `Deleted`, `Delete`, `Valid`, `Validate`, `Invalidate`
+- Item: `Id`, `Modified`, `Deleted`, `Delete`, `Valid`, `Validate`, `Invalidate`
 </details>
 
 ---

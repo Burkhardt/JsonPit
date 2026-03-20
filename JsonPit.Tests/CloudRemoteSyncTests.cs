@@ -13,6 +13,17 @@ namespace JsonPit.Tests
 		[InlineData(CloudStorageType.GoogleDrive)]
 		[InlineData(CloudStorageType.Dropbox)]
 		[InlineData(CloudStorageType.OneDrive)]
+		[InlineData(CloudStorageType.ICloud)]
+		public void Pit_SyncsWithCloudProvider(CloudStorageType provider)
+		{
+
+		}
+
+		[Theory]
+		[InlineData(CloudStorageType.GoogleDrive)]
+		[InlineData(CloudStorageType.Dropbox)]
+		[InlineData(CloudStorageType.OneDrive)]
+		[InlineData(CloudStorageType.ICloud)]
 		public void Pit_SyncsWithMzansi(CloudStorageType provider)
 		{
 			Console.WriteLine(Os.GetCloudConfigurationDiagnosticReport(refresh: true));

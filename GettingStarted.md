@@ -19,7 +19,7 @@ JsonPit is not a relational table abstraction.
 Think of it like this:
 
 - A `Pit` is closer to a synchronized JSON document store than to a SQL table.
-- A `PitItem` is a named JSON object with a `Name`, `Modified`, `Deleted`, `Note`, and arbitrary attributes.
+- A `PitItem` is a JSON object identified by `Id`, with `Modified`, `Deleted`, `Note`, and arbitrary attributes.
 - JsonPit keeps history per item key, so updates are versioned rather than overwritten blindly in memory.
 
 That makes JsonPit useful when:
@@ -131,7 +131,7 @@ var email = loadedMax["Email"]?.ToString();
 var phone = loadedMax["Phone"]?.ToString();
 var comPref = loadedMax["ComPref"]?.ToObject<List<string>>() ?? new List<string>();
 
-Console.WriteLine($"{loadedMax.Name}: {email} / {phone}");
+Console.WriteLine($"{loadedMax.Id}: {email} / {phone}");
 Console.WriteLine(string.Join(", ", comPref));
 ```
 
@@ -286,11 +286,11 @@ JsonPit does not provide a database-style query language or indexes.
 
 The recommended pattern is:
 
-- get one item by name using `pit["Name"]` or `pit.Get("Name")`
+- get one item by id using `pit["Id"]` or `pit.Get("Id")`
 - enumerate current items using `pit.AllUndeleted()`
 - filter with LINQ in memory
 
-### Get one item by name
+### Get one item by id
 
 ```csharp
 var max = people["Max"];
@@ -309,7 +309,7 @@ For most application code, the indexer is the more convenient starting point.
 ```csharp
 foreach (var item in people.AllUndeleted())
 {
-   Console.WriteLine(item["Name"]?.ToString());
+   Console.WriteLine(item["Id"]?.ToString());
 }
 ```
 
@@ -362,7 +362,7 @@ That is useful when you explicitly care about the historical value at or before 
 
 If you do not need history, ignore `PitItems` and `GetAt(...)` and focus on:
 
-- `pit["Name"]`
+- `pit["Id"]`
 - `pit.Add(item)`
 - `pit.Save()`
 - `pit.AllUndeleted()`
@@ -553,7 +553,7 @@ Console.WriteLine(string.Join(", ", savedComPref));
 
 This is a good starting shape for an OTW API because it keeps the model flexible:
 
-- `Name` is the stable key
+- `Id` is the stable key
 - common communication fields are simple attributes
 - `ComPref` is a JSON array
 - `Address` is a nested JSON object
@@ -568,7 +568,7 @@ If you are implementing a small JsonPit-backed feature from NuGet packages, star
 2. Build the pit path with `RaiPath`.
 3. Open the pit once and keep it in a long-lived singleton/static server component.
 4. Use `PitItem.SetProperty(new { ... })` for normal updates.
-5. Read current items from memory with `pit["Name"]` or `pit.AllUndeleted()`.
+5. Read current items from memory with `pit["Id"]` or `pit.AllUndeleted()`.
 6. Call `Save()` at useful persistence boundaries.
 7. Treat cross-server behavior as asynchronous persistence with eventual durability, not real-time synchronization.
 

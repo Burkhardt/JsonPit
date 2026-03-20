@@ -90,5 +90,52 @@ namespace JsonPit.Tests
 			Assert.Equal("Tiingo", meta!["src"]!.Value<string>());
 			Assert.Equal("IEX", meta["venue"]!.Value<string>());
 		}
+
+		[Fact]
+		public void SetProperty_NestedObject_DeepMerges_ReplacesArrays_And_IgnoresNulls()
+		{
+			var item = new PitItem("AAPL");
+			item.SetProperty(@"{
+				""Meta"": {
+					""src"": ""Tiingo"",
+					""venue"": ""IEX"",
+					""region"": ""US""
+				},
+				""Tags"": [""tech"", ""growth""]
+			}");
+
+			Thread.Sleep(25);
+
+			var modified1 = item.Modified;
+			item.SetProperty(@"{
+				""Meta"": {
+					""venue"": ""NASDAQ"",
+					""region"": null,
+					""currency"": ""USD""
+				},
+				""Tags"": [""bluechip""]
+			}");
+
+			var meta = (JObject)item["Meta"]!;
+			var tags = (JArray)item["Tags"]!;
+
+			Assert.True(item.Modified > modified1, "Expected Modified to advance when the deep merge changes nested content.");
+			Assert.Equal("Tiingo", meta["src"]!.Value<string>());
+			Assert.Equal("NASDAQ", meta["venue"]!.Value<string>());
+			Assert.Equal("US", meta["region"]!.Value<string>());
+			Assert.Equal("USD", meta["currency"]!.Value<string>());
+			Assert.Single(tags);
+			Assert.Equal("bluechip", tags[0]!.Value<string>());
+		}
+
+		[Fact]
+		public void Ctor_FromLegacyNamePayload_MapsIdentifierToId()
+		{
+			var item = new PitItem(JObject.Parse(@"{ ""Name"": ""AAPL"", ""Price"": 262.77 }"));
+
+			Assert.Equal("AAPL", item.Id);
+			Assert.Equal(262.77, item["Price"]!.Value<double>(), 5);
+			Assert.Null(item["Name"]);
+		}
 	}
 } // namespace JsonPit.Tests

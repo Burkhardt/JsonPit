@@ -170,8 +170,8 @@ namespace JsonPit.Tests
 			var item2 = examplesPit["Nomsa"];
 
 			// Validate properties
-			var Name = item["Name"]?.ToString();
-			Assert.Equal("RSB", Name);
+			var id = item["Id"]?.ToString();
+			Assert.Equal("RSB", id);
 			var Age = item["Age"];
 			Assert.Equal(61, Convert.ToInt16(Age));
 			var Children = item["Children"];
@@ -420,12 +420,12 @@ namespace JsonPit.Tests
 			var json = @"{ ""Price"": 223.57, ""Volume"": 17320 }";
 
 			// Act
-			var item = new PitItem(name: "AAPL", extendWithAsJson: json, comment: "tiingo");
+			var item = new PitItem(id: "AAPL", extendWithAsJson: json, comment: "tiingo");
 
 			// Assert
 			var after = DateTimeOffset.UtcNow;
 
-			Assert.Equal("AAPL", item.Name);
+			Assert.Equal("AAPL", item.Id);
 			Assert.False(item.Deleted);
 			Assert.Equal("tiingo", item.Note);
 
@@ -448,7 +448,7 @@ namespace JsonPit.Tests
             ]";
 
 			// Act
-			var item = new PitItem(name: "AAPL", extendWithAsJson: json);
+			var item = new PitItem(id: "AAPL", extendWithAsJson: json);
 
 			// Assert
 			// Schema extension: Ask/Bid exist even if they were not present previously.

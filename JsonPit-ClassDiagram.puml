@@ -1,0 +1,229 @@
+@startuml JsonPit-ClassDiagram
+title JsonPit Class Diagram
+
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam linetype ortho
+skinparam DiagramFontName "Casual"
+skinparam DiagramFontSize 36
+skinparam ClassFontName "Casual"
+skinparam ClassFontSize 28
+skinparam ClassAttributeIconSize 10
+skinparam ClassAttributeFontName Casual
+skinparam ClassAttributeFontColor #053583
+skinparam ClassAttributeFontWeight normal
+skinparam ClassAttributeFontSize 12
+skinparam ClassMethodFontName "Casual"
+skinparam ClassMethodFontSize 12
+skinparam ClassMethodFontWeight 500
+skinparam ClassAttributeFontStyle normal
+skinparam ClassBorderColor #0f766e
+skinparam ClassBackgroundColor #ccfbf1
+skinparam ClassFontColor #111827
+skinparam NoteBackgroundColor #fff7d6
+skinparam NoteBorderColor #d4b106
+
+show circle
+
+class "Legend" as LegendSample {
+	+{static} staticMember : string
+	==
+	+ markers : Ⓢ static, Ⓐ abstract
+	--
+	+ publicField : string
+	# protectedField : string
+	--
+	+ publicMethod() : void
+	# protectedMethod() : void
+}
+
+class ItemsBase << (C,#14b8a6) >> {
+	+ Key : string
+	--
+	+ ItemsBase(key : string = null)
+}
+
+class JsonPitBase << (C,#14b8a6) >> {
+	+{static} Version : string
+	+{static} ConfigDirDefault : string
+	+ ReadOnly : bool
+	+ Backup : bool
+	+ ChangeDir : string
+	+ JsonFile : PitFile
+	--
+	+ RunningOnMaster() : bool
+	+ ProcessFlag() : ProcessFlagFile
+	+ MasterFlag() : MasterFlagFile
+	+ MasterUpdatesAvailable() : bool
+	+ FileHasChangedOnDisk() : bool
+	+ ForeignChangesAvailable() : bool
+	+ GetFileChanged() : DateTimeOffset
+	+ GetMemChanged() : DateTimeOffset
+	--
+	+ JsonPitBase(readOnly : bool = true, backup : bool = false, unflagged : bool = false, descending : bool = false)
+}
+
+class TimestampedValue << (C,#14b8a6) >> {
+	+ Time : DateTimeOffset
+	+ Value : string
+	--
+	+ TimestampedValue(value : object, time : DateTimeOffset? = null)
+	+ TimestampedValue(valueAndTime : string)
+	+ TimestampedValue()
+	--
+	+ ToString() : string
+}
+
+class MasterFlagFile << (C,#14b8a6) >> {
+	+ Originator : string
+	+ Time : DateTimeOffset
+	--
+	+ MasterFlagFile(changeDir : string, name : string, server : string = null)
+	--
+	+ Save(backup : bool = false) : void
+	+ Update(time : DateTimeOffset?) : void
+}
+
+class ProcessFlagFile << (C,#14b8a6) >> {
+	+ Process : string
+	+ CurrentProcessId : int
+	--
+	+ ProcessFlagFile(changeDir : string)
+	--
+	+ Update(time : DateTimeOffset?) : void
+}
+
+class PitFile << (C,#14b8a6) >> {
+	+{static} SupportedExtensions : string[]
+	--
+	+ PitFile(fullName : string)
+	--
+	+ mv(src : PitFile, replace : bool = false, keepBackup : bool = false) : int
+	+ GetAllFiles(pitFolder : string, excludeCanonicalFile : bool = false) : IEnumerable<string>
+}
+
+class PitItem << (C,#14b8a6) >> {
+	+ Id : string
+	+ Modified : DateTimeOffset
+	+ Deleted : bool
+	+ Note : string
+	--
+	+ PitItem(id : string, invalidate : bool = true, comment : string = "")
+	+ PitItem(id : string, extendWith : object, comment : string = "")
+	+ PitItem(id : string, extendWithAsJson : string, comment : string = "")
+	+ PitItem(id : string, invalidate : bool, timestamp : DateTimeOffset, comment : string = "")
+	+ PitItem(other : PitItem, timestamp : DateTimeOffset? = null)
+	+ PitItem(from : JObject)
+	+ PitItem()
+	--
+	+ SetProperty(objectAsJsonString : string) : bool
+	+ SetProperty(obj : object) : void
+	+ DeleteProperty(propertyName : string) : void
+	+ Delete(by : string = null, backDate100 : bool = true) : bool
+	+ Extend(json : string) : bool
+	+ ExtendWith(obj : JObject) : bool
+	+ ExtendWith(arr : JArray) : bool
+	+ Valid() : bool
+	+ Validate() : void
+	+ Invalidate() : void
+}
+
+class "PitItemExtensions Ⓢ" as PitItemExtensions << (C,#14b8a6) >> {
+	+{static} Equals(x : PitItem, y : PitItem) : bool
+	+{static} isLike(x : PitItem, y : PitItem) : bool
+	+{static} aligned(x : PitItem, y : PitItem) : bool
+}
+
+class PitItems << (C,#14b8a6) >> {
+	+ History : ImmutableList<PitItem>
+	+ Items : ImmutableList<PitItem>
+	+ MaxCount : int
+	+ Count : int
+	--
+	+ PitItems(key : string, history : ImmutableList<PitItem>, maxCount : int = 5)
+	+ PitItems(key : string = null, value : IEnumerable<PitItem> = null, maxCount : int = 5)
+	--
+	+ Push(item : PitItem) : PitItems
+	+ Peek(timestamp : DateTimeOffset? = null) : PitItem
+	+ Get(timestamp : DateTimeOffset? = null) : JObject
+}
+
+class Pit << (C,#14b8a6) >> {
+	+ HistoricItems : ConcurrentDictionary<string, PitItems>
+	+ Keys : ICollection<string>
+	+ Subscriber : string
+	+ PitItem : PitItem
+	+ ItemProperty : dynamic
+	--
+	+ Pit(pitDirectory : string,\n  values : IEnumerable<PitItems> = null,\n  subscriber : string = null,\n  orderBy : Func<PitItem, string> = null,\n  descending : bool = false,\n  readOnly : bool = true,\n  backup : bool = false,\n  undercover : bool = false,\n  unflagged : bool = false,\n  autoload : bool = true,\n  ignoreCase : bool = false,\n  version : string = "")
+	+ Pit(values : JArray,\n  pitDirectory : string,\n  subscriber : string = null,\n  orderBy : Func<PitItem, string> = null,\n  descending : bool = false,\n  readOnly : bool = true,\n  backup : bool = false,\n  undercover : bool = false,\n  unflagged : bool = false,\n  autoload : bool = true,\n  ignoreCase : bool = false,\n  version : string = "")
+	--
+	+ ContainsKey(key : string) : bool
+	+ Contains(itemId : string, withDeleted : bool = false) : bool
+	+ Add(item : PitItem) : bool
+	+ Delete(itemId : string, by : string = null, backDate : bool = true) : bool
+	+ Get(key : string, withDeleted : bool = false) : JObject
+	+ GetAt(key : string, timestamp : DateTimeOffset, withDeleted : bool = false) : PitItem
+	+ AllUndeleted() : IEnumerable<JObject>
+	+ AllUndeletedDynamic() : IEnumerable<dynamic>
+	+ ValuesOverTime(oName : string, pName : string) : IEnumerable<KeyValuePair<DateTimeOffset, JToken>>
+	+ Load(undercover : bool = false) : void
+	+ Save(backup : bool? = null, force : bool = false) : void
+	+ MergeChanges() : void
+	+ Reload() : bool
+}
+
+abstract class "Item Ⓐ" as Item << (C,#14b8a6) >> {
+	+ Id : string
+	+ Modified : DateTimeOffset
+	+ Deleted : bool
+	+ Note : string
+	--
+	+ Item(id : string, comment : string, invalidate : bool = true)
+	+ Item(from : Item)
+	+ Item()
+	--
+	+ Changed() : DateTimeOffset
+	+ Delete(by : string = null, backDate100 : bool = true) : bool
+	+ Valid() : bool
+	+ Validate() : void
+	+ Invalidate() : void
+	+ ToString() : string
+	+ Matches(x : Item) : bool
+}
+
+class "JObject" as JObject << (E,#f59e0b) >>
+class "JArray" as JArray << (E,#f59e0b) >>
+class "TextFile" as TextFile << (E,#f59e0b) >>
+class "CanonicalFile" as CanonicalFile << (E,#f59e0b) >>
+
+ItemsBase <|-- PitItems
+JsonPitBase <|-- Pit
+TextFile <|-- MasterFlagFile
+MasterFlagFile <|-- ProcessFlagFile
+CanonicalFile <|-- PitFile
+JObject <|-- PitItem
+
+JsonPitBase --> PitFile : owns
+JsonPitBase --> ProcessFlagFile : uses
+JsonPitBase --> MasterFlagFile : uses
+PitItems --> PitItem : history
+Pit --> PitItems : stores
+Pit --> PitItem : adds / retrieves
+PitItemExtensions ..> PitItem : compares
+PitItem ..> JArray : extends from
+
+note right of Pit
+	Recommended usage:
+	keep one long-lived Pit instance
+	in memory per feature/service,
+	and use Save() as the explicit
+	persistence and sync boundary.
+end note
+
+note bottom of JsonPitBase
+	JsonPit's server-side model is best described as
+	asynchronous persistence with eventual durability.
+end note
+
+@enduml
