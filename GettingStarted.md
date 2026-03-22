@@ -1,10 +1,10 @@
-# Getting Started with JsonPit 3.5.0
+# Getting Started with JsonPit 3.5.2
 
 This guide is written for practical implementation work, especially when you want to use JsonPit from NuGet packages in another service such as OTW / AfricaStage.
 
-It is based on the current JsonPit 3.5.0 code and tests in this repository.
+It is based on the current JsonPit 3.5.2 code and tests in this repository.
 
-## 3.5.0 key decisions
+## 3.5.2 key decisions
 
 - The supported cloud-backed provider claim for the package stack is `OneDrive`, `GoogleDrive`, and `Dropbox`.
 - `PitItem.Id` is now the canonical framework identifier.
@@ -42,18 +42,18 @@ It is not trying to replace a transactional database.
 
 ## Package Setup
 
-Use the NuGet package ids at version `3.5.0`:
+Use the NuGet package ids at version `3.5.2`:
 
 - `JsonPit`
-- `RaiUtilsCore`
+- `RaiUtils`
 - `OsLibCore`
 
 Typical install commands:
 
 ```bash
-dotnet add package JsonPit --version 3.5.0
-dotnet add package RaiUtilsCore --version 3.5.0
-dotnet add package OsLibCore --version 3.5.0
+dotnet add package JsonPit --version 3.5.2
+dotnet add package RaiUtils --version 3.5.2
+dotnet add package OsLibCore --version 3.5.2
 ```
 
 Typical namespaces in code:
@@ -69,12 +69,12 @@ Important naming detail:
 
 - NuGet package id: `OsLibCore`
 - C# namespace: `OsLib`
-- NuGet package id: `RaiUtilsCore`
+- NuGet package id: `RaiUtils`
 - C# namespace: `RaiUtils`
 
 ## Storage Root and OsLib Configuration
 
-JsonPit commonly uses OsLib for path selection, especially `Os.CloudStorageRoot`.
+JsonPit commonly uses OsLib for path selection, especially `Os.CloudStorageRootDir`.
 
 For shared synchronized storage, configure OsLib explicitly rather than hard-coding machine-specific special cases.
 
@@ -82,7 +82,7 @@ Current OsLib default config location:
 
 - `~/.config/RAIkeep/osconfig.json`
 
-JsonPit 3.5.0 should be documented against that fixed RAIkeep config path.
+JsonPit 3.5.2 should be documented against that fixed RAIkeep config path.
 
 Typical cloud-root config example:
 
@@ -94,7 +94,7 @@ Typical cloud-root config example:
 }
 ```
 
-If your service is meant to work against a shared synchronized folder, prefer deriving the pit root from `Os.CloudStorageRoot` or another explicit configured root.
+If your service is meant to work against a shared synchronized folder, prefer deriving the pit root from `Os.CloudStorageRootDir` or another explicit configured root.
 
 ## Basic End-to-End Example
 
@@ -107,7 +107,7 @@ using JsonPit;
 using OsLib;
 using RaiUtils;
 
-var pitRoot = new RaiPath(Os.CloudStorageRoot) / "AfricaStage" / "OTW" / "person";
+var pitRoot = Os.CloudStorageRootDir / "AfricaStage" / "OTW" / "person";
 pitRoot.mkdir();
 
 var people = new Pit(
@@ -420,7 +420,7 @@ JsonPit depends on RaiUtils internally and you may use it alongside JsonPit for 
 `RaiPath` is the most practical helper when composing stable pit roots:
 
 ```csharp
-var root = new RaiPath(Os.CloudStorageRoot) / "AfricaStage" / "OTW" / "person";
+var root = Os.CloudStorageRootDir / "AfricaStage" / "OTW" / "person";
 root.mkdir();
 
 var people = new Pit(root.Path, readOnly: false, autoload: true, backup: false);
@@ -499,7 +499,7 @@ using JsonPit;
 using OsLib;
 using RaiUtils;
 
-var personPitRoot = new RaiPath(Os.CloudStorageRoot) / "AfricaStage" / "OTW" / "person";
+var personPitRoot = Os.CloudStorageRootDir / "AfricaStage" / "OTW" / "person";
 personPitRoot.mkdir();
 
 var personPit = new Pit(
