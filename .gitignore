@@ -28,3 +28,8 @@ bld/
 msbuild.log
 msbuild.err
 msbuild.wrn
+
+# Local package build outputs
+artifacts/
+*.nupkg
+*.snupkg
