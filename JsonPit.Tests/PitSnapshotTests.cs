@@ -12,7 +12,7 @@ namespace JsonPit.Tests
 	{
 		private static RaiPath NewTestRoot([CallerMemberName] string testName = "")
 		{
-			var root = new RaiPath(Os.TempDir) / "RAIkeep" / "jsonpit-tests" / "snapshot" / SanitizeSegment(testName);
+			var root = Os.TempDir / "RAIkeep" / "jsonpit-tests" / "snapshot" / SanitizeSegment(testName);
 			Cleanup(root);
 			return root;
 		}
@@ -101,6 +101,36 @@ namespace JsonPit.Tests
 				Assert.Single(pit.Keys);
 				Assert.Equal("Max", pit["Max"]?["Id"]?.Value<string>());
 				Assert.Null(pit["Max"]?["Name"]);
+			}
+			finally
+			{
+				Cleanup(root);
+			}
+		}
+
+		[Fact]
+		public void Constructor_WithFlatFragments_PreservesRawHistory_AndProjectsMergedState()
+		{
+			var root = NewTestRoot();
+			root.mkdir();
+
+			try
+			{
+				var snapshot = JArray.FromObject(new object[]
+				{
+					new { Id = "Rainer", Email = "rainer@africastage.com" },
+					new { Id = "Rainer", Instagram = "Dr2RAI" },
+					new { Id = "Rainer", Phone = "+27-82-000-0000" }
+				});
+
+				var pit = new Pit(snapshot, root.Path, readOnly: false, autoload: false, backup: false);
+				var history = pit.HistoricItems["Rainer"];
+
+				Assert.Equal(3, history.Count);
+				Assert.Null(history.History.Last()["Email"]);
+				Assert.Equal("rainer@africastage.com", pit["Rainer"]?["Email"]?.Value<string>());
+				Assert.Equal("Dr2RAI", pit["Rainer"]?["Instagram"]?.Value<string>());
+				Assert.Equal("+27-82-000-0000", pit["Rainer"]?["Phone"]?.Value<string>());
 			}
 			finally
 			{

@@ -4,7 +4,7 @@
 
 ## Start Here
 
-If you want to use JsonPit 3.4.0 from NuGet in another service or agent workflow, start with [GettingStarted.md](GettingStarted.md).
+If you want to use JsonPit 3.5.0 from NuGet in another service or agent workflow, start with [GettingStarted.md](GettingStarted.md).
 
 That guide now covers:
 
@@ -15,10 +15,13 @@ That guide now covers:
 - persistence and synchronized-storage expectations
 - a practical `PersonPit` example for OTW / AfricaStage style backend work
 
-## 3.4.0
+## 3.5.0
 
-- Keeps JsonPit aligned with the shared 3.4.0 package set used together with `OsLibCore` and `RaiUtilsCore`.
-- Adds stronger onboarding documentation for implementation agents using JsonPit from NuGet packages.
+- Keeps JsonPit aligned with the shared 3.5.0 package set used together with `OsLibCore` and `RaiUtilsCore`.
+- The supported cloud-backed provider claim is now `OneDrive`, `GoogleDrive`, and `Dropbox`.
+- `PitItem.Id` is now the canonical framework identifier.
+- Legacy payloads that still contain `Name` without `Id` are normalized internally to `Id`, and the framework-managed `Name` field is dropped.
+- Future use of `Name` as an application-defined custom field remains supported.
 
 ## namespace
 
@@ -87,9 +90,9 @@ JsonPit resolves cloud-backed storage locations through OsLib, most commonly via
 For Ubuntu development machines, especially when Google Drive is mounted through `rclone`, GNOME integration, or a team-specific mount path, prefer explicit configuration instead of probe-only discovery.
 
 Recommended shared contract:
-- Use `osconfig.json` to point `cloud.googledrive` at the active Google Drive mount.
+- Use `osconfig.json` to point the supported provider roots `cloud.dropbox`, `cloud.onedrive`, and `cloud.googledrive` at the active synchronized mounts.
 - Keep that file at `~/.config/RAIkeep/osconfig.json`.
-- Reuse the same `cloud` keys as OsLib: `dropbox`, `onedrive`, `googledrive`, `icloud`.
+- Reuse the same `cloud` keys as OsLib: `dropbox`, `onedrive`, `googledrive`.
 
 That keeps JsonPit aligned with OsLib in .NET today and with the upcoming Python `OsLib`, `RaiUtils`, and `JsonPit` packages later.
 
@@ -105,4 +108,4 @@ That keeps JsonPit aligned with OsLib in .NET today and with the upcoming Python
 
 ## release notes
 
-- Latest release notes: [RELEASE_NOTES_3.4.0.md](RELEASE_NOTES_3.4.0.md)
+- Latest release notes: [RELEASE_NOTES_3.5.0.md](RELEASE_NOTES_3.5.0.md)

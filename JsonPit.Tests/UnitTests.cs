@@ -343,6 +343,91 @@ namespace JsonPit.Tests
 				Cleanup(pitPath);
 			}
 		}
+
+		[Fact]
+		public void GetAt_ProjectsState_ByReverseShadowing()
+		{
+			var pitPath = CreatePitPath();
+			var symbol = "TSHADOW";
+			try
+			{
+				var pit = new Pit(pitPath, readOnly: false, unflagged: true, autoload: false);
+				var baseTs = DateTimeOffset.UtcNow;
+
+				var item1 = new PitItem(symbol, invalidate: false, timestamp: baseTs.AddMinutes(-3));
+				item1["Email"] = "before@example.org";
+				item1["Country"] = "ZA";
+				pit.Add(item1);
+
+				var item2 = new PitItem(symbol, invalidate: false, timestamp: baseTs.AddMinutes(-2));
+				item2["Phone"] = "+27-82-000-0000";
+				pit.Add(item2);
+
+				var item3 = new PitItem(symbol, invalidate: false, timestamp: baseTs.AddMinutes(-1));
+				item3["Email"] = "after@example.org";
+				pit.Add(item3);
+
+				var projected = pit[symbol];
+
+				Assert.NotNull(projected);
+				Assert.Equal(symbol, projected!.Id);
+				Assert.Equal(baseTs.AddMinutes(-1), projected.Modified);
+				Assert.Equal("after@example.org", projected["Email"]!.Value<string>());
+				Assert.Equal("ZA", projected["Country"]!.Value<string>());
+				Assert.Equal("+27-82-000-0000", projected["Phone"]!.Value<string>());
+				Assert.Null(pit.HistoricItems[symbol].History.Last()["Country"]);
+			}
+			finally
+			{
+				Cleanup(pitPath);
+			}
+		}
+
+		[Fact]
+		public void GetAt_StopsAtDeletionWall_WhenProjectingOlderFragments()
+		{
+			var pitPath = CreatePitPath();
+			var symbol = "TDELETIONWALL";
+			try
+			{
+				var pit = new Pit(pitPath, readOnly: false, unflagged: true, autoload: false);
+				var baseTs = DateTimeOffset.UtcNow;
+
+				var original = new PitItem(symbol, invalidate: false, timestamp: baseTs.AddMinutes(-3));
+				original["Email"] = "before@example.org";
+				original["Country"] = "ZA";
+				pit.Add(original);
+
+				var tombstone = new PitItem(symbol, invalidate: false, timestamp: baseTs.AddMinutes(-2));
+				tombstone.Deleted = true;
+				pit.Add(tombstone);
+
+				var resurrected = new PitItem(symbol, invalidate: false, timestamp: baseTs.AddMinutes(-1));
+				resurrected["Email"] = "after@example.org";
+				pit.Add(resurrected);
+
+				var projected = pit.GetAt(symbol, resurrected.Modified.AddTicks(1));
+				Assert.NotNull(projected);
+				Assert.Equal("after@example.org", projected!["Email"]!.Value<string>());
+				Assert.Null(projected["Country"]);
+
+				var deletedAtWall = pit.GetAt(symbol, tombstone.Modified);
+				Assert.Null(deletedAtWall);
+
+				var visibleDeleted = pit.GetAt(symbol, tombstone.Modified, withDeleted: true);
+				Assert.NotNull(visibleDeleted);
+				Assert.True(visibleDeleted!.Deleted);
+				Assert.Equal(symbol, visibleDeleted.Id);
+				Assert.Equal(tombstone.Modified, visibleDeleted.Modified);
+				Assert.Null(visibleDeleted["Email"]);
+				Assert.Null(visibleDeleted["Country"]);
+				Assert.Null(visibleDeleted["Note"]);
+			}
+			finally
+			{
+				Cleanup(pitPath);
+			}
+		}
 	}
 
 	#region AdditionalTests from conversation with GPT5.2 Thinking

@@ -11,7 +11,7 @@ namespace JsonPit.Tests
 	{
 		private static RaiPath NewTestRoot([CallerMemberName] string testName = "")
 		{
-			var root = new RaiPath(Os.TempDir) / "RAIkeep" / "jsonpit-tests" / "pitfile" / SanitizeSegment(testName);
+			var root = Os.TempDir / "RAIkeep" / "jsonpit-tests" / "pitfile" / SanitizeSegment(testName);
 			Cleanup(root);
 			return root;
 		}

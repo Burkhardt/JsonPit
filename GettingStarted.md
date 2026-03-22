@@ -1,17 +1,24 @@
-# Getting Started with JsonPit 3.4.0
+# Getting Started with JsonPit 3.5.0
 
 This guide is written for practical implementation work, especially when you want to use JsonPit from NuGet packages in another service such as OTW / AfricaStage.
 
-It is based on the current JsonPit 3.4.0 code and tests in this repository.
+It is based on the current JsonPit 3.5.0 code and tests in this repository.
+
+## 3.5.0 key decisions
+
+- The supported cloud-backed provider claim for the package stack is `OneDrive`, `GoogleDrive`, and `Dropbox`.
+- `PitItem.Id` is now the canonical framework identifier.
+- Legacy persisted payloads that still contain `Name` without `Id` are normalized internally to `Id`, and the framework-managed `Name` field is dropped during normalization.
+- Future use of `Name` as an application-defined custom field remains supported outside the framework identifier contract.
 
 ## Purpose and Mental Model
 
-JsonPit is a file-based, JSON-backed storage library for named items that need to be shared, synchronized, and reloaded across machines or processes without introducing a database server.
+JsonPit is a file-based, JSON-backed storage library for `Id`-identified items that need to be shared, synchronized, and reloaded across machines or processes without introducing a database server.
 
 The core concepts are:
 
 - `Pit`: a named container stored on disk
-- `PitItem`: one named JSON object inside the pit
+- `PitItem`: one `Id`-identified JSON object inside the pit
 - `PitItems`: the history of versions for one item key
 
 JsonPit is not a relational table abstraction.
@@ -35,7 +42,7 @@ It is not trying to replace a transactional database.
 
 ## Package Setup
 
-Use the NuGet package ids at version `3.4.0`:
+Use the NuGet package ids at version `3.5.0`:
 
 - `JsonPit`
 - `RaiUtilsCore`
@@ -44,9 +51,9 @@ Use the NuGet package ids at version `3.4.0`:
 Typical install commands:
 
 ```bash
-dotnet add package JsonPit --version 3.4.0
-dotnet add package RaiUtilsCore --version 3.4.0
-dotnet add package OsLibCore --version 3.4.0
+dotnet add package JsonPit --version 3.5.0
+dotnet add package RaiUtilsCore --version 3.5.0
+dotnet add package OsLibCore --version 3.5.0
 ```
 
 Typical namespaces in code:
@@ -75,7 +82,7 @@ Current OsLib default config location:
 
 - `~/.config/RAIkeep/osconfig.json`
 
-JsonPit 3.4.0 should be documented against that fixed RAIkeep config path.
+JsonPit 3.5.0 should be documented against that fixed RAIkeep config path.
 
 Typical cloud-root config example:
 
@@ -384,7 +391,6 @@ In other words, JsonPit is designed to live comfortably inside shared folders su
 - Google Drive
 - Dropbox
 - OneDrive
-- iCloud
 - another synchronized directory chosen explicitly by your service
 
 For typical application usage, think in terms of:
@@ -401,8 +407,8 @@ These packages are often used together.
 
 Use OsLib for:
 
-- configured cloud roots via `Os.CloudStorageRoot`
-- path helpers like `Os.TempDir`, `Os.HomeDir`, `Os.LocalBackupDir`
+- configured cloud roots via `Os.CloudStorageRootDir`
+- path helpers like `Os.UserHomeDir`, `Os.AppRootDir`, `Os.TempDir`, `Os.LocalBackupDir`
 - file and directory abstractions such as `RaiFile`
 
 ### RaiUtils

@@ -57,7 +57,7 @@ namespace JsonPit
 			get
 			{
 				if (configDirDefault == null)
-					configDirDefault = new RaiPath($"{Os.CloudStorageRoot}Config").Path;
+					configDirDefault = (Os.CloudStorageRootDir / "Config").Path;
 				return configDirDefault;
 			}
 			set
@@ -543,7 +543,8 @@ namespace JsonPit
 			}
 			Id = (string)(this[nameof(Id)] ?? this["Name"]);
 			Remove("Name");
-			Note = (string)this[nameof(Note)];
+			if (Property(nameof(Note)) != null)
+				Note = (string)this[nameof(Note)];
 		}
 		public PitItem()
 		{
@@ -605,13 +606,8 @@ namespace JsonPit
 
 		public PitItems Push(PitItem item)
 		{
-			var newHistory = History.Add(item);
-
-			// Keep order by Modified (ascending) so Peek() returns newest.
-			if (newHistory.Count > 1 && newHistory[^2].Modified > item.Modified)
-			{
-				newHistory = newHistory.Sort((a, b) => a.Modified.CompareTo(b.Modified));
-			}
+			var newHistory = History.Add(item)
+				.Sort((a, b) => a.Modified.CompareTo(b.Modified));
 
 			// MaxCount trimming
 			if (MaxCount > 0 && newHistory.Count > MaxCount)
@@ -622,25 +618,79 @@ namespace JsonPit
 			return new PitItems(Key, newHistory, MaxCount);
 		}
 
-		public PitItem Peek(DateTimeOffset? timestamp = null)
+		internal PitItem LatestFragment()
 		{
-			if (History.IsEmpty) 
+			return History.IsEmpty ? null : History[^1];
+		}
+
+		private int FindProjectionStartIndex(DateTimeOffset? at)
+		{
+			if (History.IsEmpty)
+				return -1;
+
+			if (at == null)
+				return History.Count - 1;
+
+			for (int index = History.Count - 1; index >= 0; index--)
+			{
+				if (History[index].Modified <= at.Value)
+					return index;
+			}
+
+			return -1;
+		}
+
+		public PitItem ProjectState(DateTimeOffset? at = null, bool withDeleted = false)
+		{
+			var startIndex = FindProjectionStartIndex(at);
+			if (startIndex < 0)
 				return null;
 
-			if (timestamp == null) 
-				return History.Last();
-
-			for (int i = History.Count - 1; i >= 0; i--)
+			var newestFragment = History[startIndex];
+			if (newestFragment.Deleted)
 			{
-				if (timestamp > History[i].Modified)
-					return History[i];
+				if (!withDeleted)
+					return null;
+
+				var deletedProjection = new JObject
+				{
+					[nameof(PitItem.Id)] = newestFragment.Id,
+					[nameof(PitItem.Modified)] = newestFragment.Modified,
+					[nameof(PitItem.Deleted)] = true
+				};
+
+				return new PitItem(deletedProjection);
 			}
-			return null;
+
+			var accumulator = new JObject();
+			for (int index = startIndex; index >= 0; index--)
+			{
+				var fragment = History[index];
+				if (fragment.Deleted)
+					break;
+
+				foreach (var property in fragment.Properties())
+				{
+					if (accumulator.Property(property.Name) == null)
+						accumulator.Add(property.Name, property.Value.DeepClone());
+				}
+			}
+
+			accumulator[nameof(PitItem.Id)] = newestFragment.Id;
+			accumulator[nameof(PitItem.Modified)] = newestFragment.Modified;
+			accumulator[nameof(PitItem.Deleted)] = false;
+
+			return new PitItem(accumulator);
+		}
+
+		public PitItem Peek(DateTimeOffset? timestamp = null)
+		{
+			return ProjectState(timestamp);
 		}
 
 		public JObject Get(DateTimeOffset? timestamp = null)
 		{
-			return Peek(timestamp);
+			return ProjectState(timestamp);
 		}
 
 		public int Count => History.Count;
@@ -729,19 +779,25 @@ namespace JsonPit
 				return isThere;
 			if (!isThere)
 				return false;
-			var top = HistoricItems[itemId].Peek();
+			var top = HistoricItems[itemId].ProjectState();
 			return top != null && !top.Deleted;
 		}
 
 		public bool Invalid()
 		{
-			var query = from kvp in HistoricItems where !kvp.Value.Peek().Valid() select kvp.Value.Peek().Id;
+			var query = from kvp in HistoricItems
+						let latest = kvp.Value.LatestFragment()
+						where latest != null && !latest.Valid()
+						select latest.Id;
 			return query.Count() > 0;
 		}
 
 		public DateTimeOffset GetLastestItemChanged()
 		{
-			var list = (from kvp in HistoricItems select kvp.Value.Peek().Modified);
+			var list = (from kvp in HistoricItems
+						let latest = kvp.Value.LatestFragment()
+						where latest != null
+						select latest.Modified);
 			list = list.OrderByDescending(x => x);
 			return list.Count() > 0 ? list.Last() : DateTimeOffset.MinValue;
 		}
@@ -752,8 +808,8 @@ namespace JsonPit
 			{
 				if (!HistoricItems.TryGetValue(key, out var list))
 					return default(PitItem);
-					
-				var top = list.Peek();
+
+				var top = list.ProjectState();
 				if (top == null || top.Deleted)
 					return default(PitItem);
 				return top;
@@ -770,10 +826,7 @@ namespace JsonPit
 			set
 			{
 				var payload = NormalizeIdentityPayload((object)value);
-				var itemId = GetIdentifier(payload);
-				var pitItem = this[itemId] ?? new PitItem(itemId);
-				if (pitItem.ExtendWith(payload))
-					Add(pitItem);
+				Add(new PitItem(payload));
 			}
 		}
 
@@ -786,7 +839,7 @@ namespace JsonPit
 			{
 				var currentStore = HistoricItems.GetOrAdd(item.Id, key => PitItems.Create(key, DefaultMaxCount));
 
-				var top = currentStore.Peek();
+				var top = currentStore.LatestFragment();
 				if (top != null && EqualsIgnoringModified(top, item))
 					return false;
 
@@ -836,15 +889,9 @@ namespace JsonPit
 				return true;
 			try
 			{
-				if (!HistoricItems.TryGetValue(itemId, out var list))
-					return true;
-					
-				var item = list.Peek();
-				
-				if (item == null)
-					return true;
-				if (item.Delete(by, backDate))
-					PitItem = item; // Handles atomic updates via Add
+				var tombstone = new PitItem(itemId);
+				if (tombstone.Delete(by, backDate))
+					PitItem = tombstone; // Handles atomic updates via Add
 			}
 			catch (KeyNotFoundException) { }
 			catch (Exception)
@@ -859,7 +906,7 @@ namespace JsonPit
 			if (!HistoricItems.TryGetValue(key, out var list))
 				return default(PitItem);
 			if (withDeleted)
-				return list.Peek();
+				return list.ProjectState(withDeleted: true);
 			return (JObject)this[key];
 		}
 
@@ -867,11 +914,8 @@ namespace JsonPit
 		{
 			if (!HistoricItems.TryGetValue(key, out var list))
 				return default(PitItem);
-				
-			var item = list.Peek(timestamp);
-			if (!withDeleted && item != null && item.Deleted)
-				return default(PitItem);
-			return item;
+
+			return list.ProjectState(timestamp, withDeleted);
 		}
 
 		public IEnumerable<KeyValuePair<DateTimeOffset, JToken>> ValuesOverTime(string oName, string pName)
@@ -950,7 +994,8 @@ namespace JsonPit
 			var hasData = false;
 			try
 			{
-				var jsonArrayOfArrayOfObject = File.ReadAllText(JsonFile.FullName);
+				var textFile = new TextFile(JsonFile.FullName);
+				var jsonArrayOfArrayOfObject = string.Join(Environment.NewLine, textFile.Read());
 				bool emptyFile = string.IsNullOrEmpty(jsonArrayOfArrayOfObject) || jsonArrayOfArrayOfObject.Length < 2;
 				for (int i = 0, square = 0; i < jsonArrayOfArrayOfObject.Length && i < 100 && square < 2; i++)
 				{
@@ -998,20 +1043,15 @@ namespace JsonPit
 				if (tmpFile.Exists())
 					tmpFile.rm();
 
-				using (FileStream fs = File.Open(tmpFile.FullName, FileMode.CreateNew))
-				using (StreamWriter sw = new StreamWriter(fs))
-				using (JsonTextWriter jw = new JsonTextWriter(sw))
+				var serializer = new JsonSerializer
 				{
-					jw.Formatting = pretty ? Formatting.Indented : Formatting.None;
-					jw.IndentChar = indentChar;
-					jw.Indentation = 1;
-
-					var serializer = new JsonSerializer
-					{
-						DateFormatHandling = DateFormatHandling.IsoDateFormat
-					};
-					serializer.Serialize(jw, this);
-				}
+					DateFormatHandling = DateFormatHandling.IsoDateFormat
+				};
+				var rawJson = JToken.FromObject(GetRawPersistenceModel(), serializer)
+					.ToString(pretty ? Formatting.Indented : Formatting.None);
+				var stagedText = new TextFile(tmpFile.FullName);
+				stagedText.Append(rawJson);
+				stagedText.Save();
 
 				JsonFile.mv(tmpFile, true, true);
 
@@ -1025,8 +1065,19 @@ namespace JsonPit
 				}
 
 				foreach (var kvp in HistoricItems)
-					kvp.Value.Peek().Validate();
+				{
+					var latest = kvp.Value.LatestFragment();
+					latest?.Validate();
+				}
 			}
+		}
+
+		private IReadOnlyList<IReadOnlyList<PitItem>> GetRawPersistenceModel()
+		{
+			return HistoricItems
+				.OrderBy(kvp => kvp.Key, Comparer)
+				.Select(kvp => (IReadOnlyList<PitItem>)kvp.Value.History)
+				.ToList();
 		}
 
 		public void Save(bool? backup = null, bool force = false)
@@ -1055,7 +1106,7 @@ namespace JsonPit
 			{
 				if (!HistoricItems.TryGetValue(itemId, out var list))
 					continue;
-				var latest = list.Peek();
+				var latest = list.LatestFragment();
 				if (latest == null)
 					continue;
 				if (!compareFile.ContainsKey(itemId))
@@ -1065,7 +1116,7 @@ namespace JsonPit
 				}
 				if (compareFile.HistoricItems.TryGetValue(itemId, out var compareList))
 				{
-					var compareLatest = compareList.Peek();
+					var compareLatest = compareList.LatestFragment();
 					if (compareLatest != null && latest.Modified > compareLatest.Modified)
 						CreateChangeFile(latest);
 				}
@@ -1178,12 +1229,13 @@ namespace JsonPit
 				switch (token)
 				{
 					case JObject obj:
-						var newItem = new PitItem(obj);
-						var newStack = PitItems.Create(newItem.Id, DefaultMaxCount).Push(newItem);
-						HistoricItems.TryAdd(newItem.Id, newStack);
+						Add(new PitItem(obj));
 						break;
 
 					case JArray inner when inner.HasValues:
+						if (inner.Any(element => element is not JObject))
+							throw new FormatException("JSON file format is not compatible with JsonPit: history arrays must contain only objects");
+
 						var q = from o in inner.OfType<JObject>() select new PitItem(o);
 						if (!q.Any())
 							break;

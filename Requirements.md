@@ -1,5 +1,12 @@
 ## Requirements for JsonPit
 
+## 3.5.0 release decisions
+
+- The supported cloud-backed provider claim for the packaged stack is `OneDrive`, `GoogleDrive`, and `Dropbox`.
+- `PitItem.Id` is the canonical framework identifier.
+- Legacy files that still contain `Name` without `Id` are normalized internally to `Id`, and the framework-managed `Name` field is dropped.
+- `Name` remains available as an application-defined custom field outside the framework identifier contract.
+
 ### Basic Ideas
 - Store all information in the file system.
 - Structure data (text and numbers) in JSON files.
@@ -36,7 +43,8 @@
 - Media files and documents: `[name]/[name]_[serverName]_[systemTimeInSeconds].[extension]` with extensions being one of `[webp|png|jpeg|ogg|mov|xls|xlsm|docx|pdf]`.
 
 ### Values
-- Each element has a name and a timestamp.
+- Each element has an `Id` and a timestamp.
+- Legacy persisted elements that only have `Name` must be converted internally to `Id` when loaded.
 - Values can be any JSON object.
 - Values stored in a history list, ordered by date, youngest first.
 - History length limited to prevent file size explosion.
