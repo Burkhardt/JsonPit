@@ -19,7 +19,10 @@ namespace JsonPit
 		/// PitFile constructor
 		/// </summary>
 		/// <param name="fullName">Full path of a JsonPit, e.g., ~/Nations/ if the canonical Pit file is ~/Nations/Nations.pit</param>
-		public PitFile(string fullName) : base(fullName, defaultExt: "pit")
+		public PitFile(string fullName) : this(new RaiPath(fullName), new RaiFile(fullName).Name)
+		{
+		}
+		public PitFile(RaiPath path, string name) : base(path, name, ext: "pit")
 		{
 		}
 
