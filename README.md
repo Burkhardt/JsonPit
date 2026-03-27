@@ -4,7 +4,7 @@
 
 ## Start Here
 
-If you want to use JsonPit 3.5.2 from NuGet in another service or agent workflow, start with [GettingStarted.md](GettingStarted.md).
+If you want to use JsonPit 3.6.0 from NuGet in another service or agent workflow, start with [GettingStarted.md](GettingStarted.md).
 
 That guide now covers:
 
@@ -15,9 +15,9 @@ That guide now covers:
 - persistence and synchronized-storage expectations
 - a practical `PersonPit` example for OTW / AfricaStage style backend work
 
-## 3.5.2
+## 3.6.0
 
-- Keeps JsonPit aligned with the shared 3.5.2 package set used together with `OsLibCore` and `RaiUtils`.
+- Keeps JsonPit aligned with the shared 3.6.0 package set used together with `OsLibCore` and `RaiUtils`.
 - The supported cloud-backed provider claim is now `OneDrive`, `GoogleDrive`, and `Dropbox`.
 - `PitItem.Id` is now the canonical framework identifier.
 - Legacy payloads that still contain `Name` without `Id` are normalized internally to `Id`, and the framework-managed `Name` field is dropped.

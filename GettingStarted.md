@@ -1,10 +1,10 @@
-# Getting Started with JsonPit 3.5.2
+# Getting Started with JsonPit 3.6.0
 
 This guide is written for practical implementation work, especially when you want to use JsonPit from NuGet packages in another service such as OTW / AfricaStage.
 
-It is based on the current JsonPit 3.5.2 code and tests in this repository.
+It is based on the current JsonPit 3.6.0 code and tests in this repository.
 
-## 3.5.2 key decisions
+## 3.6.0 key decisions
 
 - The supported cloud-backed provider claim for the package stack is `OneDrive`, `GoogleDrive`, and `Dropbox`.
 - `PitItem.Id` is now the canonical framework identifier.
@@ -42,7 +42,7 @@ It is not trying to replace a transactional database.
 
 ## Package Setup
 
-Use the NuGet package ids at version `3.5.2`:
+Use the NuGet package ids at version `3.6.0`:
 
 - `JsonPit`
 - `RaiUtils`
@@ -51,9 +51,9 @@ Use the NuGet package ids at version `3.5.2`:
 Typical install commands:
 
 ```bash
-dotnet add package JsonPit --version 3.5.2
-dotnet add package RaiUtils --version 3.5.2
-dotnet add package OsLibCore --version 3.5.2
+dotnet add package JsonPit --version 3.6.0
+dotnet add package RaiUtils --version 3.6.0
+dotnet add package OsLibCore --version 3.6.0
 ```
 
 Typical namespaces in code:
@@ -82,7 +82,7 @@ Current OsLib default config location:
 
 - `~/.config/RAIkeep/osconfig.json`
 
-JsonPit 3.5.2 should be documented against that fixed RAIkeep config path.
+JsonPit 3.6.0 should be documented against that fixed RAIkeep config path.
 
 Typical cloud-root config example:
 
