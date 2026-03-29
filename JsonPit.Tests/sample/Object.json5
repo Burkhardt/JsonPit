@@ -1,0 +1,273 @@
+[
+	{
+		Id: "Ticket_SDSU26",
+		Price: "$10.00 – $15.00",
+		PurchaseLink: "https://sdsupsfa.universitytickets.com/w/event.aspx?Id=3259"
+	},
+	{
+		Id: "Ticket_Winstons26",
+		Price: "$10"
+	},
+	{
+		Id: "SDZSP26Img",
+		Images: [
+			{
+				Src: "/img/400/NomsaSDZSafariParkExtravaganza.webp",
+				Alt: "Nomsa performs at SDZ Safari Park"
+			}
+		]
+	},
+	{
+		Id: "BirthOfBrilliance26Img",
+		Images: [
+			{
+				Src: "/img/300/NomsaOB-0222-043.webp",
+				Alt: "Birth of Brilliance 2026 placeholder image 1"
+			}
+		]
+	},
+	{
+		Id: "SDSU26Img",
+		Images: [
+			{
+				Src: "~/img/NomsaOGscholo.webp",
+				Alt: "Sounds of South Africa Poster"
+			}
+		]
+	},
+	{
+		Id: "Winstons26Img",
+		Images: [
+			{
+				Src: "/img/300/AfricanNight.webp",
+				Alt: "African Night: Les Afriks & Nomsa at Winston's"
+			}
+		]
+	},
+	{
+		Id: "MissingMiddleImg",
+		Images: [
+			{
+				Src: "~/img/TheMissingMiddlePoster_250x.jpg",
+				Alt: "The Missing Middle short film poster"
+			}
+		]
+	},
+	{
+		Id: "AfricanPicnic25Img",
+		Images: [
+			{
+				Src: "~/img/400/AfricanPicnic251.webp",
+				Alt: "African Picnic Festival 2025 Schwäbisch Hall 1"
+			},
+			{
+				Src: "~/img/400/AfricanPicnic252.webp",
+				Alt: "African Picnic Festival 2025 Schwäbisch Hall 2"
+			},
+			{
+				Src: "~/img/400/AfricanPicnic253.webp",
+				Alt: "African Picnic Festival 2025 Schwäbisch Hall 3"
+			},
+			{
+				Src: "~/img/400/AfricanPicnic254.webp",
+				Alt: "African Picnic Festival 2025 Schwäbisch Hall 4"
+			}
+		]
+	},
+	{
+		Id: "SDSUCALImg",
+		Images: [
+			{
+				Src: "~/img/800/Nomsa_MLK_Luncheon2025.webp",
+				Alt: "The Diversity of Social Change Event"
+			},
+			{
+				Src: "~/img/800/DiversityOfSocialChange_Flyer1.webp",
+				Alt: "The Diversity of Social Change Flyer Page 1"
+			},
+			{
+				Src: "~/img/800/DiversityOfSocialChange_Flyer2.webp",
+				Alt: "The Diversity of Social Change Flyer Page 2"
+			}
+		]
+	},
+	{
+		Id: "SDSUSMDImg",
+		Images: [
+			{
+				Src: "~/img/NomsaMaxRobertJP_at_SDSU.jpg",
+				Alt: "SDSU School of Music and Dance Event"
+			}
+		]
+	},
+	{
+		Id: "MusicOfSouthernAfricaImg",
+		Images: [
+			{
+				Src: "~/img/800/SD-State-Sony-032.webp",
+				Alt: "Music of Southern Africa: NOMSA"
+			},
+			{
+				Src: "~/media/NOMSA-audience_600x400.jpg",
+				Alt: "Music of Southern Africa: NOMSA with audience"
+			},
+			{
+				Src: "~/img/800/_SDSU-001.webp",
+				Alt: "Music of Southern Africa: NOMSA band"
+			}
+		]
+	},
+	{
+		Id: "PeacePoleImg",
+		Images: [
+			{
+				Src: "~/img/300/Peace_Pole.webp",
+				Alt: "Peace Pole Rededication Ceremony"
+			},
+			{
+				Src: "~/img/300/PeacePole_EventMap.webp",
+				Alt: "Peace Pole Rededication Ceremony"
+			}
+		]
+	},
+	{
+		Id: "FallbrookLibrary24Img",
+		Images: [
+			{
+				Src: "~/img/Nomsa_Fallbrook_Library.jpg",
+				Alt: "Nomsa Burkhardt at Fallbrook Library"
+			}
+		]
+	},
+	{
+		Id: "RanchoGuejito24Img",
+		Images: [
+			{
+				Src: "~/img/Sharon-Katz-and-the-Peace-Train-Band-300x300.jpg",
+				Alt: "Nomsa Burkhardt with Sharon Katz & The Peace Train"
+			}
+		]
+	},
+	{
+		Id: "AscendToKemetFest24Img",
+		Images: [
+			{
+				Src: "~/img/300/AscendToKemetFestAugust2024.webp",
+				Alt: "ASCENDtials presents: Ascend to Kemet Fest"
+			}
+		]
+	},
+	{
+		Id: "WaldkindergartenWaging24Img",
+		Images: [
+			{
+				Src: "~/img/CulturalExchange.jpg",
+				Alt: "Cultural Exchange through African Music & Dance"
+			}
+		]
+	},
+	{
+		Id: "Mfani24Img",
+		Images: [
+			{
+				Src: "~/img/2024_07_27_Mfaniseni.jpg",
+				Alt: "Südafrikanisches Sommerfest"
+			},
+			{
+				Src: "~/img/800/Nomsa_Mfani_4.webp",
+				Alt: "Nomsa in Europe"
+			}
+		]
+	},
+	{
+		Id: "MusicAndCulture24Img",
+		Images: [
+			{
+				Src: "~/img/300/MusicAndCulture0.webp",
+				Alt: "Center for World Music presents: Music and Culture of South Africa - Page 1"
+			},
+			{
+				Src: "~/img/300/MusicAndCulture1.webp",
+				Alt: "Center for World Music presents: Music and Culture of South Africa - Page 2"
+			}
+		]
+	},
+	{
+		Id: "MusicEnLaCalle24Img",
+		Images: [
+			{
+				Src: "~/img/BodhiTreeConcertsLogo.webp",
+				Alt: "Music en la Calle 2024 Poster"
+			}
+		]
+	},
+	{
+		Id: "SoundsOfSA24Img",
+		Images: [
+			{
+				Src: "~/img/NomsaOGscholo.webp",
+				Alt: "Sounds of South Africa Poster"
+			}
+		]
+	},
+	{
+		Id: "SanDiegoZooImg",
+		Images: [
+			{
+				Src: "/img/300/SanDiegoZoo_1.webp",
+				Alt: "San Diego Zoo show front street with puppets"
+			},
+			{
+				Src: "/img/300/SanDiegoZoo_2.webp",
+				Alt: "San Diego Zoo show Nomsa in action"
+			},
+			{
+				Src: "/img/300/SanDiegoZoo_3.webp",
+				Alt: "San Diego Zoo - Nomsa preparing for the show"
+			}
+		]
+	},
+	{
+		Id: "SafariParkImg",
+		Images: [
+			{
+				Src: "/img/300/SDZooSafariPark1.webp",
+				Alt: "San Diego Zoo Safari Park show stage"
+			},
+			{
+				Src: "/img/300/SDZooSafariPark2.webp",
+				Alt: "San Diego Zoo Safari Park show, Nomsa+Akayaah"
+			},
+			{
+				Src: "/img/300/SDZooSafariPark3.webp",
+				Alt: "San Diego Zoo Safari Park live performance"
+			},
+			{
+				Src: "/img/300/SDZooSafariPark4.webp",
+				Alt: "San Diego Zoo Safari Park stage with Nomsa+Akayaah"
+			}
+		]
+	},
+	{
+		Id: "NelsonMandelaSDSUImg",
+		Images: [
+			{
+				Src: "~/img/NelsonMandelaSDSU1.jpg",
+				Alt: "Honoring the Life of Nelson Mandela with Nomsa flyer p1,  SDSU 2013"
+			},
+			{
+				Src: "~/img/NelsonMandelaSDSU2.jpg",
+				Alt: "Honoring the Life of Nelson Mandela with Nomsa flyer p2, SDSU 2013 with Nomsa"
+			}
+		]
+	},
+	{
+		Id: "ClearwaterImg",
+		Images: [
+			{
+				Src: "~/img/Clearwater2007.webp",
+				Alt: "Clearwater Festival 2007 with Nomsa"
+			}
+		]
+	}
+]

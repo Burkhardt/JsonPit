@@ -1,0 +1,71 @@
+[
+	{
+		Id: "NOMSA",
+		Name: "NOMSA",
+		Who: {
+			BandMembers: [
+				"Nomsa",
+				"Max",
+				"Garit",
+				"Robert",
+				"JP"
+			]
+		}
+	},
+	{
+		Id: "Nomsa",
+		Name: "Nomsa Burkhardt",
+		Instruments: [
+			"Voice",
+			"Percussion",
+			"Dance"
+		]
+	},
+	{
+		Id: "Max",
+		Name: "Max Barry",
+		Instruments: [
+			"Guitar",
+			"Mbira",
+			"Marimba"
+		]
+	},
+	{
+		Id: "Robert",
+		Name: "Robert Ackley",
+		Instruments: [
+			"Bass",
+			"Mbira",
+			"Voice"
+		]
+	},
+	{
+		Id: "Garit",
+		Name: "Garit Imhoff",
+		Instruments: [
+			"Voice",
+			"Mbira"
+		]
+	},
+	{
+		Id: "JP",
+		Name: "JP Hewitt",
+		Instruments: [
+			"Drums",
+			"Percussion",
+			"Voice"
+		]
+	},
+	{
+		Id: "LesAfriks",
+		Name: "Les Afriks"
+	},
+	{
+		Id: "SharonKatz",
+		Name: "Sharon Katz & The Peace Train"
+	},
+	{
+		Id: "MfaniseniThusi",
+		Name: "Mfaniseni Thusi"
+	}
+]

@@ -1,25 +1,45 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-<PropertyGroup>
-<TargetFramework>net10.0</TargetFramework>
-<IsPackable>false</IsPackable>
-<RootNamespace>JsonPit.Tests</RootNamespace>
-</PropertyGroup>
+	<PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<IsPackable>false</IsPackable>
+		<RootNamespace>JsonPit.Tests</RootNamespace>
 
-<ItemGroup>
-<PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
-<PackageReference Include="coverlet.collector" Version="6.0.4" />
-<PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
-<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-<PrivateAssets>all</PrivateAssets>
-</PackageReference>
-<PackageReference Include="xunit.v3" Version="3.2.2" />
-</ItemGroup>
+		<CloudSamplePath Condition="$([MSBuild]::IsOSPlatform('OSX'))">
+			/Users/RSB/Library/CloudStorage/OneDrive/OneDriveData/RAIkeep/sample</CloudSamplePath>
+		<CloudSamplePath Condition="$([MSBuild]::IsOSPlatform('Linux'))">
+			/srv/ServerData/OneDriveData/RAIkeep/sample</CloudSamplePath>
+	</PropertyGroup>
 
-<ItemGroup>
-<ProjectReference Include="..\JsonPit.csproj" />
-<ProjectReference Include="..\..\OsLib\OsLib.csproj" />
-<ProjectReference Include="..\..\RaiUtils\RaiUtils.csproj" />
-</ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
+		<PackageReference Include="coverlet.collector" Version="6.0.4" />
+		<PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+			<PrivateAssets>all</PrivateAssets>
+		</PackageReference>
+		<PackageReference Include="xunit.v3" Version="3.2.2" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\JsonPit.csproj" />
+		<ProjectReference Include="..\..\OsLib\OsLib.csproj" />
+		<ProjectReference Include="..\..\RaiUtils\RaiUtils.csproj" />
+	</ItemGroup>
+
+	<Target Name="SyncSamplesToCloud" AfterTargets="Build">
+		<ItemGroup>
+			<SampleFiles Include="sample\**\*.*" />
+		</ItemGroup>
+
+		<MakeDir Directories="$(CloudSamplePath)" />
+
+		<Message Importance="High" Text="--- JsonPit Sync: Found @(SampleFiles->Count()) files ---" />
+
+		<Copy
+			SourceFiles="@(SampleFiles)"
+			DestinationFolder="$(CloudSamplePath)\%(RecursiveDir)"
+			SkipUnchangedFiles="false" />
+	</Target>
 
 </Project>

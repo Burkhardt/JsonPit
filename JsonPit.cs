@@ -146,7 +146,7 @@ namespace JsonPit
 		public bool ForeignChangesAvailable()
 		{
 			return (
-				from _ in Directory.GetFiles(ChangeDir, "*.json")
+				from _ in Directory.GetFiles(ChangeDir.ToString(), "*.json")
 				where !(_).EndsWith("_" + Environment.MachineName + ".json")
 				select _
 			).Count() > 0;
@@ -155,13 +155,13 @@ namespace JsonPit
 		/// Directory for change files
 		/// </summary>
 		/// <remarks>The main pit file is now within a folder by the same name and Change files are in a subfolder called Changes</remarks>
-		public string ChangeDir
+		public RaiPath ChangeDir
 		{
 			get
 			{
-				var file = new RaiFile(JsonFile.Path + JsonFile.Name + Os.DIRSEPERATOR + "Changes" + Os.DIRSEPERATOR);
+				var file = new RaiFile(JsonFile.Path + "Changes" + Os.DIRSEPERATOR);
 				file.mkdir();
-				return file.Path;
+				return new RaiPath(file.Path);
 			}
 		}
 		/// <summary>
@@ -294,8 +294,8 @@ namespace JsonPit
 			return tv;
 		}
 		public static string FileName(string changeDir, string name) => changeDir + new RaiFile(name).Name + ".flag";
-		public MasterFlagFile(string changeDir, string name, string server = null)
-			: base(FileName(changeDir, name))
+		public MasterFlagFile(RaiPath changeDir, string name, string server = null)
+			: base(changeDir, name, ext: "flag")
 		{
 			if (!string.IsNullOrEmpty(server))
 				Update(originator: server);
@@ -335,7 +335,7 @@ namespace JsonPit
 			Save();
 			return tv;
 		}
-		public ProcessFlagFile(string changeDir)
+		public ProcessFlagFile(RaiPath changeDir)
 			: base(changeDir, Environment.MachineName)
 		{
 		}
@@ -601,7 +601,7 @@ namespace JsonPit
 			MaxCount = maxCount;
 		}
 
-		public static PitItems Create(string key, int maxCount = 5) => 
+		public static PitItems Create(string key, int maxCount = 5) =>
 			new PitItems(key, ImmutableList<PitItem>.Empty, maxCount);
 
 		public PitItems Push(PitItem item)
@@ -706,11 +706,11 @@ namespace JsonPit
 			var list = ImmutableList<PitItem>.Empty;
 			if (value != null)
 			{
-				foreach(var v in value) list = list.Add(v);
-				
-				if(list.Count > 1)
+				foreach (var v in value) list = list.Add(v);
+
+				if (list.Count > 1)
 					list = list.Sort((a, b) => a.Modified.CompareTo(b.Modified));
-					
+
 				Key = key ?? list.FirstOrDefault()?.Id;
 			}
 			History = list;
@@ -771,7 +771,6 @@ namespace JsonPit
 		public ConcurrentDictionary<string, PitItems> HistoricItems = new ConcurrentDictionary<string, PitItems>();
 		public ICollection<string> Keys => HistoricItems.Keys;
 		public bool ContainsKey(string key) => HistoricItems.ContainsKey(key);
-		
 		public bool Contains(string itemId, bool withDeleted = false)
 		{
 			var isThere = HistoricItems.Keys.Contains(itemId, Comparer);
@@ -782,7 +781,6 @@ namespace JsonPit
 			var top = HistoricItems[itemId].ProjectState();
 			return top != null && !top.Deleted;
 		}
-
 		public bool Invalid()
 		{
 			var query = from kvp in HistoricItems
@@ -791,7 +789,6 @@ namespace JsonPit
 						select latest.Id;
 			return query.Count() > 0;
 		}
-
 		public DateTimeOffset GetLastestItemChanged()
 		{
 			var list = (from kvp in HistoricItems
@@ -801,7 +798,6 @@ namespace JsonPit
 			list = list.OrderByDescending(x => x);
 			return list.Count() > 0 ? list.Last() : DateTimeOffset.MinValue;
 		}
-
 		public PitItem this[string key]
 		{
 			get
@@ -815,12 +811,10 @@ namespace JsonPit
 				return top;
 			}
 		}
-
 		public PitItem PitItem
 		{
 			set { Add(value); }
 		}
-
 		public dynamic ItemProperty
 		{
 			set
@@ -829,7 +823,6 @@ namespace JsonPit
 				Add(new PitItem(payload));
 			}
 		}
-
 		/// <summary>
 		/// Add a PitItem as a new historic version using lock-free CAS algorithm.
 		/// </summary>
@@ -851,7 +844,26 @@ namespace JsonPit
 				}
 			}
 		}
-
+		public bool Add(string jsonObject)
+		{
+			var item = new PitItem(JObject.Parse(jsonObject));
+			return Add(item);
+		}
+		public bool AddItems(IEnumerable<PitItem> items)
+		{
+			var result = true;
+			foreach (var item in items)
+			{
+				result &= Add(item);
+			}
+			return result;
+		}
+		public bool AddItems(string jsonArray)
+		{
+			var jArray = JArray.Parse(jsonArray);
+			var items = jArray.Select(jObj => new PitItem((JObject)jObj)).ToList();
+			return AddItems(items);
+		}
 		private static JObject NormalizeIdentityPayload(object value)
 		{
 			JObject payload;
@@ -865,7 +877,6 @@ namespace JsonPit
 			payload.Remove("Name");
 			return payload;
 		}
-
 		private static string GetIdentifier(JObject payload)
 		{
 			var itemId = (string)(payload["Id"] ?? payload["Name"]);
@@ -873,7 +884,6 @@ namespace JsonPit
 				throw new ArgumentException("Payload must contain Id or legacy Name.", nameof(payload));
 			return itemId;
 		}
-
 		private static bool EqualsIgnoringModified(PitItem a, PitItem b)
 		{
 			var ja = (JObject)a.DeepClone();
@@ -882,7 +892,6 @@ namespace JsonPit
 			jb.Remove("Modified");
 			return JToken.DeepEquals(ja, jb);
 		}
-
 		public bool Delete(string itemId, string by = null, bool backDate = true)
 		{
 			if (string.IsNullOrEmpty(itemId))
@@ -900,7 +909,6 @@ namespace JsonPit
 			}
 			return true;
 		}
-
 		public JObject Get(string key, bool withDeleted = false)
 		{
 			if (!HistoricItems.TryGetValue(key, out var list))
@@ -909,7 +917,6 @@ namespace JsonPit
 				return list.ProjectState(withDeleted: true);
 			return (JObject)this[key];
 		}
-
 		public PitItem GetAt(string key, DateTimeOffset timestamp, bool withDeleted = false)
 		{
 			if (!HistoricItems.TryGetValue(key, out var list))
@@ -917,17 +924,15 @@ namespace JsonPit
 
 			return list.ProjectState(timestamp, withDeleted);
 		}
-
 		public IEnumerable<KeyValuePair<DateTimeOffset, JToken>> ValuesOverTime(string oName, string pName)
 		{
 			if (!HistoricItems.TryGetValue(oName, out var list))
 				return Enumerable.Empty<KeyValuePair<DateTimeOffset, JToken>>();
-				
+
 			var q = from item in list.History
 					select new KeyValuePair<DateTimeOffset, JToken>(item.Modified, item.Deleted ? null : (JToken)item[pName]);
 			return q;
 		}
-
 		public IEnumerable<KeyValuePair<DateTimeOffset, List<JToken>>> ValueListsOverTime(string oName, string pName)
 		{
 			if (!HistoricItems.ContainsKey(oName))
@@ -937,7 +942,6 @@ namespace JsonPit
 					 select new KeyValuePair<DateTimeOffset, List<JToken>>(kvp.Key, (from _ in (JArray)kvp.Value select _).ToList()));
 			return q;
 		}
-
 		public IEnumerable<JObject> AllUndeleted()
 		{
 			foreach (var key in Keys)
@@ -946,7 +950,6 @@ namespace JsonPit
 					yield return Get(key);
 			}
 		}
-
 		public void ExportJson(string exportFilePath, DateTimeOffset? at = null, bool pretty = true)
 		{
 			var exportItems = new JArray();
@@ -966,7 +969,6 @@ namespace JsonPit
 			var formatting = pretty ? Formatting.Indented : Formatting.None;
 			File.WriteAllText(exportFilePath, exportItems.ToString(formatting));
 		}
-
 		public IEnumerable<dynamic> AllUndeletedDynamic()
 		{
 			return AllUndeleted().Select(jObj =>
@@ -983,9 +985,7 @@ namespace JsonPit
 				return expando;
 			});
 		}
-
 		public string Subscriber { get; private set; }
-
 		public void Load(bool undercover = false)
 		{
 			if (!JsonFile.Exists())
@@ -1004,7 +1004,7 @@ namespace JsonPit
 					else if (jsonArrayOfArrayOfObject[i] == '{')
 						throw new FormatException("JSON file format is not compatible with JsonPit");
 				}
-				
+
 				HistoricItems = new ConcurrentDictionary<string, PitItems>(Comparer);
 				if (!emptyFile)
 					initValues(JArray.Parse(jsonArrayOfArrayOfObject));
@@ -1022,7 +1022,6 @@ namespace JsonPit
 				Interlocked.Exchange(ref usingPersistence, 0);
 			}
 		}
-
 		protected void Store(bool force = false, bool pretty = false, char indentChar = '\t')
 		{
 			if (HistoricItems == null)
@@ -1071,7 +1070,6 @@ namespace JsonPit
 				}
 			}
 		}
-
 		private IReadOnlyList<IReadOnlyList<PitItem>> GetRawPersistenceModel()
 		{
 			return HistoricItems
@@ -1079,7 +1077,6 @@ namespace JsonPit
 				.Select(kvp => (IReadOnlyList<PitItem>)kvp.Value.History)
 				.ToList();
 		}
-
 		public void Save(bool? backup = null, bool force = false)
 		{
 			if (backup != null)
@@ -1098,10 +1095,9 @@ namespace JsonPit
 				Monitor.Exit(_locker);
 			}
 		}
-
 		private void CreateChangeFiles()
 		{
-			var compareFile = new Pit(JsonFile.FullName, undercover: true, unflagged: true);
+			var compareFile = new Pit(JsonFile.Path + JsonFile.Name, undercover: true, unflagged: true);
 			foreach (var itemId in Keys)
 			{
 				if (!HistoricItems.TryGetValue(itemId, out var list))
@@ -1122,7 +1118,6 @@ namespace JsonPit
 				}
 			}
 		}
-
 		public void CreateChangeFile(PitItem item, string machineName = null)
 		{
 			if (machineName == null)
@@ -1135,25 +1130,25 @@ namespace JsonPit
 			if (!File.Exists(changeFile.FullName))
 				new Pit(items, changeFile.FullName, unflagged: true, readOnly: false).Save();
 		}
-
 		public void MergeChanges()
 		{
 			var changes = new PitItems();
 			Pit changePit;
-			if (Directory.Exists(ChangeDir))
+
+			if (ChangeDir.Exists())
 			{
-				foreach (var file in Directory.GetFiles(ChangeDir, "*.json").OrderByDescending(x => x))
+				foreach (var file in Directory.GetFiles(ChangeDir.Path, "*.json").OrderByDescending(x => x))
 				{
 					try
 					{
 						changePit = new Pit(file, undercover: true);
 						Pit pit = new Pit(pitDirectory: file);
-						
+
 						foreach (var changeItems in pit)
 						{
 							MergeIntoHistory(changeItems);
 						}
-						
+
 						if (RunningOnMaster() && (DateTimeOffset.UtcNow - (new System.IO.FileInfo(file)).CreationTime).TotalSeconds > 600)
 							if (!ReadOnly)
 								new RaiFile(file).rm();
@@ -1166,27 +1161,25 @@ namespace JsonPit
 			if (!ReadOnly)
 				Store();
 		}
-
 		public void MergeIntoHistory(PitItems changeItems)
 		{
 			while (true)
 			{
 				var currentStore = HistoricItems.GetOrAdd(changeItems.Key, key => PitItems.Create(key, DefaultMaxCount));
 				var newStore = currentStore;
-				
+
 				foreach (var item in changeItems)
 					newStore = newStore.Push(item);
-					
+
 				if (HistoricItems.TryUpdate(changeItems.Key, newStore, currentStore))
 					break;
 			}
 		}
-
 		public bool Reload()
 		{
 			var masterUpdates = MasterUpdatesAvailable();
 			var foreignChanges = ForeignChangesAvailable();
-			
+
 			if (masterUpdates && RunningOnMaster())
 			{
 				throw new Exception($"Some process changed the main file without permission => inconsistent data in {nameof(Reload)}, file {JsonFile.Name}");
@@ -1209,19 +1202,16 @@ namespace JsonPit
 			}
 			return false;
 		}
-
 		IEnumerator IEnumerable.GetEnumerator()
 		{
 			foreach (var item in HistoricItems)
 				yield return item.Value;
 		}
-
 		public IEnumerator<PitItems> GetEnumerator()
 		{
 			foreach (var kvp in HistoricItems)
 				yield return kvp.Value;
 		}
-
 		private void initValues(JArray values)
 		{
 			foreach (JToken token in values)
@@ -1255,7 +1245,6 @@ namespace JsonPit
 				}
 			}
 		}
-
 		private void initValues(IEnumerable<PitItems> values)
 		{
 			if (values != null && values.Count() > 0)
@@ -1272,12 +1261,21 @@ namespace JsonPit
 				}
 			}
 		}
-
 		public Pit(string pitDirectory, IEnumerable<PitItems> values = null, string subscriber = null, Func<PitItem, string> orderBy = null, bool descending = false,
 						bool readOnly = true, bool backup = false, bool undercover = false, bool unflagged = false, bool autoload = true, bool ignoreCase = false, string version = "")
 			: base(readOnly, backup, unflagged, descending)
 		{
+			if (string.IsNullOrEmpty(pitDirectory) || pitDirectory.Length < 3)
+				throw new ArgumentException("pitDirectory must be a valid PitDirectory");
+			string[] segments = pitDirectory.Split(Os.DIRSEPERATOR, StringSplitOptions.RemoveEmptyEntries);
+			if (segments.Length == 0)
+				throw new ArgumentException("pitDirectory must contain at least one valid segment");
 			JsonFile = new PitFile(pitDirectory);
+			if (string.IsNullOrEmpty(JsonFile.Name))
+			{
+				JsonFile.Name = segments[^1];
+				JsonFile.Ext = "pit";
+			}
 			Subscriber = subscriber;
 			this.orderBy = orderBy ?? new Func<PitItem, string>(x => x.Id);
 			this.descending = descending;
@@ -1289,15 +1287,41 @@ namespace JsonPit
 					Load(undercover);
 				MergeChanges();
 			}
+			if (string.IsNullOrEmpty(JsonFile.Name) || string.IsNullOrEmpty(JsonFile.Ext))
+				throw new ArgumentException("JsonFile must have a valid name and extension - 3");
 		}
-
 		public Pit(JArray values, string pitDirectory, string subscriber = null, Func<PitItem, string> orderBy = null, bool descending = false,
 				bool readOnly = true, bool backup = false, bool undercover = false, bool unflagged = false, bool autoload = true, bool ignoreCase = false, string version = "")
 			: this(pitDirectory, Enumerable.Empty<PitItems>(), subscriber, orderBy, descending, readOnly, backup, undercover, unflagged, autoload, ignoreCase, version)
 		{
 			initValues(values);
+			if (string.IsNullOrEmpty(JsonFile.Name) || string.IsNullOrEmpty(JsonFile.Ext))
+				throw new ArgumentException("JsonFile must have a valid name and extension - 2");
 		}
+		/// <summary>
+		/// Constructor for opening a Pit from a PitFile
+		/// </summary>
+		/// <param name="pitFile">autoloads the values from pitFile if any (autoload == true)</param>
+		/// <param name="readOnly">Intention to Add PitItems? => false</param>
+		public Pit(PitFile pitFile, bool readOnly = false)
+			: base(readOnly, backup: false, unflagged: false, descending: false)
+		{
+			if (pitFile == null)
+				throw new ArgumentNullException(nameof(pitFile));
 
+			JsonFile = pitFile;
+			Subscriber = null;
+			this.orderBy = x => x.Id;
+			this.descending = false;
+			HistoricItems = new ConcurrentDictionary<string, PitItems>();
+
+			if (JsonFile.Exists())
+				Load(undercover: false);
+			MergeChanges();
+
+			if (string.IsNullOrEmpty(JsonFile.Name) || string.IsNullOrEmpty(JsonFile.Ext))
+				throw new ArgumentException("JsonFile must have a valid name and extension - 1");
+		}
 		~Pit()
 		{
 			if (!ReadOnly)

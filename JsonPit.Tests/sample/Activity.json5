@@ -1,0 +1,760 @@
+[
+	{
+		Id: "SDZSP26",
+		Title: "Nomsa performing in the Elephant Valley",
+		Summary: "Live performances at Elephant Valley across March 5-8.",
+		DetailLead: "San Diego Zoo Safari Park presents:",
+		DetailTitle: "Nomsa performing in the Elephant Valley",
+		ShowTime: {
+			Date: "March 5-8, 2026",
+			Time: "9:00 AM - 12:00 PM"
+		},
+		Where: {
+			Venue: "SDZSafariPark"
+		},
+		Who: {
+			Performer: "Nomsa"
+		},
+		What: {
+			ShowImages: [
+				"SDZSP26Img"
+			]
+		},
+		Description: "Join Nomsa at Elephant Valley for live performances during Safari Park programming.",
+		Details: [
+			{
+				Label: "Calendar",
+				Value: "Thu Mar 5, 9:00 AM",
+				Url: "/Shows?handler=Calendar&id=SDZSP26&date=March%205%2C%202026&time=9%3A00%20AM"
+			},
+			{
+				Label: "Calendar",
+				Value: "Thu Mar 5, 10:00 AM",
+				Url: "/Shows?handler=Calendar&id=SDZSP26&date=March%205%2C%202026&time=10%3A00%20AM"
+			},
+			{
+				Label: "Calendar",
+				Value: "Thu Mar 5, 11:00 AM",
+				Url: "/Shows?handler=Calendar&id=SDZSP26&date=March%205%2C%202026&time=11%3A00%20AM"
+			},
+			{
+				Label: "Calendar",
+				Value: "Fri Mar 6, 9:00 AM",
+				Url: "/Shows?handler=Calendar&id=SDZSP26&date=March%206%2C%202026&time=9%3A00%20AM"
+			},
+			{
+				Label: "Calendar",
+				Value: "Fri Mar 6, 10:00 AM",
+				Url: "/Shows?handler=Calendar&id=SDZSP26&date=March%206%2C%202026&time=10%3A00%20AM"
+			},
+			{
+				Label: "Calendar",
+				Value: "Fri Mar 6, 11:00 AM",
+				Url: "/Shows?handler=Calendar&id=SDZSP26&date=March%206%2C%202026&time=11%3A00%20AM"
+			},
+			{
+				Label: "Calendar",
+				Value: "Sat Mar 7, 9:00 AM",
+				Url: "/Shows?handler=Calendar&id=SDZSP26&date=March%207%2C%202026&time=9%3A00%20AM"
+			},
+			{
+				Label: "Calendar",
+				Value: "Sat Mar 7, 10:00 AM",
+				Url: "/Shows?handler=Calendar&id=SDZSP26&date=March%207%2C%202026&time=10%3A00%20AM"
+			},
+			{
+				Label: "Calendar",
+				Value: "Sat Mar 7, 11:00 AM",
+				Url: "/Shows?handler=Calendar&id=SDZSP26&date=March%207%2C%202026&time=11%3A00%20AM"
+			},
+			{
+				Label: "Calendar",
+				Value: "Sun Mar 8, 10:00 AM",
+				Url: "/Shows?handler=Calendar&id=SDZSP26&date=March%208%2C%202026&time=10%3A00%20AM"
+			},
+			{
+				Label: "Calendar",
+				Value: "Sun Mar 8, 11:00 AM",
+				Url: "/Shows?handler=Calendar&id=SDZSP26&date=March%208%2C%202026&time=11%3A00%20AM"
+			},
+			{
+				Label: "Calendar",
+				Value: "Sun Mar 8, 12:00 PM",
+				Url: "/Shows?handler=Calendar&id=SDZSP26&date=March%208%2C%202026&time=12%3A00%20PM"
+			},
+			{
+				Label: "Event",
+				Value: "Elephant Valley",
+				Url: "https://sdzsafaripark.org/elephant-valley"
+			}
+		]
+	},
+	{
+		Id: "BirthOfBrilliance26",
+		Title: "Birth of Brilliance 2026 (Cultural Fair)",
+		Summary: "NOMSA performs at the Birth of Brilliance Cultural Fair.",
+		DetailLead: "Birth of Brilliance 2026 (6th Annual)",
+		DetailTitle: "Cultural Fair",
+		ShowTime: {
+			Date: "February 27, 2026",
+			Time: "5:00 PM - 8:00 PM PST"
+		},
+		Where: {
+			Venue: "LibertyStationBrick"
+		},
+		Who: {
+			Performer: "NOMSA"
+		},
+		What: {
+			ShowImages: [
+				"BirthOfBrilliance26Img"
+			]
+		},
+		Description: "NOMSA performs at the in-person Cultural Fair. Theme: \"Disrupting Burnout Culture: From Self-Care to Community Care\".",
+		Details: [
+			{
+				Label: "Event Details",
+				Value: "Birth of Brilliance Cultural Fair",
+				Url: "https://birthofbrilliance.com/cultural-fair/"
+			},
+			{
+				Label: "Theme",
+				Value: "Disrupting Burnout Culture: From Self-Care to Community Care"
+			}
+		]
+	},
+	{
+		Id: "SDSU26",
+		Title: "Sounds of South Africa: Nomsa Burkhardt",
+		Summary: "SDSU World Music Concert Series featuring Nomsa Burkhardt.",
+		DetailLead: "SDSU School of Music and Dance presents:",
+		DetailTitle: "Sounds of South Africa: Nomsa Burkhardt",
+		ShowTime: {
+			Date: "February 23, 2026",
+			Time: "6:00 PM – 6:50 PM"
+		},
+		Where: {
+			Venue: "SmithRecitalHall"
+		},
+		Who: {
+			Performer: "Nomsa"
+		},
+		What: {
+			ShowImages: [
+				"SDSU26Img"
+			],
+			Ticket: "Ticket_SDSU26"
+		},
+		Description: "Experience Nomsa Burkhardt’s vibrant Zulu music and dance as part of the SDSU World Music Concert Series.",
+		Details: [
+			{
+				Label: "Event Details",
+				Value: "SDSU Calendar",
+				Url: "https://psfa.sdsu.edu/calendar#event-details/7b0f4e3f-bc7f-4386-9454-29c21ef95eef"
+			}
+		]
+	},
+	{
+		Id: "Winstons26",
+		Title: "African Night: Les Afriks & Nomsa",
+		Summary: "African Convention: NOMSA meets Les Afriks.",
+		DetailLead: "African Night",
+		DetailTitle: "Les Afriks & Nomsa",
+		ShowTime: {
+			Date: "February 21, 2026",
+			Time: "Doors 8:30 PM (start 9:30 PM)"
+		},
+		Where: {
+			Venue: "WinstonsOB"
+		},
+		Who: {
+			CoHeadliners: [
+				"NOMSA",
+				"LesAfriks"
+			]
+		},
+		What: {
+			ShowImages: [
+				"Winstons26Img"
+			],
+			Ticket: "Ticket_Winstons26"
+		},
+		Description: "African Convention: NOMSA meets Les Afriks.",
+		Details: [
+			{
+				Label: "Event Details",
+				Value: "Winston's calendar",
+				Url: "https://www.winstonsob.com/calendar/week/les-afriks-and-nomsa"
+			},
+			{
+				Label: "Promoter",
+				Value: "Les Afriks",
+				Url: "https://www.instagram.com/lesafriks/"
+			}
+		]
+	},
+	{
+		Id: "MissingMiddle",
+		Title: "Nomsa on Screen: The Missing Middle",
+		Summary: "Short film credit featuring Nomsa in a pivotal role.",
+		DetailLead: "Short Film Credit",
+		DetailTitle: "Nomsa on Screen: The Missing Middle",
+		ShowTime: {
+			Date: "2025"
+		},
+		Where: {
+			Venue: "HistoricEvent"
+		},
+		Who: {
+			Performer: "Nomsa"
+		},
+		What: {
+			ShowImages: [
+				"MissingMiddleImg"
+			]
+		},
+		Description: "A South African film student in Southern California navigates homesickness and a pivotal setback tied to an O-1 visa opportunity. Nomsa appears as the mother, bringing her Zulu heritage and warmth to the story.",
+		Details: [
+			{
+				Label: "Release Year",
+				Value: "2025"
+			},
+			{
+				Label: "Role",
+				Value: "Mama"
+			},
+			{
+				Label: "IMDb",
+				Value: "The Missing Middle (2025)",
+				Url: "https://www.imdb.com/title/tt33509016/"
+			},
+			{
+				Label: "Event Details",
+				Value: "Nomsa on Screen: The Missing Middle",
+				Url: "/Shows/MissingMiddle"
+			}
+		]
+	},
+	{
+		Id: "AfricanPicnic25",
+		Title: "African Picnic Festival 2025",
+		Summary: "Nomsa with Mfaniseni Thusi & Band at the 11th African Picnic Festival in Schwäbisch Hall, Germany.",
+		DetailLead: "African Picnic Festival presents:",
+		DetailTitle: "African Picnic Festival – Schwäbisch Hall",
+		ShowTime: {
+			Date: "June 13–15, 2025"
+		},
+		Where: {
+			Venue: "Hospitalhof"
+		},
+		Who: {
+			Performer: "NOMSA"
+		},
+		What: {
+			ShowImages: [
+				"AfricanPicnic25Img"
+			]
+		},
+		Description: "A vibrant celebration of African culture featuring music, art, fashion, and food in Schwäbisch Hall, Germany. Nomsa joined the festival as part of its 11th edition.",
+		Details: [
+			{
+				Label: "Instagram",
+				Value: "@africanpicnic_festival",
+				Url: "https://www.instagram.com/africanpicnic_festival/"
+			},
+			{
+				Label: "Facebook Event",
+				Value: "African Picnic Festival",
+				Url: "https://www.facebook.com/events/1563050794328359/"
+			},
+			{
+				Label: "Festival Website",
+				Value: "African Picnic Festival",
+				Url: "https://africanpicnic-festival.com/"
+			}
+		]
+	},
+	{
+		Id: "SDSUCAL",
+		Title: "The Diversity of Social Change",
+		Summary: "MLK Luncheon event featuring Nomsa.",
+		DetailLead: "SDSU College of Arts and Letters, Africana Studies presents:",
+		DetailTitle: "The Diversity of Social Change: Malcolm X, Martin Luther King & the Voting Rights Act",
+		ShowTime: {
+			Date: "January 24, 2025",
+			Time: "11:30 AM - 1:30 PM"
+		},
+		Where: {
+			Venue: "ConradPrebys"
+		},
+		Who: {
+			Performer: "Nomsa"
+		},
+		What: {
+			ShowImages: [
+				"SDSUCALImg"
+			]
+		},
+		Description: "Join us for an enlightening event featuring renowned speakers, including the founder of Kwanzaa. Enjoy a performance by Nomsa and stay tuned for a YouTube video of her performance on stage.",
+		Details: [
+			{
+				Label: "Series Title",
+				Value: "San Diego State University Annual Dr. Martin Luther King Jr. Luncheon"
+			},
+			{
+				Label: "Host",
+				Value: "SDSU College of Arts and Letters, Africana Studies",
+				Url: "https://africana.sdsu.edu"
+			},
+			{
+				Label: "Event Details",
+				Value: "Learn More",
+				Url: "/Shows/DiversityOfSocialChange"
+			}
+		]
+	},
+	{
+		Id: "SDSUSMD",
+		Title: "Sounds of Southern Africa",
+		Summary: "Journey through Southern African music, song, and dance.",
+		DetailLead: "SDSU School of Music and Dance presents:",
+		DetailTitle: "Sounds of Southern Africa",
+		ShowTime: {
+			Date: "September 30, 2024",
+			Time: "6:00 PM"
+		},
+		Where: {
+			Venue: "SmithRecitalHall"
+		},
+		Who: {
+			Performer: "NOMSA"
+		},
+		What: {
+			ShowImages: [
+				"SDSUSMDImg"
+			]
+		},
+		Description: "The band will take you on a musical journey to Southern Africa, mainly South Africa and Zimbabwe with authentic singing, dancing, featuring songs in Zulu, Xhosa, and Mbira music of the Shona people. Music that moves your soul and feet.",
+		Details: [
+			{
+				Label: "Tickets",
+				Value: "SDSU Tickets",
+				Url: "https://sdsupsfa.universitytickets.com/w/event.aspx?id=1486"
+			},
+			{
+				Label: "Event Details",
+				Value: "Smith Recital Hall, SDSU, San Diego, CA",
+				Url: "https://music.sdsu.edu/calendar#event-details/a1a8d226-8738-46af-975d-6f10070f685b"
+			}
+		]
+	},
+	{
+		Id: "MusicOfSouthernAfrica",
+		Title: "Music of Southern Africa: NOMSA",
+		Summary: "SDSU World Music Concert Series featuring NOMSA.",
+		DetailLead: "SDSU School of Music and Dance presents:",
+		DetailTitle: "Music of Southern Africa: NOMSA",
+		ShowTime: {
+			Date: "February 17, 2025",
+			Time: "6:00 PM"
+		},
+		Where: {
+			Venue: "SmithRecitalHall"
+		},
+		Who: {
+			Performer: "NOMSA",
+			Who: {
+				Musicians: [ "Nomsa", "JP", "Max", "Robert", "Garit" ] // would that lead to displaying the instruments from the Object Pit?
+			}
+		},
+		What: {
+			ShowImages: [
+				"MusicOfSouthernAfricaImg"
+			]
+		},
+		// DetailHtml: "<p><strong>Musicians/Instruments:</strong></p>\n<ul>\n<li>Nomsa Burkhardt: vocals, percussion and dance</li>\n<li>JP Hewitt: drum set</li>\n<li>Max Berry: guitar, vocals</li>\n<li>Robert Ackley: mbira, bass, and vocals</li>\n<li>Garit Imhoff: vocals and mbira</li>\n</ul>\n<p><strong>Events:</strong> Welcome to SDSU’s World Music Concert Series. A specially curated series of concerts featuring world renowned musicians who represent music cultures from around the globe. This series has been designed in conjunction with Music 345: Music Cultures of the World, but is open to all guests. We encourage you to mute your devices, open your ears, and enjoy experiencing this special presentation.</p>",
+		Details: [
+			{
+				Label: "Host",
+				Value: "SDSU School of Music and Dance",
+				Url: "https://music.sdsu.edu/"
+			},
+			{
+				Label: "Event Details",
+				Value: "Learn More",
+				Url: "/Shows/MusicOfSouthernAfricaNOMSA"
+			},
+			{
+				EventSeriesMessage: "Welcome to SDSU's World Music Concert Series. A specially curated series of concerts featuring world renowned musicians who represent music cultures from around the globe. This series has been designed in conjunction with Music 345: Music Cultures of the World, but is open to all guests. We encourage you to mute your devices, open your ears, and enjoy experiencing this special presentation.</p>"
+			}
+		]
+	},
+	{
+		Id: "PeacePole",
+		Title: "Peace Pole Rededication Ceremony",
+		Summary: "International Day of Peace community rededication ceremony.",
+		DetailLead: "Change Begins With ME presents:",
+		DetailTitle: "Peace Pole Rededication Ceremony",
+		ShowTime: {
+			Date: "September 21, 2024",
+			Time: "2:00 PM"
+		},
+		Where: {
+			Venue: "StandleyPark"
+		},
+		Who: {
+			Performer: "Nomsa"
+		},
+		What: {
+			ShowImages: [
+				"PeacePoleImg"
+			]
+		},
+		Description: "The UC Peace Pole is a 6-sided monument that displays \"May Peace Prevail on Earth\" in 12 different languages: English, Kumeyaay, Spanish, Chinese, South African Xhosa, Arabic, Italian, Hebrew, Japanese, French, Hindi, and Ukrainian. You are warmly invited to celebrate International Day of Peace during a community Rededication Ceremony for our beloved and recently restored University City Peace Pole.",
+		Details: [
+			{
+				Label: "Event Details",
+				Value: "Learn More",
+				Url: "https://www.universitycitynews.org/2024/09/18/sat-sep-21-university-city-peace-pole-rededication-ceremony/"
+			}
+		]
+	},
+	{
+		Id: "FallbrookLibrary24",
+		Title: "Nomsa Burkhardt at Fallbrook Library",
+		Summary: "Family-friendly performance and cultural program.",
+		DetailLead: "Center for World Music presents:",
+		DetailTitle: "Nomsa Burkhardt at Fallbrook Library",
+		ShowTime: {
+			Date: "September 8, 2024",
+			Time: "2:00 PM - 3:00 PM"
+		},
+		Where: {
+			Venue: "FallbrookLibrary"
+		},
+		Who: {
+			Performer: "Nomsa"
+		},
+		What: {
+			ShowImages: [
+				"FallbrookLibrary24Img"
+			]
+		},
+		Description: "For kids of all ages! Nomsa Burkhardt, co-founder of an Afro-fusion band IZINDE, is a dancer, singer, and percussionist of Zulu heritage. Performing dance, drumming, and singing, Nomsa will demonstrate her artistic skill and passion for Zulu heritage and culture.",
+		Details: [
+			{
+				Label: "Location Details",
+				Value: "Fallbrook Library, San Diego, CA",
+				Url: "https://centerforworldmusic.org/event/nomsa-burkhardt-at-fallbrook-library/"
+			}
+		]
+	},
+	{
+		Id: "RanchoGuejito24",
+		Title: "Rancho Guejito Vineyard",
+		Summary: "Nomsa with Sharon Katz & The Peace Train.",
+		DetailLead: "Nomsa Burkhardt with Sharon Katz & The Peace Train:",
+		DetailTitle: "Rancho Guejito Vineyard",
+		ShowTime: {
+			Date: "September 1, 2024",
+			Time: "2:00 PM - 6:00 PM"
+		},
+		Where: {
+			Venue: "RanchoGuejito"
+		},
+		Who: {
+			Performer: "Nomsa"
+		},
+		What: {
+			ShowImages: [
+				"RanchoGuejito24Img"
+			]
+		},
+		Description: "Join Nomsa Burkhardt and Sharon Katz & The Peace Train for an unforgettable musical experience at Rancho Guejito Vineyard. Enjoy a day filled with soulful melodies and beautiful scenery.",
+		Details: [
+			{
+				Label: "Event Details",
+				Value: "Learn More",
+				Url: "https://www.ranchoguejitovineyard.com/events"
+			}
+		]
+	},
+	{
+		Id: "AscendToKemetFest24",
+		Title: "Ascend to Kemet Fest",
+		Summary: "African cuisine, music, workshops, and community.",
+		DetailLead: "ASCENDtials presents:",
+		DetailTitle: "Ascend to Kemet Fest",
+		ShowTime: {
+			Date: "August 25, 2024",
+			Time: "11:00 AM - 2:00 PM"
+		},
+		Where: {
+			Venue: "CityHeightsAnnex"
+		},
+		Who: {
+			Performer: "NOMSA"
+		},
+		What: {
+			ShowImages: [
+				"AscendToKemetFest24Img"
+			]
+		},
+		Description: "Try African cuisine and experience melodies, merchants, drums, and ancestors. Join a workshop in yoga, poetry, or art, or a guided session by healers, poets, and artists.",
+		Details: [
+			{
+				Label: "Location Details",
+				Value: "Outdoor Amphitheater",
+				Url: "https://sandiego.librarymarket.com/event/ascend-kemet-festival-400324"
+			}
+		]
+	},
+	{
+		Id: "WaldkindergartenWaging24",
+		Title: "Waldkindergarten Waging",
+		Summary: "Cultural exchange through African music and dance.",
+		DetailLead: "Cultural Exchange through African Music & Dance:",
+		DetailTitle: "Waldkindergarten Waging",
+		ShowTime: {
+			Date: "August 6, 2024"
+		},
+		Where: {
+			Venue: "WaldkindergartenWaging"
+		},
+		Who: {
+			Performer: "Nomsa"
+		},
+		What: {
+			ShowImages: [
+				"WaldkindergartenWaging24Img"
+			]
+		},
+		Description: "Immerse yourself in the vibrant rhythms and energetic dances of Africa. Have your kids join us for a cultural exchange through African music and dance at Waldkindergarten Waging. Experience the rich traditions and learn about the diverse cultures of Africa.",
+		Details: [
+			{
+				Label: "Location Details",
+				Value: "Waldkindergarten Waging am See, Germany"
+			}
+		]
+	},
+	{
+		Id: "Mfani24",
+		Title: "Mfaniseni Thusi & Friends",
+		Summary: "Südafrikanisches Sommerfest featuring Mfaniseni Thusi & Friends.",
+		DetailLead: "arsNOAH Kulturverein Ismaning presents:",
+		DetailTitle: "Mfaniseni Thusi & Friends",
+		ShowTime: {
+			Date: "July 27, 2024",
+			Time: "19:00 – 22:00"
+		},
+		Where: {
+			Venue: "RicksCafe"
+		},
+		Who: {
+			Performer: "Nomsa"
+		},
+		What: {
+			ShowImages: [
+				"Mfani24Img"
+			]
+		},
+		Description: "Join us for the Südafrikanisches Sommerfest presented by arsNOAH Kulturverein Ismaning. Experience the vibrant music of Mfaniseni Thusi & Friends and immerse yourself in the rich culture of South Africa. Don't miss out on this unforgettable event!",
+		Details: [
+			{
+				Label: "Location Details",
+				Value: "Rick's Cafe",
+				Url: "https://www.ricks-cafe-ismaning.de/Startseite"
+			}
+		]
+	},
+	{
+		Id: "MusicAndCulture24",
+		Title: "Music and Culture of South Africa",
+		Summary: "Traditional music of the Zulu and Xhosa peoples.",
+		DetailLead: "Center for World Music presents:",
+		DetailTitle: "Music and Culture of South Africa",
+		ShowTime: {
+			Date: "June 27, 2024",
+			Time: "1:00 PM - 2:00 PM"
+		},
+		Where: {
+			Venue: "SorrentoTower"
+		},
+		Who: {
+			Performer: "Nomsa"
+		},
+		What: {
+			ShowImages: [
+				"MusicAndCulture24Img"
+			]
+		},
+		Description: "Join us for a special hour featuring the Traditional Music of the Zulu and Xhosa Peoples of South Africa, presented by Nomsa Burkhardt, a distinguished teaching artist with the Center for World Music.",
+		Details: [
+			{
+				Label: "Flyer",
+				Value: "View Flyer",
+				Url: "~/files/CWM Nomsa Burkhardt flyer June 2024 Sorrento.pdf"
+			}
+		]
+	},
+	{
+		Id: "MusicEnLaCalle24",
+		Title: "Music en la Calle 2024",
+		Summary: "Bodhi Tree Concerts community music event.",
+		DetailLead: "Bodhi Tree Concerts presents:",
+		DetailTitle: "Music en la Calle 2024",
+		ShowTime: {
+			Date: "June 22, 2024",
+			Time: "2:00 PM"
+		},
+		Where: {
+			Venue: "CityHeightsAnnex"
+		},
+		Who: {
+			Performer: "NOMSA"
+		},
+		What: {
+			ShowImages: [
+				"MusicEnLaCalle24Img"
+			]
+		},
+		Description: "Experience the vibrant and soulful music at Music en la Calle 2024. Enjoy an evening filled with traditional and contemporary performances. Don't miss out on this amazing event!",
+		Details: [
+			{
+				Label: "Details",
+				Value: "Learn More",
+				Url: "https://www.bodhitreeconcerts.org/music-en-la-calle-2024/#comp-lwv9yptb"
+			}
+		]
+	},
+	{
+		Id: "SoundsOfSA24",
+		Title: "Sounds of South Africa",
+		Summary: "Traditional Southern African music and dance.",
+		DetailLead: "San Diego State University School of Music and Dance presents:",
+		DetailTitle: "Sounds of South Africa",
+		ShowTime: {
+			Date: "February 19, 2024",
+			Time: "6:00 PM"
+		},
+		Where: {
+			Venue: "ConradPrebys"
+		},
+		Who: {
+			Performer: "Nomsa"
+		},
+		What: {
+			ShowImages: [
+				"SoundsOfSA24Img"
+			]
+		},
+		Description: "Join Nomsa Burkhardt as she brings the rich musical traditions of South Africa to the stage. Enjoy an immersive experience filled with the sounds and rhythms of South Africa.",
+		Details: [
+			{
+				Label: "Details",
+				Value: "Learn More",
+				Url: "https://artelize.com/event/51988-sounds-of-south-africa-nomsa-burkhardt"
+			}
+		]
+	},
+	{
+		Id: "SanDiegoZoo",
+		Title: "San Diego Zoo",
+		Summary: "Wildlife-inspired performance featuring rhythm and voice.",
+		DetailLead: "Live Show",
+		DetailTitle: "San Diego Zoo",
+		ShowTime: {
+			Date: "Live Show"
+		},
+		Where: {
+			Venue: "SanDiegoZoo"
+		},
+		Who: {
+			Performer: "Nomsa"
+		},
+		What: {
+			ShowImages: [
+				"SanDiegoZooImg"
+			]
+		},
+		Description: "Wildlife-inspired performance featuring rhythm, voice, and community engagement."
+	},
+	{
+		Id: "SafariPark",
+		Title: "San Diego Zoo Safari Park",
+		Summary: "Outdoor amphitheater set with conservation storytelling.",
+		DetailLead: "Live Show",
+		DetailTitle: "San Diego Zoo Safari Park",
+		ShowTime: {
+			Date: "Live Show"
+		},
+		Where: {
+			Venue: "SDZSafariPark"
+		},
+		Who: {
+			Performer: "Nomsa"
+		},
+		What: {
+			ShowImages: [
+				"SafariParkImg"
+			]
+		},
+		Description: "Outdoor amphitheater set blending music, movement, and conservation storytelling."
+	},
+	{
+		Id: "NelsonMandelaSDSU",
+		Title: "Honoring the Life of Nelson Mandela",
+		Summary: "SDSU Africana Studies tribute and performance.",
+		DetailLead: "Historic Event – San Diego State University Department of Africana Studies:",
+		DetailTitle: "Honoring the Life of Nelson Mandela",
+		ShowTime: {
+			Date: "December 2013"
+		},
+		Where: {
+			Venue: "HistoricEvent"
+		},
+		Who: {
+			Performer: "Nomsa"
+		},
+		What: {
+			ShowImages: [
+				"NelsonMandelaSDSUImg"
+			]
+		},
+		Description: "A special event honoring the life and legacy of Nelson Mandela, featuring a performance by Nomsa. SDSU Acknowledgements by the Department of Africana Studies, Arts and Letters Dean's Office, Assembly Member Shirley Weber, International Student Center, President's Office",
+		Details: [
+			{
+				Label: "Location Details",
+				Value: "Historic Event"
+			}
+		]
+	},
+	{
+		Id: "Clearwater",
+		Title: "Clearwater Festival 2006 with Nomsa",
+		Summary: "Newspaper ad featured Nomsa's performance.",
+		DetailLead: "Historic Event:",
+		DetailTitle: "Clearwater Festival 2006 with Nomsa",
+		ShowTime: {
+			Date: "June 2006"
+		},
+		Where: {
+			Venue: "HistoricEvent"
+		},
+		Who: {
+			Performer: "Nomsa"
+		},
+		What: {
+			ShowImages: [
+				"ClearwaterImg"
+			]
+		},
+		Description: "Nomsa's memorable performance at the Clearwater Festival in 2006 made it to the newspaper ad the year after, together with a picture of Pete Seger.",
+		Details: [
+			{
+				Label: "Location Details",
+				Value: "Historic Event"
+			}
+		]
+	}
+]

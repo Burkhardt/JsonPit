@@ -79,25 +79,29 @@ class MasterFlagFile << (C,#14b8a6) >> {
 	+ Originator : string
 	+ Time : DateTimeOffset
 	--
-	+ MasterFlagFile(changeDir : string, name : string, server : string = null)
-	--
+	+ mv(src : MasterFlagFile, replace : bool = false, keepBackup : bool = false) : int
 	+ Save(backup : bool = false) : void
-	+ Update(time : DateTimeOffset?) : void
+	+ Update(time : DateTimeOffset? = null, originator : string = null) : TimestampedValue
+	+{static} FileName(changeDir : string, name : string) : string
+	--
+	+ MasterFlagFile(changeDir : string, name : string, server : string = null)
 }
 
 class ProcessFlagFile << (C,#14b8a6) >> {
 	+ Process : string
-	+ CurrentProcessId : int
+	--
+	+ mv(src : ProcessFlagFile, replace : bool = false, keepBackup : bool = false) : int
+	+{static} CurrentProcessId() : string
+	+ Update(time : DateTimeOffset? = null, process : string = null) : TimestampedValue
 	--
 	+ ProcessFlagFile(changeDir : string)
-	--
-	+ Update(time : DateTimeOffset?) : void
 }
 
 class PitFile << (C,#14b8a6) >> {
 	+{static} SupportedExtensions : string[]
 	--
 	+ PitFile(fullName : string)
+	+ PitFile(path : RaiPath, name : string)
 	--
 	+ mv(src : PitFile, replace : bool = false, keepBackup : bool = false) : int
 	+ GetAllFiles(pitFolder : string, excludeCanonicalFile : bool = false) : IEnumerable<string>
@@ -131,8 +135,9 @@ class PitItem << (C,#14b8a6) >> {
 
 class "PitItemExtensions Ⓢ" as PitItemExtensions << (C,#14b8a6) >> {
 	+{static} Equals(x : PitItem, y : PitItem) : bool
-	+{static} isLike(x : PitItem, y : PitItem) : bool
-	+{static} aligned(x : PitItem, y : PitItem) : bool
+	+{static} dtSharp : long
+	+{static} isLike(dto1 : DateTimeOffset, dto2 : DateTimeOffset) : bool
+	+{static} aligned(dto1 : DateTimeOffset, dto2 : DateTimeOffset) : DateTimeOffset
 }
 
 class PitItems << (C,#14b8a6) >> {
@@ -143,39 +148,55 @@ class PitItems << (C,#14b8a6) >> {
 	--
 	+ PitItems(key : string, history : ImmutableList<PitItem>, maxCount : int = 5)
 	+ PitItems(key : string = null, value : IEnumerable<PitItem> = null, maxCount : int = 5)
+	+{static} Create(key : string, maxCount : int = 5) : PitItems
 	--
 	+ Push(item : PitItem) : PitItems
 	+ ProjectState(at : DateTimeOffset? = null, withDeleted : bool = false) : PitItem
 	+ Peek(timestamp : DateTimeOffset? = null) : PitItem
 	+ Get(timestamp : DateTimeOffset? = null) : JObject
+	+ GetEnumerator() : IEnumerator<PitItem>
 }
 
 class Pit << (C,#14b8a6) >> {
 	+ HistoricItems : ConcurrentDictionary<string, PitItems>
 	+ Keys : ICollection<string>
+	+ DefaultMaxCount : int
 	+ Subscriber : string
 	+ PitItem : PitItem
 	+ ItemProperty : dynamic
+	+ this[key : string] : PitItem
 	--
 	+ Pit(pitDirectory : string,\n  values : IEnumerable<PitItems> = null,\n  subscriber : string = null,\n  orderBy : Func<PitItem, string> = null,\n  descending : bool = false,\n  readOnly : bool = true,\n  backup : bool = false,\n  undercover : bool = false,\n  unflagged : bool = false,\n  autoload : bool = true,\n  ignoreCase : bool = false,\n  version : string = "")
 	+ Pit(values : JArray,\n  pitDirectory : string,\n  subscriber : string = null,\n  orderBy : Func<PitItem, string> = null,\n  descending : bool = false,\n  readOnly : bool = true,\n  backup : bool = false,\n  undercover : bool = false,\n  unflagged : bool = false,\n  autoload : bool = true,\n  ignoreCase : bool = false,\n  version : string = "")
+	+ Pit(pitFile : PitFile, readOnly : bool = false)
+	+{static} defaultPitName(pit : string, subscriber : string, version : string = null) : string
 	--
 	+ ContainsKey(key : string) : bool
 	+ Contains(itemId : string, withDeleted : bool = false) : bool
+	+ Invalid() : bool
+	+ GetLastestItemChanged() : DateTimeOffset
 	+ Add(item : PitItem) : bool
+	+ Add(jsonObject : string) : bool
+	+ AddItems(items : IEnumerable<PitItem>) : bool
+	+ AddItems(jsonArray : string) : bool
 	+ Delete(itemId : string, by : string = null, backDate : bool = true) : bool
 	+ Get(key : string, withDeleted : bool = false) : JObject
 	+ GetAt(key : string, timestamp : DateTimeOffset, withDeleted : bool = false) : PitItem
 	+ AllUndeleted() : IEnumerable<JObject>
 	+ AllUndeletedDynamic() : IEnumerable<dynamic>
 	+ ValuesOverTime(oName : string, pName : string) : IEnumerable<KeyValuePair<DateTimeOffset, JToken>>
+	+ ValueListsOverTime(oName : string, pName : string) : IEnumerable<KeyValuePair<DateTimeOffset, List<JToken>>>
+	+ ExportJson(exportFilePath : string, at : DateTimeOffset? = null, pretty : bool = true) : void
 	+ Load(undercover : bool = false) : void
 	+ Save(backup : bool? = null, force : bool = false) : void
+	+ CreateChangeFile(item : PitItem, machineName : string = null) : void
 	+ MergeChanges() : void
+	+ MergeIntoHistory(changeItems : PitItems) : void
 	+ Reload() : bool
+	+ GetEnumerator() : IEnumerator<PitItems>
 }
 
-abstract class "Item Ⓐ" as Item << (C,#14b8a6) >> {
+class Item << (C,#14b8a6) >> {
 	+ Id : string
 	+ Modified : DateTimeOffset
 	+ Deleted : bool
@@ -192,12 +213,23 @@ abstract class "Item Ⓐ" as Item << (C,#14b8a6) >> {
 	+ Invalidate() : void
 	+ ToString() : string
 	+ Matches(x : Item) : bool
+	+ Matches(se : SearchExpression) : bool
+	+ Matches(filter : string, comp : Compare = Compare.ByProperty) : bool
+	+ Clone<T>() : T
+	+ Clone() : dynamic
+	+ Merge(second : Item) : void
 }
 
 class "JObject" as JObject << (E,#f59e0b) >>
 class "JArray" as JArray << (E,#f59e0b) >>
 class "TextFile" as TextFile << (E,#f59e0b) >>
 class "CanonicalFile" as CanonicalFile << (E,#f59e0b) >>
+class "RaiPath" as RaiPath << (E,#f59e0b) >>
+class "SearchExpression" as SearchExpression << (E,#f59e0b) >>
+enum Compare << (E,#f59e0b) >> {
+	JSON
+	ByProperty
+}
 
 ItemsBase <|-- PitItems
 JsonPitBase <|-- Pit
@@ -212,8 +244,10 @@ JsonPitBase --> MasterFlagFile : uses
 PitItems --> PitItem : history
 Pit --> PitItems : stores
 Pit --> PitItem : adds / retrieves
+Pit --> JArray : imports / exports
 PitItemExtensions ..> PitItem : compares
 PitItem ..> JArray : extends from
+Item ..> SearchExpression : filters with
 
 note right of Pit
 	Recommended usage:

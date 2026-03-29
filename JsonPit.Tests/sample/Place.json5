@@ -1,0 +1,68 @@
+[
+	{
+		Id: "SDZSafariPark",
+		Name: "San Diego Zoo Safari Park",
+		Homepage: "https://sdzsafaripark.org/"
+	},
+	{
+		Id: "LibertyStationBrick",
+		Name: "The Brick @ Liberty Station",
+		Address: "2863 Historic Decatur Rd, San Diego, CA"
+	},
+	{
+		Id: "SmithRecitalHall",
+		Name: "Smith Recital Hall, SDSU"
+	},
+	{
+		Id: "WinstonsOB",
+		Name: "Winston's Ocean Beach",
+		Address: "1921 Bacon St., Ocean Beach, CA 92107",
+		Homepage: "https://www.winstonsob.com"
+	},
+	{
+		Id: "Hospitalhof",
+		Name: "Hospitalhof Schwäbisch Hall",
+		Address: "Am Spitalbach 8, 74523 Schwäbisch Hall, Germany"
+	},
+	{
+		Id: "ConradPrebys",
+		Name: "Conrad Prebys Aztec Student Union, Montezuma Hall"
+	},
+	{
+		Id: "StandleyPark",
+		Name: "Standley Park",
+		Address: "3585 Governor Dr, San Diego, CA 92122"
+	},
+	{
+		Id: "FallbrookLibrary",
+		Name: "Fallbrook Library"
+	},
+	{
+		Id: "RanchoGuejito",
+		Name: "Rancho Guejito Vineyard"
+	},
+	{
+		Id: "CityHeightsAnnex",
+		Name: "City Heights Performance Annex"
+	},
+	{
+		Id: "WaldkindergartenWaging",
+		Name: "Waldkindergarten Waging (engl.: Forest Kindergarten)"
+	},
+	{
+		Id: "RicksCafe",
+		Name: "Rick's Cafe, Ismaning, Germany"
+	},
+	{
+		Id: "SorrentoTower",
+		Name: "Sorrento Tower"
+	},
+	{
+		Id: "SanDiegoZoo",
+		Name: "San Diego Zoo"
+	},
+	{
+		Id: "HistoricEvent",
+		Name: "Historic Event"
+	}
+]
