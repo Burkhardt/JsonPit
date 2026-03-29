@@ -1,10 +1,10 @@
-# Getting Started with JsonPit 3.7.0
+# Getting Started with JsonPit 3.7.1
 
 This guide is written for practical implementation work, especially when you want to use JsonPit from NuGet packages in another service such as OTW / AfricaStage.
 
-It is based on the current JsonPit 3.7.0 code and tests in this repository.
+It is based on the current JsonPit 3.7.1 code and tests in this repository.
 
-## 3.7.0 key decisions
+## 3.7.1 key decisions
 
 - The supported cloud-backed provider claim for the package stack is `OneDrive`, `GoogleDrive`, and `Dropbox`.
 - `PitItem.Id` is now the canonical framework identifier.
@@ -42,7 +42,7 @@ It is not trying to replace a transactional database.
 
 ## Package Setup
 
-Use the NuGet package ids at version `3.7.0`:
+Use the NuGet package ids at version `3.7.1`:
 
 - `JsonPit`
 - `RaiUtils`
@@ -51,9 +51,9 @@ Use the NuGet package ids at version `3.7.0`:
 Typical install commands:
 
 ```bash
-dotnet add package JsonPit --version 3.7.0
-dotnet add package RaiUtils --version 3.7.0
-dotnet add package OsLibCore --version 3.7.0
+dotnet add package JsonPit --version 3.7.1
+dotnet add package RaiUtils --version 3.7.1
+dotnet add package OsLibCore --version 3.7.1
 ```
 
 Typical namespaces in code:
@@ -82,7 +82,7 @@ Current OsLib default config location:
 
 - `~/.config/RAIkeep/osconfig.json`
 
-JsonPit 3.7.0 should be documented against that fixed RAIkeep config path.
+JsonPit 3.7.1 should be documented against that fixed RAIkeep config path.
 
 Typical cloud-root config example:
 
@@ -95,6 +95,36 @@ Typical cloud-root config example:
 ```
 
 If your service is meant to work against a shared synchronized folder, prefer deriving the pit root from `Os.CloudStorageRootDir` or another explicit configured root.
+
+## Quick Start From The WWWA Integration Test
+
+If you want the simplest path to create a pit and seed it from the sample JSON5 data used by integration tests, use the same pattern as `WWWA_IntegrationTest_CloudDrive_Idempotency`.
+
+Core path setup:
+
+```csharp
+var testDirInCloud = Os.CloudStorageRootDir / "RAIkeep" / "WwwaTests";
+var personPitFile = new PitFile(testDirInCloud, "Person");
+var personPit = new Pit(personPitFile);
+```
+
+Seed the pit from the copied sample file:
+
+```csharp
+var sampleDir = Os.CloudStorageRootDir / "RAIkeep" / "sample";
+var personData = new TextFile(sampleDir, "Person", "json5").ReadAllText();
+personPit.AddItems(personData);
+personPit.Save();
+```
+
+Important test setup detail:
+
+- The test project has an MSBuild target named `SyncSamplesToCloud` that copies `sample/*.json5` (and other files under `sample/**`) to the cloud sample directory after build.
+- See [JsonPit/JsonPit.Tests/JsonPit.Tests.csproj](JsonPit/JsonPit.Tests/JsonPit.Tests.csproj) for the target configuration.
+
+Reference implementation:
+
+- [JsonPit/JsonPit.Tests/JsonPitRealWorldIntegrationTests.cs](JsonPit/JsonPit.Tests/JsonPitRealWorldIntegrationTests.cs#L22)
 
 ## Basic End-to-End Example
 
