@@ -1,5 +1,5 @@
 @startuml JsonPit-ClassDiagram
-' Release: 3.6.1
+' Release: 3.7.0
 title JsonPit Class Diagram
 
 skinparam backgroundColor white
