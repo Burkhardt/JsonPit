@@ -135,7 +135,7 @@ namespace JsonPit
 		/// <returns>true, if the youngest setting on disk is younger than the youngest setting in memory</returns>
 		public bool FileHasChangedOnDisk()
 		{
-			if (!File.Exists(JsonFile.FullName))
+			if (JsonFile.Exists())
 				return false;
 			return GetFileChanged() > GetMemChanged();
 		}
@@ -145,11 +145,8 @@ namespace JsonPit
 		/// <returns>true if a reload seems necessary, false otherwise</returns>
 		public bool ForeignChangesAvailable()
 		{
-			return (
-				from _ in Directory.GetFiles(ChangeDir.ToString(), "*.json")
-				where !(_).EndsWith("_" + Environment.MachineName + ".json")
-				select _
-			).Count() > 0;
+			return EnumerateChangePitFiles()
+				.Any(file => !Path.GetFileNameWithoutExtension(file).EndsWith("_" + Environment.MachineName, StringComparison.OrdinalIgnoreCase));
 		}
 		/// <summary>
 		/// Directory for change files
@@ -163,6 +160,14 @@ namespace JsonPit
 				file.mkdir();
 				return new RaiPath(file.Path);
 			}
+		}
+
+		protected IEnumerable<string> EnumerateChangePitFiles()
+		{
+			if (!ChangeDir.Exists())
+				return Enumerable.Empty<string>();
+
+			return Directory.GetFiles(ChangeDir.Path, "*.pit", SearchOption.AllDirectories);
 		}
 		/// <summary>
 		/// The JsonFile is the main file for the JsonPit
@@ -1049,6 +1054,13 @@ namespace JsonPit
 
 			if (!jfExists || force || Invalid())
 			{
+				// what this does: creates a temporary file, serializes the current state of the JsonPit to JSON, writes it to the temporary file, and then moves the temporary file 
+				// to replace the original JsonFile => this supposedly creates an atomic update, reducing the risk of data corruption => BS!!!
+				// In the reality of CloudDrives, this only works reliably if the JsonFile has never existed before in this location; otherwise it creates a copy liek "MyJsonPit (1).pit"
+				// If we open the original file from the getgo an the other hand, the sync process of CloudDrives knows the file is there and still open for red/write and can skip synchronizing it
+				// this time without signalling to the Cloud that the file disappeared.
+				// The only time a file duplication problem appears is when the same file in the same location is being written simultaneously on multiple machines - which does 
+				// not happen within JsonPit because of the master/client philosophy used
 				if (ReadOnly)
 					throw new IOException("JsonFile " + JsonFile.Name + " was set to readonly mode but an attempt was made to execute JsonFile.Store");
 
@@ -1068,10 +1080,10 @@ namespace JsonPit
 				stagedText.Append(rawJson);
 				stagedText.Save();
 
-				JsonFile.mv(tmpFile, true, true);
+				JsonFile.mv(tmpFile, true, true);	
 
 				var changeTime = GetLastestItemChanged();
-				File.SetLastWriteTimeUtc(JsonFile.FullName, changeTime.UtcDateTime);
+				File.SetLastWriteTimeUtc(JsonFile.FullName, changeTime.UtcDateTime);	// this is wrong - the last record written will still be documented inside the file with the most recent PitItem
 
 				if (!unflagged)
 				{
@@ -1111,29 +1123,120 @@ namespace JsonPit
 				Monitor.Exit(_locker);
 			}
 		}
+		/// <summary>
+		/// Find changes in memory to the main pit file and persists them as ChangeFiles (plural? yes, one per changed item)
+		/// A ChangeFile is not a pit, each only contains one PitItem
+		/// </summary>
 		private void CreateChangeFiles()
 		{
-			var compareFile = new Pit(JsonFile.Path + JsonFile.Name, undercover: true, unflagged: true);
-			foreach (var itemId in Keys)
+			// Read the current state from disk (read-only — will pick up existing 
+			// ChangeFiles into memory but won't delete them; only the master 
+			// process consumes and removes ChangeFiles)
+			var compareFile = new Pit(
+				JsonFile.Path + JsonFile.Name,
+				undercover: true,
+				unflagged: true,
+				readOnly: true
+			);
+
+			// Find what we have in memory that the disk version doesn't
+			var myLocalChanges = CompareToOtherHistory(compareFile.HistoricItems);
+
+			if (myLocalChanges.Count == 0)
+				return;
+
+			// Swap in the disk version and merge our changes back
+			lock (_locker)
 			{
-				if (!HistoricItems.TryGetValue(itemId, out var list))
-					continue;
-				var latest = list.LatestFragment();
-				if (latest == null)
-					continue;
-				if (!compareFile.ContainsKey(itemId))
+				HistoricItems = compareFile.HistoricItems;
+
+				foreach (var changedPitItems in myLocalChanges)
 				{
-					CreateChangeFile(latest);
-					continue;
+					HistoricItems.AddOrUpdate(
+						changedPitItems.Key,
+						changedPitItems,
+						(key, existingFromDisk) =>
+						{
+							var merged = existingFromDisk;
+							foreach (var fragment in changedPitItems)
+							{
+								merged = merged.Push(fragment);
+							}
+							return merged;
+						}
+					);
 				}
-				if (compareFile.HistoricItems.TryGetValue(itemId, out var compareList))
+			}
+
+			// Write each changed PitItem as an individual ChangeFile
+			// into the Changes subdirectory next to the pit file
+			foreach (var changedPitItems in myLocalChanges)
+			{
+				foreach (var fragment in changedPitItems)
 				{
-					var compareLatest = compareList.LatestFragment();
-					if (compareLatest != null && latest.Modified > compareLatest.Modified)
-						CreateChangeFile(latest);
+					CreateChangeFile(fragment);
 				}
 			}
 		}
+
+		/// <summary>
+		/// Writes a single PitItem as a ChangeFile to the Changes subdirectory.
+		/// Filename format: {ticks}_{machineName}.json
+		/// </summary>
+		private void CreateChangeFile(PitItem item)
+		{
+			if (item == null)
+				return;
+
+			// Single-element array to match ChangeFile format: [{"Id":"...","Value":126,...}]
+			var json = new JArray(item.DeepClone()).ToString(Newtonsoft.Json.Formatting.None);
+
+			// Build filename from ticks + machine name, matching existing convention
+			// e.g. 639105362377376238_ubuntu.json
+			var ticks = item.Modified.ToUniversalTime().Ticks.ToString();
+			var machineName = Environment.MachineName.ToLowerInvariant();
+			var fileName = $"{ticks}_{machineName}";
+
+			// Changes subdirectory sits alongside the pit file
+			var changesPath = new RaiPath(JsonFile.Path) / "Changes";
+
+			var changeFile = new TextFile(changesPath, fileName, ext: "json");
+			changeFile.Lines = new List<string> { json };
+			changeFile.Changed = true;
+			changeFile.Save();
+		}
+		/// <summary>
+		/// Compares this.HistoricItems with another set of historic items and returns the differences.
+		/// </summary>
+		/// <param name="historicItems"></param>
+		/// <returns>A dictionary containing what's in this.HistoricItems and not in the provided historicItems.</returns>
+		private List<PitItems> CompareToOtherHistory(ConcurrentDictionary<string, PitItems> historicItems)
+		{
+			var differences = new List<PitItems>();
+			foreach (var kvp in HistoricItems)
+			{
+				if (!historicItems.TryGetValue(kvp.Key, out var otherItems))
+				{
+					// Case a: entire PitItems missing from the other side
+					differences.Add(kvp.Value);
+					continue;
+				}
+				// Case b: find individual PitItem fragments missing from the other side.
+				// Build a set of (Id, Modified) from the other side for fast lookup.
+				var otherKeys = new HashSet<(string Id, DateTimeOffset Modified)>(
+					otherItems.Select(item => (item.Id, item.Modified))
+				);
+				var missingItems = kvp.Value
+					.Where(item => !otherKeys.Contains((item.Id, item.Modified)))
+					.ToList();
+				if (missingItems.Count > 0)
+				{
+					differences.Add(new PitItems(kvp.Key, missingItems, DefaultMaxCount));
+				}
+			}
+			return differences;
+		}
+
 		public void CreateChangeFile(PitItem item, string machineName = null)
 		{
 			if (machineName == null)
@@ -1142,32 +1245,34 @@ namespace JsonPit
 			var inner = new JArray();
 			inner.Add(item);
 			items.Add(inner);
-			var changeFile = new RaiFile(ChangeDir + item.Modified.UtcTicks.ToString() + "_" + machineName + ".json");
+			var changeFile = new PitFile(ChangeDir.Path / (item.Modified.UtcTicks.ToString() + "_" + machineName)); // Os.DIRSEPERATOR
 			if (!File.Exists(changeFile.FullName))
 				new Pit(items, changeFile.FullName, unflagged: true, readOnly: false).Save();
 		}
 		public void MergeChanges()
 		{
-			var changes = new PitItems();
-			Pit changePit;
-
 			if (ChangeDir.Exists())
 			{
-				foreach (var file in Directory.GetFiles(ChangeDir.Path, "*.json").OrderByDescending(x => x))
+				foreach (var file in EnumerateChangePitFiles().OrderByDescending(x => x))
 				{
 					try
 					{
-						changePit = new Pit(file, undercover: true);
-						Pit pit = new Pit(pitDirectory: file);
+						var changePit = new Pit(file, undercover: true);
 
-						foreach (var changeItems in pit)
+						foreach (var changeItems in changePit)
 						{
 							MergeIntoHistory(changeItems);
 						}
 
 						if (RunningOnMaster() && (DateTimeOffset.UtcNow - (new System.IO.FileInfo(file)).CreationTime).TotalSeconds > 600)
 							if (!ReadOnly)
-								new RaiFile(file).rm();
+								try
+								{
+									new RaiFile(Path.GetDirectoryName(file) ?? file).rmdir(depth: 10, deleteFiles: true);
+								}
+								catch (IOException)
+								{
+								}
 					}
 					catch (System.InvalidOperationException)
 					{
@@ -1177,6 +1282,7 @@ namespace JsonPit
 			if (!ReadOnly)
 				Store();
 		}
+
 		public void MergeIntoHistory(PitItems changeItems)
 		{
 			while (true)
@@ -1277,6 +1383,7 @@ namespace JsonPit
 				}
 			}
 		}
+		// TODO: reconsider the orderBy option; right now I think the order is intrinsically determined by the PitItems stack and cannot be given as an argument
 		public Pit(string pitDirectory, IEnumerable<PitItems> values = null, string subscriber = null, Func<PitItem, string> orderBy = null, bool descending = false,
 						bool readOnly = true, bool backup = false, bool undercover = false, bool unflagged = false, bool autoload = true, bool ignoreCase = false, string version = "")
 			: base(readOnly, backup, unflagged, descending)
