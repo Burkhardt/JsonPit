@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Newtonsoft.Json.Linq;
 using OsLib;
 using Xunit;
@@ -64,6 +65,46 @@ namespace JsonPit.Tests
 			Assert.Equal(2, historyStack.Count);
 			Assert.Equal(time1, historyStack.Items[0].Modified);
 			Assert.Equal(time2, historyStack.Items[1].Modified);
+		}
+
+		[Fact]
+		public void RenameId_MigratesStateAndTombstonesOldKey()
+		{
+			var pit = new Pit(pitDirectory: _testFile.FullName, readOnly: false, autoload: false);
+
+			var original = new PitItem("LegacyTicker");
+			original.SetProperty(new { Price = 262.77, Exchange = "NASDAQ" });
+			pit.Add(original);
+
+			var renamed = pit.RenameId("LegacyTicker", "AAPL");
+
+			Assert.True(renamed);
+			Assert.False(pit.Contains("LegacyTicker"));
+			Assert.True(pit.Contains("AAPL"));
+			Assert.Null(pit["LegacyTicker"]);
+
+			var newState = pit["AAPL"];
+			Assert.NotNull(newState);
+			Assert.Equal("AAPL", newState!["Id"]!.Value<string>());
+			Assert.Equal(262.77, newState["Price"]!.Value<double>(), 5);
+			Assert.Equal("NASDAQ", newState["Exchange"]!.Value<string>());
+
+			Assert.True(pit.HistoricItems.ContainsKey("LegacyTicker"));
+			var oldHistory = pit.HistoricItems["LegacyTicker"];
+			Assert.True(oldHistory.History.Last().Deleted);
+
+			var oldDeletedState = pit.Get("LegacyTicker", withDeleted: true);
+			Assert.NotNull(oldDeletedState);
+			Assert.True(oldDeletedState!["Deleted"]!.Value<bool>());
+
+			pit.Save(force: true);
+
+			var rawJson = string.Join(Environment.NewLine, new TextFile(pit.JsonFile.FullName).Read());
+			var diskArray = JArray.Parse(rawJson);
+
+			Assert.Equal(2, diskArray.Count);
+			Assert.Contains(diskArray.OfType<JArray>(), history => history.Any(fragment => fragment["Id"]?.Value<string>() == "LegacyTicker"));
+			Assert.Contains(diskArray.OfType<JArray>(), history => history.Any(fragment => fragment["Id"]?.Value<string>() == "AAPL"));
 		}
 
 		public void Dispose()

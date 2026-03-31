@@ -350,7 +350,7 @@ namespace JsonPit
 	{
 		public string Id
 		{
-			get { return (string)(this[nameof(Id)] ?? this["Name"]); }
+			get { return (string)(this[nameof(Id)] ); } //?? this["Name"]
 			set { this[nameof(Id)] = value; }
 		}
 		public DateTimeOffset Modified
@@ -434,9 +434,6 @@ namespace JsonPit
 		public virtual bool ExtendWith(JObject obj)
 		{
 			var normalized = (JObject)obj.DeepClone();
-			if (normalized[nameof(Id)] == null && normalized["Name"] != null)
-				normalized[nameof(Id)] = normalized["Name"];
-			normalized.Remove("Name");
 
 			var originalClone = (JObject)this.DeepClone();
 			var mergeSettings = new JsonMergeSettings
@@ -517,7 +514,7 @@ namespace JsonPit
 			: base(other)
 		{
 			Id = other.Id;
-			Remove("Name");
+			//Remove("Name");
 			Modified = timestamp == null ? (DateTimeOffset)other[nameof(Modified)] : (DateTimeOffset)timestamp;
 		}
 		public PitItem(JObject from)
@@ -541,8 +538,8 @@ namespace JsonPit
 			{
 				Modified = DateTimeOffset.UtcNow;
 			}
-			Id = (string)(this[nameof(Id)] ?? this["Name"]);
-			Remove("Name");
+			Id = (string)(this[nameof(Id)] );  // ?? this["Name"]
+			//Remove("Name");
 			if (Property(nameof(Note)) != null)
 				Note = (string)this[nameof(Note)];
 		}
@@ -872,16 +869,16 @@ namespace JsonPit
 			else
 				payload = JObject.FromObject(value);
 
-			if (payload["Id"] == null && payload["Name"] != null)
-				payload["Id"] = payload["Name"];
-			payload.Remove("Name");
+			// if (payload["Id"] == null && payload["Name"] != null)
+			// 	payload["Id"] = payload["Name"];
+			// payload.Remove("Name");
 			return payload;
 		}
 		private static string GetIdentifier(JObject payload)
 		{
-			var itemId = (string)(payload["Id"] ?? payload["Name"]);
+			var itemId = (string)(payload["Id"] /*?? payload["Name"]*/);
 			if (string.IsNullOrWhiteSpace(itemId))
-				throw new ArgumentException("Payload must contain Id or legacy Name.", nameof(payload));
+				throw new ArgumentException("Payload must contain Id." /* or legacy Name.*/, nameof(payload));
 			return itemId;
 		}
 		private static bool EqualsIgnoringModified(PitItem a, PitItem b)
@@ -908,6 +905,25 @@ namespace JsonPit
 				return false;
 			}
 			return true;
+		}
+		public bool RenameId(string oldKey, string newKey)
+		{
+			if (string.IsNullOrWhiteSpace(oldKey) || string.IsNullOrWhiteSpace(newKey))
+				return false;
+			if (string.Equals(oldKey, newKey, Comparison))
+				return false;
+			if (!Contains(oldKey))
+				return false;
+			if (Contains(newKey, withDeleted: true))
+				return false;
+			var oldItem = this[oldKey];
+			if (oldItem == null)
+				return false;
+			var newItem = new PitItem(oldItem);
+			newItem.SetProperty(new { Id = newKey });
+			var oldItemDeleted = Delete(oldKey);
+			var renamedAdded = Add(newItem);
+			return oldItemDeleted && renamedAdded;
 		}
 		public JObject Get(string key, bool withDeleted = false)
 		{
