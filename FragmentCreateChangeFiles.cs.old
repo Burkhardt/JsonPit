@@ -1,0 +1,60 @@
+Fragment CreateChangeFiles 
+		/// <summary>
+		/// Find changes in memory to the main pit file and persists them as ChangeFiles (plural? yes, one per changed item)
+		/// A ChangeFile is not a pit, each only contains one PitItem
+		/// </summary>
+		private void CreateChangeFiles()
+		{
+			// the compareFile is the main pit; as we are in here, we are not running as master and are not allowed to modify it, so we open it in read-only mode
+			// however, opening it in read-only mode should be fine even in concurrent threats - we only read it into memory which should be safe even if the file is being written (?) 
+			// or opened for writing to by another process => NO!! Why do I read the file again? Is this a place where a should copy it to a tempfile first so that the read is not 
+			// interrupted by concurrent writes?
+			var compareFile = new Pit(JsonFile.Path + JsonFile.Name, undercover: true, unflagged: true, readOnly: true);
+			// remember: the constructor loads the Pit ... which means it picks up changes (in read-only, without removing them)synchronized into this machine's filesystem 
+			// or previous ChangeFiles we wrote here and therefore will have the latest picture of the main pit file as seen across all machines 
+			// (lag may exist due to filesystem synchronization)
+			// if we wrap all this in a try catch, we should be save to read error due to concurrent writes ... but, the changes will be lost also for in-memory access.
+			// Wouldn't it be better to keep a copy of the current disk Pit in memory and then compare the two memory representations and write change files accordingly?
+			// But this is actually what we are doing here, right? We just miss the opportunity to update the memory representation of this with the one from compareFile + changes
+			// How about we 
+			// - create a dictionary of changes - ok
+			// - swap the pitmemory from disk in to the current Pit instance - ok
+			// - add the changes back to memory - ok
+			// - write the changes to ChangeFiles
+			var myLocalChangesInMemory = CompareToOtherHistory(compareFile.HistoricItems);
+			lock (_locker)
+			{
+				this.HistoricItems = compareFile.HistoricItems;
+				// dispose old HistoricItems
+				// Add changes back 
+				foreach (var kvp in myLocalChangesInMemory)
+				{
+					HistoricItems[kvp.Key] = kvp.Value; // TODO: check, does this add (push) or replace, does it sort by Modified thereafter?
+				}
+			}
+			// that was hopefully a fairly short lock ... not sure it was necessary for the changes since the ConcurrentDictionary propably would handle concurrent writes anyway
+			// now we can write change files
+			foreach (var pitItem in myLocalChangesInMemory)
+			{
+				CreateChangeFile(pitItem.Value);
+			}
+			foreach (var itemId in Keys)
+			{
+				if (!HistoricItems.TryGetValue(itemId, out var list))
+					continue;
+				var latest = list.LatestFragment();
+				if (latest == null)
+					continue;
+				if (!compareFile.ContainsKey(itemId))
+				{
+					CreateChangeFile(latest);
+					continue;
+				}
+				if (compareFile.HistoricItems.TryGetValue(itemId, out var compareList))
+				{
+					var compareLatest = compareList.LatestFragment();
+					if (compareLatest != null && latest.Modified > compareLatest.Modified)	// why does it have to be younger? Older entries should also be considered => sorting by Modified happens during Load
+						CreateChangeFile(latest);
+				}
+			}
+		}

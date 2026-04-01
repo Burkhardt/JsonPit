@@ -96,13 +96,13 @@ namespace JsonPit.Tests
 
 		}
 		[Theory]
-		[InlineData(CloudStorageType.GoogleDrive)]
-		[InlineData(CloudStorageType.Dropbox)]
-		[InlineData(CloudStorageType.OneDrive)]
-		public void TestJsonPitInCloudDrive(CloudStorageType provider)
+		[InlineData(Cloud.GoogleDrive)]
+		[InlineData(Cloud.Dropbox)]
+		[InlineData(Cloud.OneDrive)]
+		public void TestJsonPitInCloudDrive(Cloud provider)
 		{
 			if (!TryPrepareWritableIntegrationRoot(provider, out var root, out var providerRoot, out var reason))
-				Assert.Skip($"Provider {provider}: {reason}. {Os.GetCloudStorageSetupGuidance()}");
+				Assert.Fail($"Provider {provider} misconfigured: {reason}. {Os.GetCloudStorageSetupGuidance()}");
 
 			try
 			{
@@ -135,18 +135,18 @@ namespace JsonPit.Tests
 			}
 			finally
 			{
-				Cleanup(root);
+				CleanupIfNeeded(root, provider);
 			}
 		}
 
 		[Theory]
-		[InlineData(CloudStorageType.Dropbox)]
-		[InlineData(CloudStorageType.OneDrive)]
-		[InlineData(CloudStorageType.GoogleDrive)]
-		public void Pit_SaveAndReload_WorksAgainstRealWritableCloudProvider(CloudStorageType provider)
+		[InlineData(Cloud.Dropbox)]
+		[InlineData(Cloud.OneDrive)]
+		[InlineData(Cloud.GoogleDrive)]
+		public void Pit_SaveAndReload_WorksAgainstRealWritableCloudProvider(Cloud provider)
 		{
 			if (!TryPrepareWritableIntegrationRoot(provider, out var root, out var providerRoot, out var reason))
-				Assert.Skip($"Provider {provider}: {reason}. {Os.GetCloudStorageSetupGuidance()}");
+				Assert.Fail($"Provider {provider} misconfigured: {reason}. {Os.GetCloudStorageSetupGuidance()}");
 
 			try
 			{
@@ -180,35 +180,56 @@ namespace JsonPit.Tests
 			}
 			finally
 			{
-				Cleanup(root);
+				CleanupIfNeeded(root, provider);
 			}
 		}
 
-		private static bool TryPrepareWritableIntegrationRoot(CloudStorageType provider, out RaiPath root, out string providerRoot, out string reason)
+		private static void CleanupIfNeeded(RaiPath root, Cloud provider)
 		{
-			Os.ResetCloudStorageCache();
-			providerRoot = Os.GetCloudStorageRoot(provider, refresh: true);
-			if (string.IsNullOrWhiteSpace(providerRoot))
+			if (ShouldPreserveCloudArtifacts(root))
 			{
-				root = Os.TempDir / "RAIkeep" / "missing-cloud-root";
+				Console.WriteLine($"Preserving cloud artifacts for provider {provider} at {root.Path}");
+				return;
+			}
+
+			Cleanup(root);
+		}
+
+		private static bool ShouldPreserveCloudArtifacts(RaiPath root)
+		{
+			if (!Os.IsCloudPath(root.Path))
+				return false;
+
+			var keep = Environment.GetEnvironmentVariable("RAIKEEP_KEEP_CLOUD_TEST_ARTIFACTS");
+			if (string.IsNullOrWhiteSpace(keep))
+				return true;
+
+			return !string.Equals(keep, "0", StringComparison.OrdinalIgnoreCase) &&
+				!string.Equals(keep, "false", StringComparison.OrdinalIgnoreCase);
+		}
+
+		private static bool TryPrepareWritableIntegrationRoot(Cloud provider, out RaiPath root, out RaiPath providerRoot, out string reason)
+		{
+			providerRoot = Os.GetCloudStorageRoot(provider, refresh: true);
+			if (string.IsNullOrWhiteSpace(providerRoot.Path))
+			{
+				root = new RaiPath(string.Empty);
 				reason = "provider root is not configured or not discoverable on this machine";
 				return false;
 			}
 
-			providerRoot = new RaiPath(providerRoot).Path;
-			if (!Directory.Exists(providerRoot))
+			if (!providerRoot.Exists())
 			{
-				root = new RaiPath(providerRoot) / "RAIkeep" / "jsonpit-cloud-integration-tests" / provider.ToString();
+				root = providerRoot / "RAIkeep" / "jsonpit-cloud-integration-tests" / provider.ToString();
 				reason = $"provider root does not exist: {providerRoot}";
 				return false;
 			}
 
-			root = new RaiPath(providerRoot) / "RAIkeep" / "jsonpit-cloud-integration-tests" / provider.ToString();
+			root = providerRoot / "RAIkeep" / "jsonpit-cloud-integration-tests" / provider.ToString();
 			reason = string.Empty;
 
 			try
 			{
-				Cleanup(root);
 				root.mkdir();
 				return true;
 			}
@@ -226,7 +247,7 @@ namespace JsonPit.Tests
 
 		private static bool TryPrepareDefaultCloudExampleRoot(out RaiPath root, out string reason)
 		{
-			Os.ResetCloudStorageCache();
+			//Os.ResetCloudStorageCache();
 
 			string providerRoot;
 			try
@@ -235,14 +256,14 @@ namespace JsonPit.Tests
 			}
 			catch (DirectoryNotFoundException ex)
 			{
-				root = Os.TempDir / "RAIkeep" / "examples" / "person";
+				root = new RaiPath(string.Empty);
 				reason = ex.Message;
 				return false;
 			}
 
 			if (string.IsNullOrWhiteSpace(providerRoot))
 			{
-				root = Os.TempDir / "RAIkeep" / "examples" / "person";
+				root = new RaiPath(string.Empty);
 				reason = "no default cloud root is configured or discoverable on this machine";
 				return false;
 			}

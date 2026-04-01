@@ -7,14 +7,13 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
-using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Threading;
 using RaiUtils;
 using OsLib;
 using System.Dynamic;
 using System.Collections.Immutable;
+using System.Net.Mime;
 
 namespace JsonPit
 {
@@ -30,6 +29,7 @@ namespace JsonPit
 			this.Key = key;
 		}
 	}
+
 	/// <summary>
 	/// Common base for pits with config, flags, and persistence helpers.
 	/// </summary>
@@ -52,6 +52,7 @@ namespace JsonPit
 			}
 		}
 		private static string version = null;
+
 		public static string ConfigDirDefault
 		{
 			get
@@ -66,11 +67,14 @@ namespace JsonPit
 			}
 		}
 		private static string configDirDefault = null;
+
 		public static Options jilOptions = new Options(prettyPrint: true, excludeNulls: false, jsonp: false, dateFormat: DateTimeFormat.ISO8601, includeInherited: true);
+
 		#region Semaphore
-		protected static int usingPersistence = 0;                // used by Interlocked
-		protected static readonly object _locker = new object();  // used by Monitor ... the question is: why do I need both?
+		protected int usingPersistence = 0;                // instance-level: each Pit guards its own persistence
+		protected readonly object _locker = new object();   // instance-level: each Pit has its own lock
 		#endregion
+
 		#region Flag file
 		/// <summary>
 		/// Can be used to identify if the current server is master for this JsonFile
@@ -81,45 +85,52 @@ namespace JsonPit
 			return unflagged || MasterFlag().Originator == Environment.MachineName;
 		}
 		protected bool unflagged;
+
 		public ProcessFlagFile ProcessFlag()
 		{
 			if (fileFlag == null)
-				fileFlag = new ProcessFlagFile(ChangeDir);
+				fileFlag = new ProcessFlagFile(ChangesDir);
 			if (fileFlag.Lines.Count == 0) // means: we just created the file
 				fileFlag.Update();
 			return fileFlag;
 		}
 		private ProcessFlagFile fileFlag = null;
+
 		public MasterFlagFile MasterFlag()
 		{
-			masterFlag = new MasterFlagFile(ChangeDir, "Master");   // read it or create it
+			masterFlag = new MasterFlagFile(ChangesDir, "Master");   // read it or create it
 			if (string.IsNullOrEmpty(masterFlag.Originator))    // means: we just created the file master.flag
 				masterFlag.Update();    // takes ownership to this machine if no server set yet
 			return masterFlag;
 		}
 		private MasterFlagFile masterFlag = null;
 		#endregion
+
 		#region store and load options (to be set via constructor)
 		public bool ReadOnly { get; set; }
 		public bool Backup { get; set; }
 		#endregion
+
 		/// <summary>
 		/// Did the master update the file since I last used it?
 		/// </summary>
 		/// <returns>true if a reload seems necessary, false otherwise</returns>
 		public bool MasterUpdatesAvailable()
 		{
-			return MasterFlag().Time.UtcTicks > ProcessFlag().Time.UtcTicks;    // maybe, everything within 10 ticks should is considered the same time???
+			return MasterFlag().Time.UtcTicks > ProcessFlag().Time.UtcTicks;
 		}
+
 		/// <summary>
 		/// overload this in derived classes to give it some per JsonItem meaning
 		/// </summary>
 		/// <returns>timestamp</returns>
 		public virtual DateTimeOffset GetFileChanged()
 		{
+			// TODO: Rainerquest — consider adding LastWriteTimeUtc to RaiFile so we don't need System.IO.FileInfo here
 			var info = new System.IO.FileInfo(JsonFile.FullName);
 			return info.LastWriteTimeUtc;
 		}
+
 		/// <summary>
 		/// overload this in derived classes to give it some per JsonItem meaning once Infos is defined
 		/// </summary>
@@ -128,47 +139,56 @@ namespace JsonPit
 		{
 			return DateTimeOffset.UtcNow;   // means: memory is always newer
 		}
+
 		/// <summary>
-		/// Loads the file from disk to compare the JsonItem.modified attribute of all JsonItem stored in it
+		/// Checks whether the disk version of this data has newer changes than the in-memory version.
 		/// </summary>
 		/// <remarks>greater means younger</remarks>
 		/// <returns>true, if the youngest setting on disk is younger than the youngest setting in memory</returns>
-		public bool FileHasChangedOnDisk()
+		public bool DiskHasNewerChanges()
 		{
-			if (JsonFile.Exists())
+			if (!JsonFile.Exists())
 				return false;
 			return GetFileChanged() > GetMemChanged();
 		}
+
 		/// <summary>
 		/// Changes from other servers are available when change files are there
 		/// </summary>
 		/// <returns>true if a reload seems necessary, false otherwise</returns>
 		public bool ForeignChangesAvailable()
 		{
-			return EnumerateChangePitFiles()
-				.Any(file => !Path.GetFileNameWithoutExtension(file).EndsWith("_" + Environment.MachineName, StringComparison.OrdinalIgnoreCase));
+			return EnumerateChangeFiles()
+				.Any(file => !new RaiFile(file).Name.EndsWith("_" + Environment.MachineName, StringComparison.OrdinalIgnoreCase));
 		}
+
 		/// <summary>
-		/// Directory for change files
+		/// Directory for change files and flag files, sitting alongside the pit file.
+		/// Created on first access if it doesn't exist yet.
 		/// </summary>
-		/// <remarks>The main pit file is now within a folder by the same name and Change files are in a subfolder called Changes</remarks>
-		public RaiPath ChangeDir
+		public RaiPath ChangesDir
 		{
 			get
 			{
-				var file = new RaiFile(JsonFile.Path + "Changes" + Os.DIRSEPERATOR);
-				file.mkdir();
-				return new RaiPath(file.Path);
+				if (changesDir == null)
+				{
+					var dir = new RaiPath(JsonFile.Path) / "Changes";			// TODO: CR make RaiFile.Path of type RaiPath
+					changesDir = dir.mkdir();
+				}
+				return changesDir;
 			}
 		}
+		private RaiPath changesDir = null;
 
-		protected IEnumerable<string> EnumerateChangePitFiles()
+		protected IEnumerable<string> EnumerateChangeFiles()
 		{
-			if (!ChangeDir.Exists())
+			if (!ChangesDir.Exists())
 				return Enumerable.Empty<string>();
 
-			return Directory.GetFiles(ChangeDir.Path, "*.pit", SearchOption.AllDirectories);
+			// TODO: Rainerquest — consider adding a GetFiles/EnumerateFiles method to RaiPath or RaiDir
+			return System.IO.Directory.GetFiles(ChangesDir.Path, "*.json", System.IO.SearchOption.AllDirectories);
 		}
+
 		/// <summary>
 		/// The JsonFile is the main file for the JsonPit
 		/// </summary>
@@ -176,13 +196,12 @@ namespace JsonPit
 		public PitFile JsonFile
 		{
 			get { return jsonFile; }
-			set
-			{
-				jsonFile = value;
-			}
+			set { jsonFile = value; }
 		}
 		private PitFile jsonFile;
+
 		protected bool descending;
+
 		public JsonPitBase(bool readOnly = true, bool backup = false, bool unflagged = false, bool descending = false)
 		{
 			ReadOnly = readOnly;
@@ -191,6 +210,7 @@ namespace JsonPit
 			this.descending = descending;
 		}
 	}
+
 	/// <summary>
 	/// Value with an attached timestamp and round-trip string format.
 	/// </summary>
@@ -202,11 +222,13 @@ namespace JsonPit
 		public DateTimeOffset Time { get; set; }
 		public string Value { get; set; }
 		public override string ToString() => $"{Value}|{Time.UtcDateTime.ToString("o")}";
+
 		public TimestampedValue(object value, DateTimeOffset? time = null)
 		{
 			Value = value == null ? string.Empty : value.ToString();
 			Time = time ?? DateTimeOffset.UtcNow;
 		}
+
 		public TimestampedValue(string valueAndTime)
 		{
 			if (string.IsNullOrEmpty(valueAndTime))
@@ -225,6 +247,7 @@ namespace JsonPit
 				Value = vtArray[0];
 			}
 		}
+
 		public TimestampedValue()
 		{
 		}
@@ -233,19 +256,16 @@ namespace JsonPit
 	public class MasterFlagFile : TextFile
 	{
 		public int mv(MasterFlagFile src, bool replace = false, bool keepBackup = false) => mv((RaiFile)src, replace, keepBackup);
-		private static object Locker = new object();
+		private readonly object locker = new object();
+
 		public new void Save(bool backup = false)
 		{
-			Monitor.Enter(Locker);
-			try
+			lock (locker)
 			{
 				base.Save(backup);
 			}
-			finally
-			{
-				Monitor.Exit(Locker);
-			}
 		}
+
 		public string Originator
 		{
 			get
@@ -260,6 +280,7 @@ namespace JsonPit
 				Save();
 			}
 		}
+
 		public DateTimeOffset Time
 		{
 			get
@@ -279,6 +300,7 @@ namespace JsonPit
 				Save();
 			}
 		}
+
 		public TimestampedValue Update(DateTimeOffset? time = null, string originator = null)
 		{
 			var tv = new TimestampedValue(Originator, DateTimeOffset.UtcNow);
@@ -298,7 +320,9 @@ namespace JsonPit
 			Save();
 			return tv;
 		}
+
 		public static string FileName(string changeDir, string name) => changeDir + new RaiFile(name).Name + ".flag";
+
 		public MasterFlagFile(RaiPath changeDir, string name, string server = null)
 			: base(changeDir, name, ext: "flag")
 		{
@@ -310,11 +334,13 @@ namespace JsonPit
 	public class ProcessFlagFile : MasterFlagFile
 	{
 		public int mv(ProcessFlagFile src, bool replace = false, bool keepBackup = false) => mv((RaiFile)src, replace, keepBackup);
+
 		public static string CurrentProcessId()
 		{
 			var p = System.Diagnostics.Process.GetCurrentProcess();
 			return $"{p.ProcessName}:{p.Id}";
 		}
+
 		public string Process
 		{
 			get
@@ -328,6 +354,7 @@ namespace JsonPit
 				Save();
 			}
 		}
+
 		public new TimestampedValue Update(DateTimeOffset? time = null, string process = null)
 		{
 			var tv = new TimestampedValue(CurrentProcessId(), DateTimeOffset.UtcNow)
@@ -340,6 +367,7 @@ namespace JsonPit
 			Save();
 			return tv;
 		}
+
 		public ProcessFlagFile(RaiPath changeDir)
 			: base(changeDir, Environment.MachineName)
 		{
@@ -351,13 +379,14 @@ namespace JsonPit
 	/// <summary>
 	/// JSON-backed item with metadata and change tracking.
 	/// </summary>
-	public class PitItem : JObject
+	public class PitItem : JObject, IEquatable<PitItem>
 	{
 		public string Id
 		{
-			get { return (string)(this[nameof(Id)] ); } //?? this["Name"]
+			get { return (string)(this[nameof(Id)]); }
 			set { this[nameof(Id)] = value; }
 		}
+
 		public DateTimeOffset Modified
 		{
 			get
@@ -369,6 +398,7 @@ namespace JsonPit
 				this[nameof(Modified)] = value.ToUniversalTime();
 			}
 		}
+
 		public bool Deleted
 		{
 			get
@@ -380,25 +410,30 @@ namespace JsonPit
 			}
 			set { this[nameof(Deleted)] = value; }
 		}
+
 		public string Note
 		{
 			get { return (string)this[nameof(Note)]; }
 			set { this[nameof(Note)] = value; }
 		}
+
 		public bool SetProperty(string objectAsJsonString)
 		{
 			return ExtendWith(JObject.Parse(objectAsJsonString));
 		}
+
 		public void SetProperty(object obj)
 		{
 			SetProperty(JSON.SerializeDynamic(obj));
 		}
+
 		public void DeleteProperty(string propertyName)
 		{
 			Deleted = false;
 			Invalidate();
 			this[propertyName] = null;
 		}
+
 		public bool Delete(string by = null, bool backDate100 = true)
 		{
 			if (Deleted)
@@ -413,6 +448,7 @@ namespace JsonPit
 			Note = s + ";\n" + Note;
 			return true;
 		}
+
 		protected bool Dirty { get; set; }
 		virtual public bool Valid() { return !Dirty; }
 		virtual public void Validate() { Dirty = false; }
@@ -421,11 +457,40 @@ namespace JsonPit
 			Dirty = true;
 			Modified = DateTimeOffset.UtcNow;
 		}
+
 		public override string ToString()
 		{
 			var jsonSerializerSettings = new JsonSerializerSettings() { DateTimeZoneHandling = DateTimeZoneHandling.Utc };
 			return JsonConvert.SerializeObject(this, jsonSerializerSettings);
 		}
+
+		#region IEquatable<PitItem>
+		/// <summary>
+		/// Two PitItems are considered equal if they have the same Id and Modified timestamp
+		/// and identical JSON content.
+		/// </summary>
+		public bool Equals(PitItem other)
+		{
+			if (other == null)
+				return false;
+			if (Id != other.Id || Modified.UtcTicks != other.Modified.UtcTicks)
+				return false;
+			return ToString() == other.ToString();
+		}
+
+		public override bool Equals(object obj)
+		{
+			if (obj is PitItem other)
+				return Equals(other);
+			return base.Equals(obj);
+		}
+
+		public override int GetHashCode()
+		{
+			return HashCode.Combine(Id, Modified.UtcTicks);
+		}
+		#endregion
+
 		public bool Extend(string json)
 		{
 			var token = JToken.Parse(json);
@@ -436,6 +501,7 @@ namespace JsonPit
 				_ => false
 			};
 		}
+
 		public virtual bool ExtendWith(JObject obj)
 		{
 			var normalized = (JObject)obj.DeepClone();
@@ -458,6 +524,7 @@ namespace JsonPit
 
 			return changed;
 		}
+
 		public virtual bool ExtendWith(JArray arr)
 		{
 			bool changed = false;
@@ -490,6 +557,7 @@ namespace JsonPit
 			}
 			return changed;
 		}
+
 		public PitItem(string id, bool invalidate = true, string comment = "")
 		{
 			this.Id = id;
@@ -498,10 +566,12 @@ namespace JsonPit
 				Invalidate();
 			Deleted = false;
 		}
+
 		public PitItem(string id, object extendWith, string comment = "")
 			: this(id, JSON.SerializeDynamic(extendWith), comment)
 		{
 		}
+
 		public PitItem(string id, string extendWithAsJson, string comment = "")
 		{
 			this.Id = id;
@@ -510,18 +580,20 @@ namespace JsonPit
 			Deleted = false;
 			Extend(extendWithAsJson);
 		}
+
 		public PitItem(string id, bool invalidate, DateTimeOffset timestamp, string comment = "")
 			: this(id, invalidate, comment)
 		{
 			Modified = timestamp;
 		}
+
 		public PitItem(PitItem other, DateTimeOffset? timestamp = null)
 			: base(other)
 		{
 			Id = other.Id;
-			//Remove("Name");
 			Modified = timestamp == null ? (DateTimeOffset)other[nameof(Modified)] : (DateTimeOffset)timestamp;
 		}
+
 		public PitItem(JObject from)
 			: base((JObject)from.DeepClone())
 		{
@@ -543,33 +615,28 @@ namespace JsonPit
 			{
 				Modified = DateTimeOffset.UtcNow;
 			}
-			Id = (string)(this[nameof(Id)] );  // ?? this["Name"]
-			//Remove("Name");
+			Id = (string)(this[nameof(Id)]);
 			if (Property(nameof(Note)) != null)
 				Note = (string)this[nameof(Note)];
 		}
+
 		public PitItem()
 		{
 		}
 	}
 
+	/// <summary>
+	/// Timestamp comparison extensions for PitItem.
+	/// </summary>
 	public static class PitItemExtensions
 	{
-		static public bool Equals(this PitItem pi1, PitItem pi2)
-		{
-			if (pi2 == null && pi1 == null)
-				return true;
-			else if (pi1 == null | pi2 == null)
-				return false;
-			else if (pi1.Id == pi2.Id && pi1.Modified.isLike(pi2.Modified))
-				return pi1.ToString() == pi2.ToString();
-			return false;
-		}
 		static public long dtSharp = 0;
+
 		static public bool isLike(this DateTimeOffset dto1, DateTimeOffset dto2)
 		{
 			return Math.Abs(dto1.UtcTicks - dto2.UtcTicks) <= dtSharp;
 		}
+
 		static public DateTimeOffset aligned(this DateTimeOffset dto1, DateTimeOffset dto2)
 		{
 			if (dto1.isLike(dto2))
@@ -578,14 +645,19 @@ namespace JsonPit
 		}
 	}
 
+	/// <summary>
+	/// Equality comparer for PitItem using IEquatable implementation.
+	/// </summary>
 	class PitItemEqualityComparer : IEqualityComparer<PitItem>
 	{
-		public bool Equals(PitItem d1, PitItem d2) => JsonPit.PitItemExtensions.Equals(d1, d2);
-		public int GetHashCode(PitItem x)
+		public bool Equals(PitItem d1, PitItem d2)
 		{
-			string s = $"{x.Id}{x.Modified.UtcTicks}";
-			return s.GetHashCode();
+			if (d1 == null && d2 == null) return true;
+			if (d1 == null || d2 == null) return false;
+			return d1.Equals(d2);
 		}
+
+		public int GetHashCode(PitItem x) => x?.GetHashCode() ?? 0;
 	}
 
 	/// <summary>
@@ -595,7 +667,7 @@ namespace JsonPit
 	{
 		public ImmutableList<PitItem> History { get; private set; }
 		public ImmutableList<PitItem> Items => History;
-		public int MaxCount { get; set; } = 5;
+		public int MaxCount { get; init; } = 10;
 
 		public PitItems(string key, ImmutableList<PitItem> history, int maxCount = 5) : base(key)
 		{
@@ -603,7 +675,7 @@ namespace JsonPit
 			MaxCount = maxCount;
 		}
 
-		public static PitItems Create(string key, int maxCount = 5) =>
+		public static PitItems Create(string key, int maxCount = 10) =>
 			new PitItems(key, ImmutableList<PitItem>.Empty, maxCount);
 
 		public PitItems Push(PitItem item)
@@ -721,11 +793,13 @@ namespace JsonPit
 
 	/// <summary>
 	/// JsonPit file container with item history and persistence.
+	/// Implements IDisposable to ensure changes are persisted on cleanup.
 	/// </summary>
-	public class Pit : JsonPitBase, IEnumerable<PitItems>
+	public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 	{
 		private Func<PitItem, string> orderBy;
 		public int DefaultMaxCount { get; }
+		private bool disposed = false;
 
 		public static string defaultPitName(string pit, string subscriber, string version = null)
 		{
@@ -742,7 +816,7 @@ namespace JsonPit
 			return file.FullName;
 		}
 
-		public override DateTimeOffset GetMemChanged() => GetLastestItemChanged();
+		public override DateTimeOffset GetMemChanged() => GetLatestItemChanged();
 
 		private StringComparer Comparer => ignoreCase ? StringComparer.InvariantCultureIgnoreCase : StringComparer.InvariantCulture;
 		private StringComparison Comparison => ignoreCase ? StringComparison.InvariantCultureIgnoreCase : StringComparison.InvariantCulture;
@@ -773,6 +847,7 @@ namespace JsonPit
 		public ConcurrentDictionary<string, PitItems> HistoricItems = new ConcurrentDictionary<string, PitItems>();
 		public ICollection<string> Keys => HistoricItems.Keys;
 		public bool ContainsKey(string key) => HistoricItems.ContainsKey(key);
+
 		public bool Contains(string itemId, bool withDeleted = false)
 		{
 			var isThere = HistoricItems.Keys.Contains(itemId, Comparer);
@@ -783,23 +858,25 @@ namespace JsonPit
 			var top = HistoricItems[itemId].ProjectState();
 			return top != null && !top.Deleted;
 		}
+
 		public bool Invalid()
 		{
 			var query = from kvp in HistoricItems
 						let latest = kvp.Value.LatestFragment()
 						where latest != null && !latest.Valid()
 						select latest.Id;
-			return query.Count() > 0;
+			return query.Any();
 		}
-		public DateTimeOffset GetLastestItemChanged()
+
+		public DateTimeOffset GetLatestItemChanged()
 		{
-			var list = (from kvp in HistoricItems
+			var dates = from kvp in HistoricItems
 						let latest = kvp.Value.LatestFragment()
 						where latest != null
-						select latest.Modified);
-			list = list.OrderByDescending(x => x);
-			return list.Count() > 0 ? list.Last() : DateTimeOffset.MinValue;
+						select latest.Modified;
+			return dates.Any() ? dates.Max() : DateTimeOffset.MinValue;
 		}
+
 		public PitItem this[string key]
 		{
 			get
@@ -813,10 +890,12 @@ namespace JsonPit
 				return top;
 			}
 		}
+
 		public PitItem PitItem
 		{
 			set { Add(value); }
 		}
+
 		public dynamic ItemProperty
 		{
 			set
@@ -825,6 +904,7 @@ namespace JsonPit
 				Add(new PitItem(payload));
 			}
 		}
+
 		/// <summary>
 		/// Add a PitItem as a new historic version using lock-free CAS algorithm.
 		/// </summary>
@@ -846,11 +926,13 @@ namespace JsonPit
 				}
 			}
 		}
+
 		public bool Add(string jsonObject)
 		{
 			var item = new PitItem(JObject.Parse(jsonObject));
 			return Add(item);
 		}
+
 		public bool AddItems(IEnumerable<PitItem> items)
 		{
 			var result = true;
@@ -860,12 +942,14 @@ namespace JsonPit
 			}
 			return result;
 		}
+
 		public bool AddItems(string jsonArray)
 		{
 			var jArray = JArray.Parse(jsonArray);
 			var items = jArray.Select(jObj => new PitItem((JObject)jObj)).ToList();
 			return AddItems(items);
 		}
+
 		private static JObject NormalizeIdentityPayload(object value)
 		{
 			JObject payload;
@@ -874,18 +958,17 @@ namespace JsonPit
 			else
 				payload = JObject.FromObject(value);
 
-			// if (payload["Id"] == null && payload["Name"] != null)
-			// 	payload["Id"] = payload["Name"];
-			// payload.Remove("Name");
 			return payload;
 		}
+
 		private static string GetIdentifier(JObject payload)
 		{
-			var itemId = (string)(payload["Id"] /*?? payload["Name"]*/);
+			var itemId = (string)(payload["Id"]);
 			if (string.IsNullOrWhiteSpace(itemId))
-				throw new ArgumentException("Payload must contain Id." /* or legacy Name.*/, nameof(payload));
+				throw new ArgumentException("Payload must contain Id.", nameof(payload));
 			return itemId;
 		}
+
 		private static bool EqualsIgnoringModified(PitItem a, PitItem b)
 		{
 			var ja = (JObject)a.DeepClone();
@@ -894,6 +977,7 @@ namespace JsonPit
 			jb.Remove("Modified");
 			return JToken.DeepEquals(ja, jb);
 		}
+
 		public bool Delete(string itemId, string by = null, bool backDate = true)
 		{
 			if (string.IsNullOrEmpty(itemId))
@@ -911,6 +995,7 @@ namespace JsonPit
 			}
 			return true;
 		}
+
 		public bool RenameId(string oldKey, string newKey)
 		{
 			if (string.IsNullOrWhiteSpace(oldKey) || string.IsNullOrWhiteSpace(newKey))
@@ -930,6 +1015,7 @@ namespace JsonPit
 			var renamedAdded = Add(newItem);
 			return oldItemDeleted && renamedAdded;
 		}
+
 		public JObject Get(string key, bool withDeleted = false)
 		{
 			if (!HistoricItems.TryGetValue(key, out var list))
@@ -938,6 +1024,7 @@ namespace JsonPit
 				return list.ProjectState(withDeleted: true);
 			return (JObject)this[key];
 		}
+
 		public PitItem GetAt(string key, DateTimeOffset timestamp, bool withDeleted = false)
 		{
 			if (!HistoricItems.TryGetValue(key, out var list))
@@ -945,6 +1032,7 @@ namespace JsonPit
 
 			return list.ProjectState(timestamp, withDeleted);
 		}
+
 		public IEnumerable<KeyValuePair<DateTimeOffset, JToken>> ValuesOverTime(string oName, string pName)
 		{
 			if (!HistoricItems.TryGetValue(oName, out var list))
@@ -954,6 +1042,7 @@ namespace JsonPit
 					select new KeyValuePair<DateTimeOffset, JToken>(item.Modified, item.Deleted ? null : (JToken)item[pName]);
 			return q;
 		}
+
 		public IEnumerable<KeyValuePair<DateTimeOffset, List<JToken>>> ValueListsOverTime(string oName, string pName)
 		{
 			if (!HistoricItems.ContainsKey(oName))
@@ -963,6 +1052,7 @@ namespace JsonPit
 					 select new KeyValuePair<DateTimeOffset, List<JToken>>(kvp.Key, (from _ in (JArray)kvp.Value select _).ToList()));
 			return q;
 		}
+
 		public IEnumerable<JObject> AllUndeleted()
 		{
 			foreach (var key in Keys)
@@ -971,7 +1061,8 @@ namespace JsonPit
 					yield return Get(key);
 			}
 		}
-		public void ExportJson(string exportFilePath, DateTimeOffset? at = null, bool pretty = true)
+
+		public void ExportJson(RaiPath exportFilePath, DateTimeOffset? at = null, bool pretty = true)
 		{
 			var exportItems = new JArray();
 
@@ -988,14 +1079,18 @@ namespace JsonPit
 			}
 
 			var formatting = pretty ? Formatting.Indented : Formatting.None;
-			File.WriteAllText(exportFilePath, exportItems.ToString(formatting));
+			// Write directly to the file — no tmp-file-then-rename pattern in cloud-synced areas
+			var exportFile = new TextFile(
+				exportFilePath, JsonFile.Name, "json",
+				content: exportItems.ToString(formatting));
 		}
+
 		public IEnumerable<dynamic> AllUndeletedDynamic()
 		{
 			return AllUndeleted().Select(jObj =>
 			{
 				dynamic expando = new ExpandoObject();
-				var dict = (IDictionary<string, object>)expando;
+				var dict = (IDictionary<string, object>)expando;    // TODO: CR make RaiPath useable here
 
 				foreach (var property in jObj.Properties())
 				{
@@ -1006,7 +1101,9 @@ namespace JsonPit
 				return expando;
 			});
 		}
+
 		public string Subscriber { get; private set; }
+
 		public void Load(bool undercover = false)
 		{
 			if (!JsonFile.Exists())
@@ -1039,10 +1136,11 @@ namespace JsonPit
 			finally
 			{
 				if (loadedOk && hasData && !(undercover || unflagged))
-					ProcessFlag().Update(GetLastestItemChanged());
+					ProcessFlag().Update(GetLatestItemChanged());
 				Interlocked.Exchange(ref usingPersistence, 0);
 			}
 		}
+
 		protected void Store(bool force = false, bool pretty = false, char indentChar = '\t')
 		{
 			if (HistoricItems == null)
@@ -1054,36 +1152,30 @@ namespace JsonPit
 
 			if (!jfExists || force || Invalid())
 			{
-				// what this does: creates a temporary file, serializes the current state of the JsonPit to JSON, writes it to the temporary file, and then moves the temporary file 
-				// to replace the original JsonFile => this supposedly creates an atomic update, reducing the risk of data corruption => BS!!!
-				// In the reality of CloudDrives, this only works reliably if the JsonFile has never existed before in this location; otherwise it creates a copy liek "MyJsonPit (1).pit"
-				// If we open the original file from the getgo an the other hand, the sync process of CloudDrives knows the file is there and still open for red/write and can skip synchronizing it
-				// this time without signalling to the Cloud that the file disappeared.
-				// The only time a file duplication problem appears is when the same file in the same location is being written simultaneously on multiple machines - which does 
-				// not happen within JsonPit because of the master/client philosophy used
 				if (ReadOnly)
-					throw new IOException("JsonFile " + JsonFile.Name + " was set to readonly mode but an attempt was made to execute JsonFile.Store");
+					throw new System.IO.IOException("JsonFile " + JsonFile.Name + " was set to readonly mode but an attempt was made to execute JsonFile.Store");
 
 				JsonFile.mkdir();
 
-				var tmpFile = new TmpFile(JsonFile.FullName, ext: "tmp");
-				if (tmpFile.Exists())
-					tmpFile.rm();
-
+				// Write directly to the file — never use tmp-file-then-rename in cloud-synced areas.
+				// The file must remain visible to the cloud provider at all times.
+				// The master/client philosophy prevents simultaneous writes from multiple machines.
 				var serializer = new JsonSerializer
 				{
 					DateFormatHandling = DateFormatHandling.IsoDateFormat
 				};
 				var rawJson = JToken.FromObject(GetRawPersistenceModel(), serializer)
 					.ToString(pretty ? Formatting.Indented : Formatting.None);
-				var stagedText = new TextFile(tmpFile.FullName);
-				stagedText.Append(rawJson);
-				stagedText.Save();
 
-				JsonFile.mv(tmpFile, true, true);	
+				var pitFile = new TextFile(JsonFile.FullName);
+				pitFile.Lines = new List<string> { rawJson };
+				pitFile.Changed = true;
+				pitFile.Save();
 
-				var changeTime = GetLastestItemChanged();
-				File.SetLastWriteTimeUtc(JsonFile.FullName, changeTime.UtcDateTime);	// this is wrong - the last record written will still be documented inside the file with the most recent PitItem
+				// TODO: Rainerquest — consider adding SetLastWriteTimeUtc to RaiFile
+				var changeTime = GetLatestItemChanged();
+				//rather not: keep the Now change time for the file to not confuse the CloudProvider + User
+				//System.IO.File.SetLastWriteTimeUtc(JsonFile.FullName, changeTime.UtcDateTime);
 
 				if (!unflagged)
 				{
@@ -1098,6 +1190,7 @@ namespace JsonPit
 				}
 			}
 		}
+
 		private IReadOnlyList<IReadOnlyList<PitItem>> GetRawPersistenceModel()
 		{
 			return HistoricItems
@@ -1105,32 +1198,35 @@ namespace JsonPit
 				.Select(kvp => (IReadOnlyList<PitItem>)kvp.Value.History)
 				.ToList();
 		}
+
 		public void Save(bool? backup = null, bool force = false)
 		{
 			if (backup != null)
 				Backup = (bool)backup;
 			if (ReadOnly)
-				throw new IOException("JsonFile " + JsonFile.Name + " was set to readonly mode but an attempt was made to execute JsonFile.Save");
+				throw new System.IO.IOException("JsonFile " + JsonFile.Name + " was set to readonly mode but an attempt was made to execute JsonFile.Save");
 			Monitor.Enter(_locker);
 			try
 			{
 				if (RunningOnMaster())
 					Store(force);
-				else CreateChangeFiles();
+				else
+					CreateChangeFiles();
 			}
 			finally
 			{
 				Monitor.Exit(_locker);
 			}
 		}
+
 		/// <summary>
-		/// Find changes in memory to the main pit file and persists them as ChangeFiles (plural? yes, one per changed item)
-		/// A ChangeFile is not a pit, each only contains one PitItem
+		/// Find changes in memory compared to the main pit file and persist them as ChangeFiles (one per changed fragment).
+		/// A ChangeFile contains a single PitItem wrapped in the pit JSON format (array of arrays).
 		/// </summary>
 		private void CreateChangeFiles()
 		{
-			// Read the current state from disk (read-only — will pick up existing 
-			// ChangeFiles into memory but won't delete them; only the master 
+			// Read the current state from disk (read-only — will pick up existing
+			// ChangeFiles into memory but won't delete them; only the master
 			// process consumes and removes ChangeFiles)
 			var compareFile = new Pit(
 				JsonFile.Path + JsonFile.Name,
@@ -1145,71 +1241,67 @@ namespace JsonPit
 			if (myLocalChanges.Count == 0)
 				return;
 
-			// Swap in the disk version and merge our changes back
-			lock (_locker)
-			{
-				HistoricItems = compareFile.HistoricItems;
+			// Already under _locker from Save() — merge directly
+			HistoricItems = compareFile.HistoricItems;
 
-				foreach (var changedPitItems in myLocalChanges)
-				{
-					HistoricItems.AddOrUpdate(
-						changedPitItems.Key,
-						changedPitItems,
-						(key, existingFromDisk) =>
-						{
-							var merged = existingFromDisk;
-							foreach (var fragment in changedPitItems)
-							{
-								merged = merged.Push(fragment);
-							}
-							return merged;
-						}
-					);
-				}
+			foreach (var changedPitItems in myLocalChanges)
+			{
+				HistoricItems.AddOrUpdate(
+					changedPitItems.Key,
+					changedPitItems,
+					(key, existingFromDisk) =>
+					{
+						var merged = existingFromDisk;
+						foreach (var fragment in changedPitItems)
+							merged = merged.Push(fragment);
+						return merged;
+					}
+				);
 			}
 
 			// Write each changed PitItem as an individual ChangeFile
-			// into the Changes subdirectory next to the pit file
 			foreach (var changedPitItems in myLocalChanges)
 			{
 				foreach (var fragment in changedPitItems)
-				{
 					CreateChangeFile(fragment);
-				}
 			}
 		}
 
 		/// <summary>
 		/// Writes a single PitItem as a ChangeFile to the Changes subdirectory.
+		/// The file uses pit format (array of arrays) so MergeChanges can read it as a Pit.
 		/// Filename format: {ticks}_{machineName}.json
 		/// </summary>
-		private void CreateChangeFile(PitItem item)
+		public void CreateChangeFile(PitItem item, string server = null)
 		{
 			if (item == null)
 				return;
 
-			// Single-element array to match ChangeFile format: [{"Id":"...","Value":126,...}]
-			var json = new JArray(item.DeepClone()).ToString(Newtonsoft.Json.Formatting.None);
-
-			// Build filename from ticks + machine name, matching existing convention
-			// e.g. 639105362377376238_ubuntu.json
-			var ticks = item.Modified.ToUniversalTime().Ticks.ToString();
-			var machineName = Environment.MachineName.ToLowerInvariant();
+			var ticks = item.Modified.UtcTicks.ToString();
+			var machineName = server ?? Environment.MachineName;
 			var fileName = $"{ticks}_{machineName}";
 
-			// Changes subdirectory sits alongside the pit file
-			var changesPath = new RaiPath(JsonFile.Path) / "Changes";
+			var changeFile = new RaiFile(ChangesDir, fileName, "json");
+			//changeFile.Ext = "json";
 
-			var changeFile = new TextFile(changesPath, fileName, ext: "json");
-			changeFile.Lines = new List<string> { json };
-			changeFile.Changed = true;
-			changeFile.Save();
+			if (changeFile.Exists())
+				return;
+
+			// Wrap in pit format: array of arrays, each inner array is one PitItems history
+			var json = new JArray(new JArray(item.DeepClone())).ToString(Formatting.None);
+
+			var textFile = new TextFile(changeFile.FullName);
+			textFile.Lines = new List<string> { json };
+			textFile.Changed = true;
+			textFile.Save();
 		}
+
 		/// <summary>
 		/// Compares this.HistoricItems with another set of historic items and returns the differences.
+		/// Returns all PitItem fragments that exist in this.HistoricItems but are missing from the provided historicItems.
 		/// </summary>
-		/// <param name="historicItems"></param>
-		/// <returns>A dictionary containing what's in this.HistoricItems and not in the provided historicItems.</returns>
+		/// <param name="historicItems">The other history to compare against (typically from disk)</param>
+		/// <returns>A list of PitItems, each containing only the fragments missing from the other side.</returns>
 		private List<PitItems> CompareToOtherHistory(ConcurrentDictionary<string, PitItems> historicItems)
 		{
 			var differences = new List<PitItems>();
@@ -1237,23 +1329,11 @@ namespace JsonPit
 			return differences;
 		}
 
-		public void CreateChangeFile(PitItem item, string machineName = null)
-		{
-			if (machineName == null)
-				machineName = Environment.MachineName;
-			var items = new JArray();
-			var inner = new JArray();
-			inner.Add(item);
-			items.Add(inner);
-			var changeFile = new PitFile(ChangeDir.Path / (item.Modified.UtcTicks.ToString() + "_" + machineName)); // Os.DIRSEPERATOR
-			if (!File.Exists(changeFile.FullName))
-				new Pit(items, changeFile.FullName, unflagged: true, readOnly: false).Save();
-		}
 		public void MergeChanges()
 		{
-			if (ChangeDir.Exists())
+			if (ChangesDir.Exists())
 			{
-				foreach (var file in EnumerateChangePitFiles().OrderByDescending(x => x))
+				foreach (var file in EnumerateChangeFiles().OrderByDescending(x => x))
 				{
 					try
 					{
@@ -1264,17 +1344,24 @@ namespace JsonPit
 							MergeIntoHistory(changeItems);
 						}
 
-						if (RunningOnMaster() && (DateTimeOffset.UtcNow - (new System.IO.FileInfo(file)).CreationTime).TotalSeconds > 600)
-							if (!ReadOnly)
+						// Only the master deletes change files, and only after they've had time to propagate
+						if (RunningOnMaster() && !ReadOnly)
+						{
+							// TODO: Rainerquest — consider adding CreationTime to RaiFile
+							var rf = new RaiFile(file);
+							if (rf.FileAge.TotalSeconds > 600)
+							{
 								try
 								{
-									new RaiFile(Path.GetDirectoryName(file) ?? file).rmdir(depth: 10, deleteFiles: true);
+									rf.rm();
 								}
-								catch (IOException)
+								catch (System.IO.IOException)
 								{
 								}
+							}
+						}
 					}
-					catch (System.InvalidOperationException)
+					catch (InvalidOperationException)
 					{
 					}
 				}
@@ -1297,6 +1384,7 @@ namespace JsonPit
 					break;
 			}
 		}
+
 		public bool Reload()
 		{
 			var masterUpdates = MasterUpdatesAvailable();
@@ -1324,16 +1412,19 @@ namespace JsonPit
 			}
 			return false;
 		}
+
 		IEnumerator IEnumerable.GetEnumerator()
 		{
 			foreach (var item in HistoricItems)
 				yield return item.Value;
 		}
+
 		public IEnumerator<PitItems> GetEnumerator()
 		{
 			foreach (var kvp in HistoricItems)
 				yield return kvp.Value;
 		}
+
 		private void initValues(JArray values)
 		{
 			foreach (JToken token in values)
@@ -1367,9 +1458,10 @@ namespace JsonPit
 				}
 			}
 		}
+
 		private void initValues(IEnumerable<PitItems> values)
 		{
-			if (values != null && values.Count() > 0)
+			if (values != null && values.Any())
 			{
 				foreach (var pitItems in values)
 				{
@@ -1383,9 +1475,13 @@ namespace JsonPit
 				}
 			}
 		}
-		// TODO: reconsider the orderBy option; right now I think the order is intrinsically determined by the PitItems stack and cannot be given as an argument
-		public Pit(string pitDirectory, IEnumerable<PitItems> values = null, string subscriber = null, Func<PitItem, string> orderBy = null, bool descending = false,
-						bool readOnly = true, bool backup = false, bool undercover = false, bool unflagged = false, bool autoload = true, bool ignoreCase = false, string version = "")
+		// [Obsolete("orderBy not available anymore as constructor parameter because the order is intrinsically determined by the PitItems stack and cannot be given as an argument; use any other constructor with default odering")]
+		// public Pit(string pitDirectory, IEnumerable<PitItems> values = null, string subscriber = null, Func<PitItem, string> orderBy = null, bool descending = false,
+		// 						bool readOnly = true, bool backup = false, bool undercover = false, bool unflagged = false, bool autoload = true, bool ignoreCase = false, string version = "")
+		// { }
+		public Pit(string pitDirectory, IEnumerable<PitItems> values = null, string subscriber = null,
+							bool descending = false, bool readOnly = true, bool backup = false, bool undercover = false,
+							bool unflagged = false, bool autoload = true, bool ignoreCase = false, string version = "")
 			: base(readOnly, backup, unflagged, descending)
 		{
 			if (string.IsNullOrEmpty(pitDirectory) || pitDirectory.Length < 3)
@@ -1413,14 +1509,22 @@ namespace JsonPit
 			if (string.IsNullOrEmpty(JsonFile.Name) || string.IsNullOrEmpty(JsonFile.Ext))
 				throw new ArgumentException("JsonFile must have a valid name and extension - 3");
 		}
-		public Pit(JArray values, string pitDirectory, string subscriber = null, Func<PitItem, string> orderBy = null, bool descending = false,
-				bool readOnly = true, bool backup = false, bool undercover = false, bool unflagged = false, bool autoload = true, bool ignoreCase = false, string version = "")
-			: this(pitDirectory, Enumerable.Empty<PitItems>(), subscriber, orderBy, descending, readOnly, backup, undercover, unflagged, autoload, ignoreCase, version)
+		// [Obsolete("orderBy not available anymore as constructor parameter because the order is intrinsically determined by the PitItems stack and cannot be given as an argument; use any other constructor with default odering")]
+		// public Pit(JArray values, string pitDirectory, string subscriber = null, Func<PitItem, string> orderBy = null, bool descending = false,
+		// 				bool readOnly = true, bool backup = false, bool undercover = false, bool unflagged = false, bool autoload = true, bool ignoreCase = false, string version = "")
+		// { }
+
+		public Pit(JArray values, string pitDirectory, string subscriber = null,
+			bool descending = false, bool readOnly = true, bool backup = false, bool undercover = false,
+			bool unflagged = false, bool autoload = true, bool ignoreCase = false, string version = "")
+			: this(pitDirectory, Enumerable.Empty<PitItems>(), subscriber, descending, readOnly,
+						backup, undercover, unflagged, autoload, ignoreCase, version)
 		{
 			initValues(values);
 			if (string.IsNullOrEmpty(JsonFile.Name) || string.IsNullOrEmpty(JsonFile.Ext))
 				throw new ArgumentException("JsonFile must have a valid name and extension - 2");
 		}
+
 		/// <summary>
 		/// Constructor for opening a Pit from a PitFile
 		/// </summary>
@@ -1445,19 +1549,40 @@ namespace JsonPit
 			if (string.IsNullOrEmpty(JsonFile.Name) || string.IsNullOrEmpty(JsonFile.Ext))
 				throw new ArgumentException("JsonFile must have a valid name and extension - 1");
 		}
-		~Pit()
+
+		#region IDisposable
+		public void Dispose()
 		{
-			if (!ReadOnly)
+			Dispose(true);
+			GC.SuppressFinalize(this);
+		}
+
+		protected virtual void Dispose(bool disposing)
+		{
+			if (!disposed)
 			{
-				Save(backup: true, force: false);
-				Debug.WriteLine($"{JsonFile.Name} saved to {JsonFile.Path}");
+				if (disposing && !ReadOnly)
+				{
+					Save(backup: true, force: false);
+					Debug.WriteLine($"{JsonFile.Name} saved to {JsonFile.Path}");
+				}
+				disposed = true;
 			}
 		}
+
+		~Pit()
+		{
+			Dispose(false);
+		}
+		#endregion
 	}
 
 	/// <summary>
 	/// Base item with modified tracking and dirty state management.
+	/// Use PitItem instead — it provides the same functionality backed by JObject with full JSON support.
 	/// </summary>
+	[Obsolete("Use PitItem instead. PitItem extends JObject and supports the same Id/Modified/Deleted/Note properties " +
+		"plus JSON merge, extend, and projection capabilities. Construct via new PitItem(id) or new PitItem(jObject).")]
 	public class Item : ICloneable
 	{
 		public string Id { get; set; }
@@ -1571,14 +1696,14 @@ namespace JsonPit
 							value = propertyInfo.GetValue(second, null);
 							propertyInfo.SetValue(this, value, null);
 						}
-						catch (TargetParameterCountException)
+						catch (System.Reflection.TargetParameterCountException)
 						{
 							try
 							{
 								value = propertyInfo.GetValue(this, null);
 								propertyInfo.SetValue(this, value, null);
 							}
-							catch (TargetParameterCountException)
+							catch (System.Reflection.TargetParameterCountException)
 							{
 							}
 						}

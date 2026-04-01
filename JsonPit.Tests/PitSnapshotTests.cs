@@ -169,7 +169,7 @@ namespace JsonPit.Tests
 				pit.Add(deletedObsolete);
 
 				var exportFile = new RaiFile(root, "person-export", "json");
-				pit.ExportJson(exportFile.FullName, at: at, pretty: true);
+				pit.ExportJson(new RaiPath(exportFile), at: at, pretty: true);
 
 				var exported = JArray.Parse(File.ReadAllText(exportFile.FullName));
 
@@ -179,7 +179,7 @@ namespace JsonPit.Tests
 				Assert.Equal("max-v1@example.org", exported.Single(obj => obj["Id"]!.Value<string>() == "Max")["Email"]!.Value<string>());
 				Assert.DoesNotContain(exported, obj => obj["Id"]!.Value<string>() == "Obsolete");
 
-				pit.ExportJson(exportFile.FullName, pretty: false);
+				pit.ExportJson(new RaiPath(exportFile), pretty: false);
 				exported = JArray.Parse(File.ReadAllText(exportFile.FullName));
 
 				Assert.Equal("max-v2@example.org", exported.Single(obj => obj["Id"]!.Value<string>() == "Max")["Email"]!.Value<string>());

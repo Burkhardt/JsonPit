@@ -163,8 +163,7 @@ namespace JsonPit.Tests
 			var baseTs = DateTimeOffset.UtcNow;
 
 			// Ensure the list exists and won't trim to MaxCount (which is why you saw "5")
-			var list = jsonPitTestsPit.HistoricItems.GetOrAdd("AAPL", _ => new PitItems());
-			list.MaxCount = 0; // unlimited history for this test
+			jsonPitTestsPit.HistoricItems["AAPL"] = PitItems.Create("AAPL", 0); // unlimited history for this test
 
 			// Act
 			Parallel.For(0, n, i =>
