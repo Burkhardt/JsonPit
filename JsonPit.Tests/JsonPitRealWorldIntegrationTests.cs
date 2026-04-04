@@ -23,7 +23,7 @@ namespace JsonPit.Tests
 		{
 			// Given are 5 files in this project's sample directory: Place.json5, Person.json5, Object.json5, Activity.json5
 			// see JsonPit.Tests.csproj how the sample directory content from the project is copied to the cloud storage location
-			var sampleDir = Os.CloudStorageRootDir / "RAIkeep" / "sample"; 
+			var sampleDir = Os.CloudStorageRootDir / "RAIkeep" / "sample";
 
 			// When the destination Pit does not exist, the Pit is created and the existing values are loaded
 			var testDirInCloud = Os.CloudStorageRootDir / "RAIkeep" / "WwwaTests";
@@ -32,7 +32,7 @@ namespace JsonPit.Tests
 			var objectPitFile = new PitFile(testDirInCloud, "Object");
 			var activityPitFile = new PitFile(testDirInCloud, "Activity");
 
-			Assert.EndsWith($"{Os.DIRSEPERATOR}Place{Os.DIRSEPERATOR}Place.pit", placePitFile.FullName);
+			Assert.EndsWith($"{Os.DIR}Place{Os.DIR}Place.pit", placePitFile.FullName);
 
 			// When the destination Pit does exist, the Pit is loaded and importing the same file leads to a sequence of Add operations 
 			// that do not change the state of the Pit since the data stays the same;
@@ -44,7 +44,7 @@ namespace JsonPit.Tests
 			// Importing the data from the JSON5 files into the Pit
 			var placeData = new TextFile(sampleDir, "Place", "json5").ReadAllText();
 			placePit.AddItems(placeData);
-			placePit.Save();	// just to make sure we can inspect the data in the cloud storage
+			placePit.Save();    // just to make sure we can inspect the data in the cloud storage
 			var personData = new TextFile(sampleDir, "Person", "json5").ReadAllText();
 			personPit.AddItems(personData);
 			personPit.Save();
@@ -89,7 +89,7 @@ namespace JsonPit.Tests
 			dynamic hospitalhof = placePit["Hospitalhof"];
 			Assert.NotNull(location);
 			Assert.NotNull(hospitalhof);
-			Assert.Equal("Am Spitalbach 8, 74523 Schwäbisch Hall, Germany", hospitalhof[ "Address"]?.ToString());
+			Assert.Equal("Am Spitalbach 8, 74523 Schwäbisch Hall, Germany", hospitalhof["Address"]?.ToString());
 			Assert.Equal("Am Spitalbach 8, 74523 Schwäbisch Hall, Germany", hospitalhof?.Address?.ToString());
 
 			// Verify that the foreign key relationship is correctly established
@@ -121,11 +121,11 @@ namespace JsonPit.Tests
 				};
 				var personArray = JArray.FromObject(people);
 
-				var personPit = new Pit(personArray, root.Path, readOnly: false, autoload: false, backup: false);
+				var personPit = new Pit(personArray, root, readOnly: false, autoload: false, backup: false);
 
 				personPit.Save();
 
-				var reloaded = new Pit(root.Path, readOnly: false, autoload: true, backup: false);
+				var reloaded = new Pit(root, readOnly: false, autoload: true, backup: false);
 
 				Assert.True(personPit.JsonFile.Cloud);
 				Assert.Equal("Max@gmail.com", reloaded["Max"]?["Email"]?.ToObject<string>());
@@ -153,7 +153,7 @@ namespace JsonPit.Tests
 				var pitRoot = root / "pit-store";
 				pitRoot.mkdir();
 
-				var pit = new Pit(pitRoot.Path, readOnly: false, autoload: false, backup: false);
+				var pit = new Pit(pitRoot, readOnly: false, autoload: false, backup: false);
 				var item = new PitItem("CloudItem");
 				item.SetProperty(new { Value = 42, Provider = provider.ToString(), CreatedBy = "RAIkeep" });
 				pit.Add(item);
@@ -167,7 +167,7 @@ namespace JsonPit.Tests
 				pit.JsonFile.AwaitMaterializing();
 
 				var loadTimer = Stopwatch.StartNew();
-				var reloaded = new Pit(pitRoot.Path, readOnly: false, autoload: true, backup: false);
+				var reloaded = new Pit(pitRoot, readOnly: false, autoload: true, backup: false);
 				loadTimer.Stop();
 
 				var loaded = reloaded.Get("CloudItem");

@@ -50,8 +50,8 @@ namespace JsonPit.Tests
 
 			try
 			{
-				var pit = new PitFile((root / "Portfolio").Path);
-				var nested = new RaiPath(pit.Path) / "Nested";
+				var pit = new PitFile(root / "Portfolio", "TestPit");
+				var nested = pit.Path / "Nested";
 				nested.mkdir();
 
 				new TextFile(new RaiFile(pit.Path + "extra.pit").FullName, "pit");

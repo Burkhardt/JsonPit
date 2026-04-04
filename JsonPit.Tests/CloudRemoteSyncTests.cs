@@ -18,11 +18,9 @@ namespace JsonPit.Tests
 		public void Pit_SyncsWithMzansi(Cloud provider)
 		{
 			Console.WriteLine(Os.GetCloudConfigurationDiagnosticReport(refresh: true));
-			Console.WriteLine(Os.GetRemoteTestConfigurationDiagnosticReport(refresh: true));
 
-			if (!RemoteCloudSyncProbe.TryCreate(provider, "mzansi", out var probe, out var reason))
-				Assert.Skip(reason + Environment.NewLine + Os.GetCloudConfigurationDiagnosticReport() + Environment.NewLine + Os.GetRemoteTestConfigurationDiagnosticReport());
-
+		if (!RemoteCloudSyncProbe.TryCreate(provider, "mzansi", out var probe, out var reason))
+			Assert.Skip(reason + Environment.NewLine + Os.GetCloudConfigurationDiagnosticReport());
 			var providerKey = provider.ToString().ToLowerInvariant();
 			var pitRoot = probe.LocalCloudRoot / "RAIkeep" / "jsonpit-remote-sync-tests" / providerKey / "pit-store";
 			pitRoot.mkdir();
@@ -33,7 +31,7 @@ namespace JsonPit.Tests
 			var itemId = "CloudItem_" + Guid.NewGuid().ToString("N");
 			var peerItemId = "PeerItem_" + Guid.NewGuid().ToString("N");
 			var marker = "marker-" + Guid.NewGuid().ToString("N");
-			var pit = new Pit(pitRoot.Path, readOnly: false, autoload: true, backup: false);
+			var pit = new Pit(pitRoot, readOnly: false, autoload: true, backup: false);
 			var item = new PitItem(itemId);
 			item.SetProperty(new { Value = 42, Provider = provider.ToString(), CreatedBy = "RAIkeep", Marker = marker });
 			pit.Add(item);
@@ -97,7 +95,7 @@ namespace JsonPit.Tests
 				mergeTimer.Stop();
 
 				var mergeSeen = localSyncSeen;
-				var merged = new Pit(pitRoot.Path, readOnly: false, autoload: false, backup: false);
+				var merged = new Pit(pitRoot, readOnly: false, autoload: false, backup: false);
 				merged.Load(undercover: true);
 				Assert.NotNull(merged.Get(itemId));
 				Assert.NotNull(merged.Get(peerItemId));
@@ -177,9 +175,10 @@ namespace JsonPit.Tests
 		private static bool WaitForLocallySyncedPitItem(string pitRoot, string itemId, TimeSpan timeout, out TimeSpan elapsed, out Pit loadedPit)
 		{
 			var watch = Stopwatch.StartNew();
+			var root = new RaiPath(pitRoot);
 			while (watch.Elapsed <= timeout)
 			{
-				var candidate = new Pit(pitRoot, readOnly: false, autoload: false, backup: false);
+				var candidate = new Pit(root, readOnly: false, autoload: false, backup: false);
 				candidate.Load(undercover: true);
 				candidate.Reload();
 				if (candidate.Get(itemId) != null)
@@ -257,7 +256,7 @@ namespace JsonPit.Tests
 			var sourceDir = new RaiFile(remoteSourceFile).Path;
 			var pitDir = new RaiFile(remotePitFile).Path;
 			var command =
-				$"mkdir -p {QuoteForBash(sourceDir)} {QuoteForBash(pitDir)} && " +
+				$"mkdir -p {QuoteForBash(sourceDir.ToString())} {QuoteForBash(pitDir.ToString())} && " +
 				$"printf '%s' {QuoteForBash(encodedPayload)} | base64 --decode > {QuoteForBash(remoteSourceFile)} && " +
 				$"pits -n -s {QuoteForBash(remoteSourceFile)} -d {QuoteForBash(remotePitFile)}";
 

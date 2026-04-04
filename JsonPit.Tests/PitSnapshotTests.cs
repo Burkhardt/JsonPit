@@ -21,7 +21,7 @@ namespace JsonPit.Tests
 		{
 			try
 			{
-				if (Directory.Exists(root.Path))
+				if (root.Exists())
 					new RaiFile(root.Path).rmdir(depth: 10, deleteFiles: true);
 			}
 			catch
@@ -67,7 +67,7 @@ namespace JsonPit.Tests
 					}
 				});
 
-				var pit = new Pit(snapshot, root.Path, readOnly: false, autoload: false, backup: false);
+				var pit = new Pit(snapshot, root, readOnly: false, autoload: false, backup: false);
 
 				Assert.Equal(2, pit.Keys.Count);
 				Assert.Equal("max@example.org", pit["Max"]?["Email"]?.Value<string>());
@@ -96,7 +96,7 @@ namespace JsonPit.Tests
 					}
 				});
 
-				var pit = new Pit(legacySnapshot, root.Path, readOnly: false, autoload: false, backup: false);
+				var pit = new Pit(legacySnapshot, root, readOnly: false, autoload: false, backup: false);
 
 				Assert.Single(pit.Keys);
 				Assert.Equal("Max", pit["Max"]?["Id"]?.Value<string>());
@@ -123,7 +123,7 @@ namespace JsonPit.Tests
 					new { Id = "Rainer", Phone = "+27-82-000-0000" }
 				});
 
-				var pit = new Pit(snapshot, root.Path, readOnly: false, autoload: false, backup: false);
+				var pit = new Pit(snapshot, root, readOnly: false, autoload: false, backup: false);
 				var history = pit.HistoricItems["Rainer"];
 
 				Assert.Equal(3, history.Count);
@@ -146,7 +146,7 @@ namespace JsonPit.Tests
 
 			try
 			{
-				var pit = new Pit(root.Path, readOnly: false, autoload: false, backup: false);
+				var pit = new Pit(root, readOnly: false, autoload: false, backup: false);
 
 				var maxV1 = new PitItem("Max");
 				maxV1.SetProperty(new { Email = "max-v1@example.org", Stage = "draft" });

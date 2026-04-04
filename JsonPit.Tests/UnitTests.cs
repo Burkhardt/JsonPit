@@ -27,7 +27,7 @@ namespace JsonPit.Tests
 		/// by initializing Seconds in the beginning of the test suite run and by incrementing Seconds in the beginning of each test.
 		/// I make sure Seconds stays the same within a test.
 		private long Seconds = (long)(DateTime.Now - new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Local)).TotalSeconds;
-		private static string PitPath = RAIkeepTestEnvironment.CloudPath("ObjectPit");
+		private static RaiPath PitPath = RAIkeepTestEnvironment.CloudPath("ObjectPit");
 		private Pit pit = Open_ObjectPit_Pit();
 
 		private static Pit Open_ObjectPit_Pit()
@@ -241,19 +241,14 @@ namespace JsonPit.Tests
 
 	public sealed class Pit_GetAt_Tests
 	{
-		private static string CreatePitPath([CallerMemberName] string testName = "")
+		private static RaiPath CreatePitPath([CallerMemberName] string testName = "")
 		{
 			var root = (new RaiPath(Path.GetTempPath())) / "JsonPitTests" / "GetAtTests" / SanitizeSegment(testName);
-			Cleanup(root.Path);
-			return root.Path;
+			root.rmdir(depth: 10, deleteFiles: true);
+			return root;
 		}
 
-		private static void Cleanup(string path)
-		{
-			var dir = new RaiFile(path);
-			if (Directory.Exists(dir.Path))
-				dir.rmdir(depth: 10, deleteFiles: true);
-		}
+		private static void 	Cleanup(RaiPath path) => path.rmdir(depth: 10, deleteFiles: true);
 
 		private static string SanitizeSegment(string value)
 		{
@@ -305,7 +300,7 @@ namespace JsonPit.Tests
 			}
 			finally
 			{
-				Cleanup(pitPath);
+				pitPath.rmdir(depth: 3, deleteFiles: true);
 			}
 		}
 

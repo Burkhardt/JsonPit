@@ -18,7 +18,9 @@ namespace JsonPit.Tests
 
 			// Force a tiny delay so the system clock ticks forward.
 			// This ensures the new timestamp will be demonstrably greater if updated.
+#pragma warning disable xUnit1051 // Calls to methods which accept CancellationToken should use TestContext.Current.CancellationToken
 			await Task.Delay(50);
+#pragma warning restore xUnit1051 // Calls to methods which accept CancellationToken should use TestContext.Current.CancellationToken
 
 			// Act 1: Attempt to merge the exact same data
 			JObject identicalUpdate = JObject.Parse("{ 'Settings': { 'Theme': 'Dark' } }");

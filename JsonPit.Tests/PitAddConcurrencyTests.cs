@@ -20,7 +20,7 @@ namespace JsonPit.Tests
 		}
 		#endregion
 		private static string CreateUniquePitFileName() => RAIkeepTestEnvironment.CloudFile("PitFiles", "Test", "JsonPitTests");
-		private string jsonPitTestPitFileName = CreateUniquePitFileName();
+		private PitFile jsonPitTestPitFile = new PitFile(CreateUniquePitFileName());	// make sure it's a CanonicalFile
 		private Pit jsonPitTestsPit;
 		
 		private void CleanupPit()
@@ -31,25 +31,21 @@ namespace JsonPit.Tests
 				jsonPitTestsPit = null;
 			}
 
-			var pitRoot = new RaiFile(jsonPitTestPitFileName);
-			pitRoot.Name = pitRoot.Name;
-			var canonicalDirectory = pitRoot.Path + pitRoot.Name + Os.DIRSEPERATOR;
-			if (Directory.Exists(canonicalDirectory))
-				Directory.Delete(canonicalDirectory, recursive: true);
+			jsonPitTestPitFile.Path.rmdir(depth: 10, deleteFiles: true);
 		}
 
 		private void Create_JsonPitTests_Pit()
 		{
 			CleanupPit();
-			jsonPitTestPitFileName = CreateUniquePitFileName();
-			jsonPitTestsPit = new Pit(jsonPitTestPitFileName, readOnly: false);
+			jsonPitTestPitFile = new PitFile(CreateUniquePitFileName());
+			jsonPitTestsPit = new Pit(jsonPitTestPitFile, readOnly: false);
 		}
 		/// open or save and reopen the pit
 		private void Open_JsonPitTests_Pit()
 		{
 			if (jsonPitTestsPit != null)
 				jsonPitTestsPit.Save();
-			else jsonPitTestsPit = new Pit(jsonPitTestPitFileName, readOnly: false);
+			else jsonPitTestsPit = new Pit(jsonPitTestPitFile, readOnly: false);
 		}
 
 		public void Dispose()

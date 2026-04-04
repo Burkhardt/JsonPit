@@ -19,7 +19,7 @@ namespace JsonPit.Tests
 		{
 			try
 			{
-				if (Directory.Exists(root.Path))
+				if (root.Exists())
 					new RaiFile(root.Path).rmdir(depth: 10, deleteFiles: true);
 			}
 			catch
@@ -49,7 +49,7 @@ namespace JsonPit.Tests
 
 			try
 			{
-				var pit = new Pit((root / "pit-store").Path, readOnly: false, autoload: false, backup: false);
+				var pit = new Pit(root / "pit-store", readOnly: false, autoload: false, backup: false);
 				var peerItem = new PitItem("PeerItem");
 				peerItem.SetProperty(new { Value = 126, CreatedBy = "Mzansi", Marker = "peer-marker" });
 
@@ -73,7 +73,7 @@ namespace JsonPit.Tests
 
 			try
 			{
-				var pitPath = (root / "pit-store").Path;
+				var pitPath = (root / "pit-store");
 				var masterPit = new Pit(pitPath, readOnly: false, autoload: false, backup: false);
 				var localItem = new PitItem("CloudItem");
 				localItem.SetProperty(new { Value = 42, CreatedBy = "RAIkeep", Marker = "local-marker" });

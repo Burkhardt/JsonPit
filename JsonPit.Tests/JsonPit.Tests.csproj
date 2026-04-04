@@ -24,6 +24,7 @@
 	<ItemGroup>
 		<ProjectReference Include="..\JsonPit.csproj" />
 		<ProjectReference Include="..\..\OsLib\OsLib.csproj" />
+		<ProjectReference Include="..\..\OsLib\OsLib.Tests\OsLib.Tests.csproj" />
 		<ProjectReference Include="..\..\RaiUtils\RaiUtils.csproj" />
 	</ItemGroup>
 

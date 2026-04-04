@@ -13,7 +13,7 @@ namespace JsonPit.Tests
 		public JsonPitPersistenceTests()
 		{
 			var tempDir = Os.TempDir / "TestArtifacts";
-			_testFile = new TmpFile("persistence_audit_test.tmp") { Path = tempDir.Path };
+			_testFile = new TmpFile("persistence_audit_test.tmp") { Path = tempDir };
 
 			_testFile.mkdir();
 
@@ -24,7 +24,7 @@ namespace JsonPit.Tests
 		[Fact]
 		public void StoreAndLoad_PreservesRawHistoryFragments_DoesNotFlatten()
 		{
-			var pitA = new Pit(pitDirectory: _testFile.FullName, readOnly: false, autoload: false);
+			var pitA = new Pit(pitDirectory: _testFile.Path, readOnly: false, autoload: false);
 
 			var time1 = DateTimeOffset.UtcNow.AddMinutes(-10);
 			var fragment1 = new PitItem(new JObject
@@ -49,15 +49,15 @@ namespace JsonPit.Tests
 
 			pitA.Save(force: true);
 
-			var persistedPath = pitA.JsonFile.FullName;
-			var textFile = new TextFile(persistedPath);
+			var persistedFileFullName = pitA.JsonFile.FullName;
+			var textFile = new TextFile(persistedFileFullName);
 			var rawJson = string.Join(Environment.NewLine, textFile.Read());
 
 			var diskArray = JArray.Parse(rawJson);
 			Assert.True(diskArray[0] is JArray, "The JSON on disk is flattened! It must be an array of history arrays.");
 			Assert.Equal(2, ((JArray)diskArray[0]).Count);
 
-			var pitB = new Pit(pitDirectory: persistedPath, readOnly: true, autoload: true);
+			var pitB = new Pit(pitDirectory: new RaiPath(persistedFileFullName), readOnly: true, autoload: true);
 
 			Assert.True(pitB.ContainsKey("Sensor_1"));
 			var historyStack = pitB.HistoricItems["Sensor_1"];
@@ -70,7 +70,7 @@ namespace JsonPit.Tests
 		[Fact]
 		public void RenameId_MigratesStateAndTombstonesOldKey()
 		{
-			var pit = new Pit(pitDirectory: _testFile.FullName, readOnly: false, autoload: false);
+			var pit = new Pit(pitDirectory: _testFile.Path, readOnly: false, autoload: false);
 
 			var original = new PitItem("LegacyTicker");
 			original.SetProperty(new { Price = 262.77, Exchange = "NASDAQ" });

@@ -14,7 +14,8 @@ using OsLib;
 using System.Dynamic;
 using System.Collections.Immutable;
 using System.Net.Mime;
-
+///TODO: ChangeFile treatment
+/// s.#1318 
 namespace JsonPit
 {
 	/// <summary>
@@ -53,12 +54,12 @@ namespace JsonPit
 		}
 		private static string version = null;
 
-		public static string ConfigDirDefault
+		public static RaiPath ConfigDefaultDir
 		{
 			get
 			{
 				if (configDirDefault == null)
-					configDirDefault = (Os.CloudStorageRootDir / "Config").Path;
+					configDirDefault = Os.CloudStorageRootDir / "Config";
 				return configDirDefault;
 			}
 			set
@@ -66,7 +67,7 @@ namespace JsonPit
 				configDirDefault = value;
 			}
 		}
-		private static string configDirDefault = null;
+		private static RaiPath configDirDefault = null;
 
 		public static Options jilOptions = new Options(prettyPrint: true, excludeNulls: false, jsonp: false, dateFormat: DateTimeFormat.ISO8601, includeInherited: true);
 
@@ -159,7 +160,7 @@ namespace JsonPit
 		public bool ForeignChangesAvailable()
 		{
 			return EnumerateChangeFiles()
-				.Any(file => !new RaiFile(file).Name.EndsWith("_" + Environment.MachineName, StringComparison.OrdinalIgnoreCase));
+				.Any(changeFile => !changeFile.Name.EndsWith("_" + Environment.MachineName, StringComparison.OrdinalIgnoreCase));
 		}
 
 		/// <summary>
@@ -172,7 +173,7 @@ namespace JsonPit
 			{
 				if (changesDir == null)
 				{
-					var dir = new RaiPath(JsonFile.Path) / "Changes";			// TODO: CR make RaiFile.Path of type RaiPath
+					var dir = JsonFile.Path / "Changes";            // TODO: CR make RaiFile.Path of type RaiPath
 					changesDir = dir.mkdir();
 				}
 				return changesDir;
@@ -180,13 +181,13 @@ namespace JsonPit
 		}
 		private RaiPath changesDir = null;
 
-		protected IEnumerable<string> EnumerateChangeFiles()
+		protected IEnumerable<TextFile> EnumerateChangeFiles()
 		{
 			if (!ChangesDir.Exists())
-				return Enumerable.Empty<string>();
+				return Enumerable.Empty<TextFile>();
 
-			// TODO: Rainerquest — consider adding a GetFiles/EnumerateFiles method to RaiPath or RaiDir
-			return System.IO.Directory.GetFiles(ChangesDir.Path, "*.json", System.IO.SearchOption.AllDirectories);
+			return ChangesDir.EnumerateFiles("*.json", recursive: true)	// TODO: reconsider this - maybe false is ok
+				.Select(file => new TextFile(file.FullName));
 		}
 
 		/// <summary>
@@ -801,21 +802,6 @@ namespace JsonPit
 		public int DefaultMaxCount { get; }
 		private bool disposed = false;
 
-		public static string defaultPitName(string pit, string subscriber, string version = null)
-		{
-			if (version != null && version.Length == 0)
-				version = Version;
-			if (!pit.ToLower().Contains("_p"))
-				pit += "_pit";
-			var file = new RaiFile($"{pit}.json") { Path = ConfigDirDefault };
-			if (!string.IsNullOrEmpty(version))
-				file.Path += version + Os.DIRSEPERATOR;
-			if (!string.IsNullOrWhiteSpace(subscriber))
-				file.Path += subscriber + Os.DIRSEPERATOR;
-			file.Path += file.Name.ToUpper()[0];
-			return file.FullName;
-		}
-
 		public override DateTimeOffset GetMemChanged() => GetLatestItemChanged();
 
 		private StringComparer Comparer => ignoreCase ? StringComparer.InvariantCultureIgnoreCase : StringComparer.InvariantCulture;
@@ -1229,10 +1215,10 @@ namespace JsonPit
 			// ChangeFiles into memory but won't delete them; only the master
 			// process consumes and removes ChangeFiles)
 			var compareFile = new Pit(
-				JsonFile.Path + JsonFile.Name,
+				JsonFile.Path,
 				undercover: true,
 				unflagged: true,
-				readOnly: true
+				readOnly: true //! we will not write this instance back to disk
 			);
 
 			// Find what we have in memory that the disk version doesn't
@@ -1329,6 +1315,36 @@ namespace JsonPit
 			return differences;
 		}
 
+		///TODO: 
+		/// MergeChange differs from running on Master to running on Client only in 5. and 6.:
+		/// 1. read the pit from disk first, to get what's current - it could have changes since the last load.
+		/// 2. create a diff between the current in-memory history and the disk version, to find out what has changed in memory compared to disk
+		/// 3. then make the History in Memory the same as the disk version and merge the result of the diff into the History in Memory
+		/// 4. then read all change files into a memory structure (same as the Diff result) and merge that memory structure into the History inside the Pit in Memory
+		/// 5. then delete all change files that were read and processed.
+		/// 6. then store the merged result back to disk as the new main pit file, which will be the source of truth for all clients until the next change is made and propagated.
+		/// => 5. and 6. are only executed by the Master, to avoid multiple machines trying to delete the same change files and writing the same main file at the same time.
+		/// It would probably be wise to check if the current process has Master rights just after having finisherd 4. and before starting 5.
+		/// 
+		/// We have to implement the fetching of the Masterflag in a sophisticated and seperate thread or process asynchronously.
+		/// My best guess is that we stay out of trouble if we do the following:
+		/// Every machine/Process combination writes a ProcessFlag file with it's own timestamp every time it makes a change, so we can track when each machine last made 
+		/// a change by just looking at the CloudDrive. Nkosikazi-pits.flag and Nkosikazi-AfricaStage.flag need to be seperate files.
+		/// We are still in the folder of the Pit, which is telling everybody that those flag files are for accessing that very pit.
+		/// If say pits reads the Pit it writes its timestamp in its Nkosikazi-pits.flag file after reading. Let's say it read as client because the
+		/// ticket in the Master.flag file was not expired yet (expiration time 1min for now). 
+		/// Nkosikazi-RAIkeep.flag was also active around that time and had the Master, which is documented by a timed ticket inside Master.flag.
+		/// If for whatever reason, more than one copy of Master*.flag exists in that directory than this shows that the Cloud Provider has created a conflicted copy.
+		/// We have to think through, who and when is allowed to delete those conflicted copies. We can let them hang there for now and only manually delete.
+		/// Whoever has the Master rights writes their timed ticket into the Master.flag file and the name of Machine-Process in front of it (seperated by |). They also 
+		/// write their Process flag file (which is undisputed anyway).
+		/// When checking if I am master, a process checks
+		/// a) is there anybody out there (collecting up all the flag files, readonly mode). Checking: did anybody do anything within the last 60s?
+		/// b) is the ticket in the Master.flag expired? Means: has it been 60s since the last ticket entry was created OR is it me who has Master status? (careful)
+		/// c) if nobody around was active and the ticket has expired, (or maybe for some other reasons when I am already master), I write a new ticket
+		/// 		in the masterfile that is good for another 60s.
+		/// d) if I was able to odo that, I continue to 5. and 6. in MergeChanges, otherwise I don't.
+		/// Q: is there a danger that I keep reaching 4 and never 5? Or anybody else also never reaches 5?
 		public void MergeChanges()
 		{
 			if (ChangesDir.Exists())
@@ -1337,7 +1353,7 @@ namespace JsonPit
 				{
 					try
 					{
-						var changePit = new Pit(file, undercover: true);
+						var changePit = new Pit(file.Path, undercover: true);
 
 						foreach (var changeItems in changePit)
 						{
@@ -1347,15 +1363,14 @@ namespace JsonPit
 						// Only the master deletes change files, and only after they've had time to propagate
 						if (RunningOnMaster() && !ReadOnly)
 						{
-							// TODO: Rainerquest — consider adding CreationTime to RaiFile
-							var rf = new RaiFile(file);
+							var rf = new RaiFile(changePit.JsonFile.FullName);
 							if (rf.FileAge.TotalSeconds > 600)
 							{
 								try
 								{
 									rf.rm();
 								}
-								catch (System.IO.IOException)
+								catch (Exception)
 								{
 								}
 							}
@@ -1479,22 +1494,17 @@ namespace JsonPit
 		// public Pit(string pitDirectory, IEnumerable<PitItems> values = null, string subscriber = null, Func<PitItem, string> orderBy = null, bool descending = false,
 		// 						bool readOnly = true, bool backup = false, bool undercover = false, bool unflagged = false, bool autoload = true, bool ignoreCase = false, string version = "")
 		// { }
-		public Pit(string pitDirectory, IEnumerable<PitItems> values = null, string subscriber = null,
+		public Pit(RaiPath pitDirectory, IEnumerable<PitItems> values = null, string subscriber = null,
 							bool descending = false, bool readOnly = true, bool backup = false, bool undercover = false,
 							bool unflagged = false, bool autoload = true, bool ignoreCase = false, string version = "")
 			: base(readOnly, backup, unflagged, descending)
 		{
-			if (string.IsNullOrEmpty(pitDirectory) || pitDirectory.Length < 3)
+			if (pitDirectory == null || pitDirectory.ToString().Length < 3)
 				throw new ArgumentException("pitDirectory must be a valid PitDirectory");
-			string[] segments = pitDirectory.Split(Os.DIRSEPERATOR, StringSplitOptions.RemoveEmptyEntries);
+			string[] segments = pitDirectory.ToString().Split(Os.DIR, StringSplitOptions.RemoveEmptyEntries);
 			if (segments.Length == 0)
 				throw new ArgumentException("pitDirectory must contain at least one valid segment");
-			JsonFile = new PitFile(pitDirectory);
-			if (string.IsNullOrEmpty(JsonFile.Name))
-			{
-				JsonFile.Name = segments[^1];
-				JsonFile.Ext = "pit";
-			}
+			JsonFile = new PitFile(pitDirectory, name: segments[^1]);
 			Subscriber = subscriber;
 			this.orderBy = orderBy ?? new Func<PitItem, string>(x => x.Id);
 			this.descending = descending;
@@ -1514,7 +1524,7 @@ namespace JsonPit
 		// 				bool readOnly = true, bool backup = false, bool undercover = false, bool unflagged = false, bool autoload = true, bool ignoreCase = false, string version = "")
 		// { }
 
-		public Pit(JArray values, string pitDirectory, string subscriber = null,
+		public Pit(JArray values, RaiPath pitDirectory, string subscriber = null,
 			bool descending = false, bool readOnly = true, bool backup = false, bool undercover = false,
 			bool unflagged = false, bool autoload = true, bool ignoreCase = false, string version = "")
 			: this(pitDirectory, Enumerable.Empty<PitItems>(), subscriber, descending, readOnly,
