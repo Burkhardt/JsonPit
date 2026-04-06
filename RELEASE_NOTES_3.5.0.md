@@ -10,7 +10,7 @@
 ## Compatibility
 
 - Legacy persisted payloads that still contain `Name` without `Id` are normalized internally to `Id`.
-- During normalization, the framework-managed `Name` field is dropped.
+- During normalization, `Name` is copied into `Id` when `Id` is missing, and the original `Name` value is preserved.
 - Future use of `Name` as an application-defined custom field remains supported.
 
 ## Documentation

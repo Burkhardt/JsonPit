@@ -8,7 +8,6 @@ using JsonPit;
 using Newtonsoft.Json.Linq;
 using OsLib;
 using Xunit;
-
 namespace JsonPit.Tests
 {
 	public class JsonPitRealWorldIntegrationTests
@@ -21,26 +20,21 @@ namespace JsonPit.Tests
 		[Fact]
 		public void WWWA_IntegrationTest_CloudDrive_Idempotency()
 		{
-			// Given are 5 files in this project's sample directory: Place.json5, Person.json5, Object.json5, Activity.json5
-			// see JsonPit.Tests.csproj how the sample directory content from the project is copied to the cloud storage location
-			var sampleDir = Os.CloudStorageRootDir / "RAIkeep" / "sample";
+			if (!TryPrepareDefaultCloudIntegrationRoot("WwwaTests", out var testDirInCloud, out var reason))
+				Assert.Skip($"Default cloud root is not writable for integration test: {reason}. {Os.GetCloudStorageSetupGuidance()}");
 
-			// When the destination Pit does not exist, the Pit is created and the existing values are loaded
-			var testDirInCloud = Os.CloudStorageRootDir / "RAIkeep" / "WwwaTests";
+			var sampleDir = GetLocalSampleDirectory();
 			var placePitFile = new PitFile(testDirInCloud, "Place");
 			var personPitFile = new PitFile(testDirInCloud, "Person");
 			var objectPitFile = new PitFile(testDirInCloud, "Object");
 			var activityPitFile = new PitFile(testDirInCloud, "Activity");
-
 			Assert.EndsWith($"{Os.DIR}Place{Os.DIR}Place.pit", placePitFile.FullName);
-
 			// When the destination Pit does exist, the Pit is loaded and importing the same file leads to a sequence of Add operations 
 			// that do not change the state of the Pit since the data stays the same;
 			var placePit = new Pit(placePitFile);    // open for read/write is default
 			var personPit = new Pit(personPitFile);
 			var objectPit = new Pit(objectPitFile);
 			var activityPit = new Pit(activityPitFile);
-
 			// Importing the data from the JSON5 files into the Pit
 			var placeData = new TextFile(sampleDir, "Place", "json5").ReadAllText();
 			placePit.AddItems(placeData);
@@ -54,10 +48,8 @@ namespace JsonPit.Tests
 			var activityData = new TextFile(sampleDir, "Activity", "json5").ReadAllText();
 			activityPit.AddItems(activityData);
 			activityPit.Save();
-
 			// Then several explicit tests for values directly taken from the input files
 			// sample/Place.json5, sample/Person.json5, sample/Object.json5, sample/Activity.json5
-
 			// Verify Person.json5 data is loaded
 			dynamic nomsa = personPit["Nomsa"];
 			Assert.NotNull(nomsa);
@@ -65,24 +57,20 @@ namespace JsonPit.Tests
 			var instruments = nomsa?.Instruments;
 			Assert.Contains("Voice", instruments);
 			Assert.Contains("Percussion", instruments);
-
 			// Verify Place.json5 data is loaded
 			dynamic safariPark = placePit["SDZSafariPark"];
 			Assert.NotNull(safariPark);
 			Assert.Equal("SDZSafariPark", safariPark?.Id?.ToString());
 			Assert.Equal("https://sdzsafaripark.org/", safariPark?.Homepage?.ToString());
-
 			// Verify Object.json5 data is loaded
 			dynamic ticket = objectPit["Ticket_SDSU26"];
 			Assert.NotNull(ticket);
 			Assert.Equal("$10.00 – $15.00", ticket?.Price?.ToString());
-
 			// Verify Activity.json5 data is loaded
 			dynamic activity = activityPit["SDZSP26"];
 			Assert.NotNull(activity);
 			Assert.Equal("Nomsa performing in the Elephant Valley", activity?.Title?.ToString());
 			Assert.Equal("March 5-8, 2026", activity?.ShowTime?.Date?.ToString());
-
 			// Verify foreign keys
 			dynamic africanPicnic25 = activityPit["AfricanPicnic25"];
 			dynamic location = africanPicnic25?.Where?.Venue;
@@ -91,9 +79,7 @@ namespace JsonPit.Tests
 			Assert.NotNull(hospitalhof);
 			Assert.Equal("Am Spitalbach 8, 74523 Schwäbisch Hall, Germany", hospitalhof["Address"]?.ToString());
 			Assert.Equal("Am Spitalbach 8, 74523 Schwäbisch Hall, Germany", hospitalhof?.Address?.ToString());
-
 			// Verify that the foreign key relationship is correctly established
-
 		}
 		[Theory]
 		[InlineData(Cloud.GoogleDrive)]
@@ -102,8 +88,7 @@ namespace JsonPit.Tests
 		public void TestJsonPitInCloudDrive(Cloud provider)
 		{
 			if (!TryPrepareWritableIntegrationRoot(provider, out var root, out var providerRoot, out var reason))
-				Assert.Fail($"Provider {provider} misconfigured: {reason}. {Os.GetCloudStorageSetupGuidance()}");
-
+				Assert.Skip($"Provider {provider} is not writable for integration test: {reason}. {Os.GetCloudStorageSetupGuidance()}");
 			try
 			{
 				var mod = DateTime.Now;
@@ -120,17 +105,12 @@ namespace JsonPit.Tests
 					new { Name = "Rainer", Instagram = "Dr2RAI", Modified = mod.AddTicks(3) }
 				};
 				var personArray = JArray.FromObject(people);
-
 				var personPit = new Pit(personArray, root, readOnly: false, autoload: false, backup: false);
-
 				personPit.Save();
-
 				var reloaded = new Pit(root, readOnly: false, autoload: true, backup: false);
-
 				Assert.True(personPit.JsonFile.Cloud);
 				Assert.Equal("Max@gmail.com", reloaded["Max"]?["Email"]?.ToObject<string>());
 				Assert.Equal("Dr2RAI", reloaded["Rainer"]?["Instagram"]?.ToObject<string>());
-
 				Console.WriteLine($"Provider {provider}: file={personPit.JsonFile.FullName} root={providerRoot}");
 			}
 			finally
@@ -138,7 +118,6 @@ namespace JsonPit.Tests
 				CleanupIfNeeded(root, provider);
 			}
 		}
-
 		[Theory]
 		[InlineData(Cloud.Dropbox)]
 		[InlineData(Cloud.OneDrive)]
@@ -146,36 +125,29 @@ namespace JsonPit.Tests
 		public void Pit_SaveAndReload_WorksAgainstRealWritableCloudProvider(Cloud provider)
 		{
 			if (!TryPrepareWritableIntegrationRoot(provider, out var root, out var providerRoot, out var reason))
-				Assert.Fail($"Provider {provider} misconfigured: {reason}. {Os.GetCloudStorageSetupGuidance()}");
-
+				Assert.Skip($"Provider {provider} is not writable for integration test: {reason}. {Os.GetCloudStorageSetupGuidance()}");
 			try
 			{
 				var pitRoot = root / "pit-store";
 				pitRoot.mkdir();
-
 				var pit = new Pit(pitRoot, readOnly: false, autoload: false, backup: false);
 				var item = new PitItem("CloudItem");
 				item.SetProperty(new { Value = 42, Provider = provider.ToString(), CreatedBy = "RAIkeep" });
 				pit.Add(item);
-
 				var saveTimer = Stopwatch.StartNew();
 				pit.Save(force: true);
 				saveTimer.Stop();
-
 				Assert.True(pit.JsonFile.Cloud);
 				Assert.True(pit.JsonFile.Exists());
 				pit.JsonFile.AwaitMaterializing();
-
 				var loadTimer = Stopwatch.StartNew();
 				var reloaded = new Pit(pitRoot, readOnly: false, autoload: true, backup: false);
 				loadTimer.Stop();
-
 				var loaded = reloaded.Get("CloudItem");
 				Assert.NotNull(loaded);
 				Assert.Equal(42, loaded["Value"]!.ToObject<int>());
 				Assert.Equal(provider.ToString(), loaded["Provider"]!.ToObject<string>());
 				Assert.Equal("RAIkeep", loaded["CreatedBy"]!.ToObject<string>());
-
 				Console.WriteLine($"Provider {provider}: pit-save={saveTimer.ElapsedMilliseconds}ms pit-load={loadTimer.ElapsedMilliseconds}ms file={pit.JsonFile.FullName} root={providerRoot}");
 			}
 			finally
@@ -183,7 +155,6 @@ namespace JsonPit.Tests
 				CleanupIfNeeded(root, provider);
 			}
 		}
-
 		private static void CleanupIfNeeded(RaiPath root, Cloud provider)
 		{
 			if (ShouldPreserveCloudArtifacts(root))
@@ -191,23 +162,25 @@ namespace JsonPit.Tests
 				Console.WriteLine($"Preserving cloud artifacts for provider {provider} at {root.Path}");
 				return;
 			}
-
 			Cleanup(root);
 		}
-
 		private static bool ShouldPreserveCloudArtifacts(RaiPath root)
 		{
 			if (!Os.IsCloudPath(root.Path))
 				return false;
-
 			var keep = Environment.GetEnvironmentVariable("RAIKEEP_KEEP_CLOUD_TEST_ARTIFACTS");
 			if (string.IsNullOrWhiteSpace(keep))
 				return true;
-
 			return !string.Equals(keep, "0", StringComparison.OrdinalIgnoreCase) &&
 				!string.Equals(keep, "false", StringComparison.OrdinalIgnoreCase);
 		}
-
+		private static RaiPath GetLocalSampleDirectory()
+		{
+			var sampleDir = new RaiPath(AppContext.BaseDirectory) / "sample";
+			if (!sampleDir.Exists())
+				throw new DirectoryNotFoundException($"Expected sample fixtures under '{sampleDir.Path}'.");
+			return sampleDir;
+		}
 		private static bool TryPrepareWritableIntegrationRoot(Cloud provider, out RaiPath root, out RaiPath providerRoot, out string reason)
 		{
 			providerRoot = Os.GetCloudStorageRoot(provider, refresh: true);
@@ -217,21 +190,18 @@ namespace JsonPit.Tests
 				reason = "provider root is not configured or not discoverable on this machine";
 				return false;
 			}
-
 			if (!providerRoot.Exists())
 			{
 				root = providerRoot / "RAIkeep" / "jsonpit-cloud-integration-tests" / provider.ToString();
 				reason = $"provider root does not exist: {providerRoot}";
 				return false;
 			}
-
 			root = providerRoot / "RAIkeep" / "jsonpit-cloud-integration-tests" / provider.ToString();
 			reason = string.Empty;
-
 			try
 			{
 				root.mkdir();
-				return true;
+				return TryVerifyDirectoryWritable(root, out reason);
 			}
 			catch (UnauthorizedAccessException ex)
 			{
@@ -241,14 +211,10 @@ namespace JsonPit.Tests
 			{
 				reason = $"root is not writable: {ex.Message}";
 			}
-
 			return false;
 		}
-
-		private static bool TryPrepareDefaultCloudExampleRoot(out RaiPath root, out string reason)
+		private static bool TryPrepareDefaultCloudIntegrationRoot(string relativeDirectory, out RaiPath root, out string reason)
 		{
-			//Os.ResetCloudStorageCache();
-
 			string providerRoot;
 			try
 			{
@@ -260,22 +226,18 @@ namespace JsonPit.Tests
 				reason = ex.Message;
 				return false;
 			}
-
 			if (string.IsNullOrWhiteSpace(providerRoot))
 			{
 				root = new RaiPath(string.Empty);
 				reason = "no default cloud root is configured or discoverable on this machine";
 				return false;
 			}
-
-			root = new RaiPath(providerRoot) / "RAIkeep" / "examples" / "person";
+			root = new RaiPath(providerRoot) / "RAIkeep" / relativeDirectory;
 			reason = string.Empty;
-
 			try
 			{
-				Cleanup(root);
 				root.mkdir();
-				return true;
+				return TryVerifyDirectoryWritable(root, out reason);
 			}
 			catch (UnauthorizedAccessException ex)
 			{
@@ -285,10 +247,31 @@ namespace JsonPit.Tests
 			{
 				reason = $"default cloud root is not writable: {ex.Message}";
 			}
-
 			return false;
 		}
-
+		private static bool TryVerifyDirectoryWritable(RaiPath root, out string reason)
+		{
+			var probe = new TextFile(root, "write-probe-" + Guid.NewGuid().ToString("N"), "tmp");
+			try
+			{
+				probe.Lines = ["probe"];
+				probe.Changed = true;
+				probe.Save();
+				if (probe.Exists())
+					probe.rm();
+				reason = string.Empty;
+				return true;
+			}
+			catch (UnauthorizedAccessException ex)
+			{
+				reason = $"root is not writable: {ex.Message}";
+			}
+			catch (IOException ex)
+			{
+				reason = $"root is not writable: {ex.Message}";
+			}
+			return false;
+		}
 		private static void Cleanup(RaiPath root)
 		{
 			try

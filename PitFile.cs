@@ -1,7 +1,6 @@
 using OsLib;
 using System.Collections.Generic;
 using System.IO;
-
 namespace JsonPit
 {
 	/// <summary>
@@ -25,9 +24,7 @@ namespace JsonPit
 		public PitFile(RaiPath path, string name) : base(path, name, ext: "pit")
 		{
 		}
-
 		public int mv(PitFile src, bool replace = false, bool keepBackup = false) => base.mv(src, replace, keepBackup);
-
 		/// <summary>
 		/// Get all files within a specific JsonPit folder, optionally without the CanonicalFile
 		/// this way, the CanonicalFile can be located in the same directory as all change files, 
@@ -40,8 +37,7 @@ namespace JsonPit
 		{
 			foreach (string ext in SupportedExtensions)
 			{
-				var files = pitFolder.GetFiles($"*.{ext}", SearchOption.AllDirectories);
-				foreach (var file in files)
+				foreach (var file in pitFolder.EnumerateFiles($"*.{ext}", SearchOption.AllDirectories))
 				{
 					if (!excludeCanonicalFile || file.FullName != FullName)
 						yield return file.FullName;

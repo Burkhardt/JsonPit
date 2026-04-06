@@ -21,7 +21,7 @@ That guide now covers:
 - Keeps the WWWA-based quick-start section in [GettingStarted.md](GettingStarted.md) for cloud-path pit creation and sample JSON5 seeding.
 - The supported cloud-backed provider claim is now `OneDrive`, `GoogleDrive`, and `Dropbox`.
 - `PitItem.Id` is now the canonical framework identifier.
-- Legacy payloads that still contain `Name` without `Id` are normalized internally to `Id`, and the framework-managed `Name` field is dropped.
+- Legacy payloads that still contain `Name` without `Id` are normalized internally by copying `Name` into `Id`, while preserving `Name`.
 - Future use of `Name` as an application-defined custom field remains supported.
 
 ## 3.7.3

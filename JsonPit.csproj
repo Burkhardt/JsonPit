@@ -3,7 +3,7 @@
 	<PropertyGroup>
 		<Title>JsonPit</Title>
 		<PackageId>JsonPit</PackageId>
-		<Version>3.7.3</Version>
+		<Version>3.7.4</Version>
 		<Authors>Rainer Burkhardt</Authors>
 		<Description>Stores json files across servers (synchronized).</Description>
 		<TargetFramework>net10.0</TargetFramework>
@@ -16,7 +16,7 @@
 		<Copyright>© Rainer Burkhardt. All rights reserved.</Copyright>
 		<RepositoryUrl>https://github.com/Burkhardt/JsonPit</RepositoryUrl>
 		<RepositoryType>github</RepositoryType>
-		<PackageReleaseNotes>3.7.3 patch: aligns JsonPit with OsLibCore 3.7.3 and RaiUtils 3.7.3 in the current publish order.</PackageReleaseNotes>
+		<PackageReleaseNotes>3.7.4 patch: aligns JsonPit with OsLibCore 3.7.4 and RaiUtils 3.7.4 in the current publish order.</PackageReleaseNotes>
 		<PackageIcon>HardCastle.png</PackageIcon>
 		<DefaultItemExcludes>$(DefaultItemExcludes);JsonPit.Tests\**</DefaultItemExcludes>
 	</PropertyGroup>

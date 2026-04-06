@@ -17,7 +17,6 @@ using OsLib;
 using RaiUtils;
 using JsonPit;
 using System.ComponentModel.DataAnnotations;
-
 namespace JsonPit.Tests
 {
 	public class JsonPitTestClass
@@ -29,7 +28,6 @@ namespace JsonPit.Tests
 		private long Seconds = (long)(DateTime.Now - new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Local)).TotalSeconds;
 		private static RaiPath PitPath = RAIkeepTestEnvironment.CloudPath("ObjectPit");
 		private Pit pit = Open_ObjectPit_Pit();
-
 		private static Pit Open_ObjectPit_Pit()
 		{
 			// var dir = Path.Combine(Path.GetTempPath(), "JsonPitTests", "TempDirTests") + Path.DirectorySeparatorChar;
@@ -45,18 +43,15 @@ namespace JsonPit.Tests
 			var pitItem = new PitItem("TestItem");
 			pitItem.SetProperty(new { Description = "A test item" });
 			pitItem.SetProperty(new { Zeit = Seconds });
-
 			// Act
 			pit.Add(pitItem);
 			pit.Save();
 			var retrievedItem = pit.Get("TestItem");
-
 			// Assert
 			Assert.NotNull(retrievedItem);
 			Assert.Equal("A test item", retrievedItem["Description"]?.ToString());
 			Assert.Equal(Seconds, retrievedItem["Zeit"]?.ToObject<long>());
 		}
-
 		[Fact]
 		public void UpdatePitItem_Test()
 		{
@@ -65,19 +60,16 @@ namespace JsonPit.Tests
 			pitItem.SetProperty(new { Description = "Original" });
 			pit.Add(pitItem);
 			pit.Save();
-
 			// Act
 			pitItem.SetProperty(new { Description = "Updated" });
 			//pit.Update(pitItem);
 			pit.PitItem = pitItem;
 			pit.Save();
 			var updatedItem = pit.Get("UpdateItem");
-
 			// Assert
 			Assert.NotNull(updatedItem);
 			Assert.Equal("Updated", updatedItem["Description"]?.ToString());
 		}
-
 		[Fact]
 		public void DeletePitItem_Test()
 		{
@@ -86,12 +78,10 @@ namespace JsonPit.Tests
 			pitItem.SetProperty(new { Description = "To be deleted" });
 			pit.Add(pitItem);
 			pit.Save();
-
 			// Act
 			pit.Delete("DeleteItem");
 			pit.Save();
 			var deletedItem = pit.Get("DeleteItem");
-
 			// Assert
 			Assert.Null(deletedItem);
 		}
@@ -104,15 +94,12 @@ namespace JsonPit.Tests
 			pitItem.SetProperty(new { Zeit = Seconds });
 			pit.Add(pitItem);
 			pit.Save();
-
 			// Act
 			var retrievedItem = pit.Get("RetrieveItem");
-
 			// Assert
 			Assert.NotNull(retrievedItem);
 			Assert.Equal("To be retrieved", retrievedItem["Description"]?.ToString());
 		}
-
 		[Fact]
 		public void LoadFromDisk_PreservesModifiedTimestamp()
 		{
@@ -125,9 +112,7 @@ namespace JsonPit.Tests
 				item.SetProperty(new { Zeit = Seconds });
 				pit.Add(item);
 				pit.Save();
-
 				var savedModified = pit["AAPL"].Modified;
-
 				var reloaded = new Pit(PitPath, readOnly: true, unflagged: true);
 				var loadedItem = reloaded["AAPL"];
 				Assert.NotNull(loadedItem);
@@ -145,14 +130,12 @@ namespace JsonPit.Tests
 			// Initialize the JsonPit
 			var examplesPit = new Pit(pitDirectory: RAIkeepTestEnvironment.CloudPath("Examples"), readOnly: false);
 			// no file not found exception will be thrown if the path does not exist
-
 			// Create a PitItem
 			var pitItem = new PitItem("RSB");
 			pitItem.SetProperty(new { Age = 61 });
 			pitItem.SetProperty(new { Children = 7 });
 			pitItem.SetProperty(new { Kids = new[] { "Nina", "Hannah", "Vuyisile", "Kilian", "Laura", "Mbali", "Logan" } });
 			examplesPit.Add(pitItem);
-
 			// Add Another PitItem
 			var pitItem2 = new PitItem("Nomsa", new
 			{
@@ -161,14 +144,11 @@ namespace JsonPit.Tests
 				Kids = new[] { "Nina", "Hannah", "Vuyisile", "Kilian", "Laura", "Mbali", "Logan" }
 			});
 			examplesPit.Add(pitItem2);
-
 			// Save the Pit
 			examplesPit.Save();
-
 			// Retrieve Items from the Pit
 			var item = examplesPit.Get("RSB");
 			var item2 = examplesPit["Nomsa"];
-
 			// Validate properties
 			var id = item["Id"]?.ToString();
 			Assert.Equal("RSB", id);
@@ -183,7 +163,6 @@ namespace JsonPit.Tests
 			var Kid5 = Kids2?[5];
 			Assert.Equal("Mbali", Kid5);
 		}
-
 		[Fact]
 		public void DirectAccess_Test()
 		{
@@ -214,7 +193,6 @@ namespace JsonPit.Tests
 			Assert.True(true);
 		}
 	} // class JsonPitTestClass
-
 	public sealed class PitItems_Sort_Tests
 	{
 		[Fact]
@@ -222,23 +200,18 @@ namespace JsonPit.Tests
 		{
 			var tsNewer = DateTimeOffset.UtcNow;
 			var tsOlder = tsNewer.AddMinutes(-5);
-
 			var newer = new PitItem("AAPL", invalidate: false, timestamp: tsNewer);
 			var older = new PitItem("AAPL", invalidate: false, timestamp: tsOlder);
-
 			var list = new PitItems();
 			list = list.Push(newer);
 			list = list.Push(older); // out of order -> triggers Sort()
-
 			Assert.Equal(tsNewer, newer.Modified);
 			Assert.Equal(tsOlder, older.Modified);
-
 			// Ensure ordering still correct after sort (oldest first).
 			Assert.Equal(tsOlder, list.History.First().Modified);
 			Assert.Equal(tsNewer, list.History.Last().Modified);
 		}
 	}
-
 	public sealed class Pit_GetAt_Tests
 	{
 		private static RaiPath CreatePitPath([CallerMemberName] string testName = "")
@@ -247,23 +220,18 @@ namespace JsonPit.Tests
 			root.rmdir(depth: 10, deleteFiles: true);
 			return root;
 		}
-
 		private static void 	Cleanup(RaiPath path) => path.rmdir(depth: 10, deleteFiles: true);
-
 		private static string SanitizeSegment(string value)
 		{
 			if (string.IsNullOrWhiteSpace(value))
 				return "test";
-
 			var invalid = Path.GetInvalidFileNameChars();
 			var cleaned = new string(value
 				.Select(ch => invalid.Contains(ch) || char.IsWhiteSpace(ch) ? '-' : ch)
 				.ToArray())
 				.Trim('-');
-
 			return string.IsNullOrWhiteSpace(cleaned) ? "test" : cleaned;
 		}
-
 		[Fact]
 		public void GetAt_ReturnsItemAtOrBeforeTimestamp()
 		{
@@ -273,28 +241,21 @@ namespace JsonPit.Tests
 			{
 				var pit = new Pit(pitPath, readOnly: false, unflagged: true, autoload: false);
 				var baseTs = DateTimeOffset.UtcNow;
-
 				var item1 = new PitItem(symbol, invalidate: false, timestamp: baseTs.AddMinutes(-2));
 				item1["Price"] = 1;
 				pit.Add(item1);
-
 				var item2 = new PitItem(symbol, invalidate: false, timestamp: baseTs.AddMinutes(-1));
 				item2["Price"] = 2;
 				pit.Add(item2);
-
 				var item3 = new PitItem(symbol, invalidate: false, timestamp: baseTs);
 				item3["Price"] = 3;
 				pit.Add(item3);
-
 				var atItem2 = pit.GetAt(symbol, item2.Modified.AddTicks(1));
 				Assert.NotNull(atItem2);
 				Assert.Equal(2, atItem2["Price"]!.Value<int>());
-
 				var beforeAll = pit.GetAt(symbol, baseTs.AddMinutes(-3));
 				Assert.Null(beforeAll);
-
 				//Assert.True(pit.Invalid());	// invalidate: false above makes this one fail
-
 				pit.Save(); 
 			
 			}
@@ -303,7 +264,6 @@ namespace JsonPit.Tests
 				pitPath.rmdir(depth: 3, deleteFiles: true);
 			}
 		}
-
 		[Fact]
 		public void GetAt_RespectsDeletedFlag()
 		{
@@ -313,24 +273,18 @@ namespace JsonPit.Tests
 			{
 				var pit = new Pit(pitPath, readOnly: false, unflagged: true, autoload: false);
 				var baseTs = DateTimeOffset.UtcNow;
-
 				var item1 = new PitItem(symbol, invalidate: false, timestamp: baseTs.AddMinutes(-2));
 				item1["Price"] = 1;
 				pit.Add(item1);
-
 				pit.Save(force: true);  // why do I need to force it? because invalidate was set to false above
-
 				var deleted = new PitItem(symbol, invalidate: false, timestamp: baseTs.AddMinutes(-1));
 				deleted.Deleted = true;
 				pit.Add(deleted);
-
 				var hidden = pit.GetAt(symbol, deleted.Modified.AddTicks(1));
 				Assert.Null(hidden);
-
 				var visibleDeleted = pit.GetAt(symbol, deleted.Modified.AddTicks(1), withDeleted: true);
 				Assert.NotNull(visibleDeleted);
 				Assert.True(visibleDeleted!.Deleted);
-
 				pit.Save();	// why do I need to force it? 
 			}
 			finally
@@ -338,7 +292,6 @@ namespace JsonPit.Tests
 				Cleanup(pitPath);
 			}
 		}
-
 		[Fact]
 		public void GetAt_ProjectsState_ByReverseShadowing()
 		{
@@ -348,22 +301,17 @@ namespace JsonPit.Tests
 			{
 				var pit = new Pit(pitPath, readOnly: false, unflagged: true, autoload: false);
 				var baseTs = DateTimeOffset.UtcNow;
-
 				var item1 = new PitItem(symbol, invalidate: false, timestamp: baseTs.AddMinutes(-3));
 				item1["Email"] = "before@example.org";
 				item1["Country"] = "ZA";
 				pit.Add(item1);
-
 				var item2 = new PitItem(symbol, invalidate: false, timestamp: baseTs.AddMinutes(-2));
 				item2["Phone"] = "+27-82-000-0000";
 				pit.Add(item2);
-
 				var item3 = new PitItem(symbol, invalidate: false, timestamp: baseTs.AddMinutes(-1));
 				item3["Email"] = "after@example.org";
 				pit.Add(item3);
-
 				var projected = pit[symbol];
-
 				Assert.NotNull(projected);
 				Assert.Equal(symbol, projected!.Id);
 				Assert.Equal(baseTs.AddMinutes(-1), projected.Modified);
@@ -377,7 +325,6 @@ namespace JsonPit.Tests
 				Cleanup(pitPath);
 			}
 		}
-
 		[Fact]
 		public void GetAt_StopsAtDeletionWall_WhenProjectingOlderFragments()
 		{
@@ -387,28 +334,22 @@ namespace JsonPit.Tests
 			{
 				var pit = new Pit(pitPath, readOnly: false, unflagged: true, autoload: false);
 				var baseTs = DateTimeOffset.UtcNow;
-
 				var original = new PitItem(symbol, invalidate: false, timestamp: baseTs.AddMinutes(-3));
 				original["Email"] = "before@example.org";
 				original["Country"] = "ZA";
 				pit.Add(original);
-
 				var tombstone = new PitItem(symbol, invalidate: false, timestamp: baseTs.AddMinutes(-2));
 				tombstone.Deleted = true;
 				pit.Add(tombstone);
-
 				var resurrected = new PitItem(symbol, invalidate: false, timestamp: baseTs.AddMinutes(-1));
 				resurrected["Email"] = "after@example.org";
 				pit.Add(resurrected);
-
 				var projected = pit.GetAt(symbol, resurrected.Modified.AddTicks(1));
 				Assert.NotNull(projected);
 				Assert.Equal("after@example.org", projected!["Email"]!.Value<string>());
 				Assert.Null(projected["Country"]);
-
 				var deletedAtWall = pit.GetAt(symbol, tombstone.Modified);
 				Assert.Null(deletedAtWall);
-
 				var visibleDeleted = pit.GetAt(symbol, tombstone.Modified, withDeleted: true);
 				Assert.NotNull(visibleDeleted);
 				Assert.True(visibleDeleted!.Deleted);
@@ -424,9 +365,7 @@ namespace JsonPit.Tests
 			}
 		}
 	}
-
 	#region AdditionalTests from conversation with GPT5.2 Thinking
-
 	public sealed class PitItemExtendJson_ArrayTabularTests
 	{
 		[Fact]
@@ -434,62 +373,47 @@ namespace JsonPit.Tests
 		{
 			var item = new PitItem("AAPL");
 			item.SetProperty(new { Price = 262.77 });
-
 			var jsonObj = @"{ ""Bid"": 263.41, ""Ask"": 263.44 }";
 			var extended = new PitItem("AAPL", jsonObj);
-
 			// NOTE: this test assumes you are extending an existing item in-place;
 			// if your constructor creates a new PitItem, prefer item.Extend(json) instead.
 		}
-
 		[Fact]
 		public void Extend_Array_AppendsValuesAndCreatesNewAttributes_Test()
 		{
 			var aapl = new PitItem("AAPL");
 			aapl.SetProperty(new { Price = 262.77 });
-
 			//var priceCountBefore = aapl.HistoryCount("Price"); // <-- whatever your API is
-
 			var jsonArr = @"[
               { ""Bid"": 263.41, ""Ask"": 263.44 },
               { ""Bid"": 263.43, ""Ask"": 263.40 }
             ]";
-
 			aapl.Extend(jsonArr); // preferred API; or new PitItem("AAPL", jsonArr) if ctor mutates
-
 			// Assert.Equal(priceCountBefore, aapl.HistoryCount("Price"));     // no new price values
 			// Assert.Equal(2, aapl.HistoryCount("Bid"));                      // two bid values appended
 			// Assert.Equal(2, aapl.HistoryCount("Ask"));                      // two ask values appended
-
 			Assert.Equal(263.43, aapl["Bid"].Value<double>(), 5);           // latest bid
 			Assert.Equal(263.40, aapl["Ask"].Value<double>(), 5);           // latest ask
-
 			Assert.True(aapl.Modified < DateTimeOffset.UtcNow);           // ensure modified timestamp is updated
 		}
-
 		[Fact]
 		public void Extend_Array_WithMixedSchema_ExtendsSchemaAsSeen_Test()
 		{
 			var item = new PitItem("AAPL");
 			item.SetProperty(new { Price = 262.77 });
-
 			var jsonArr = @"[
               { ""Bid"": 263.41 },
               { ""Ask"": 263.44, ""Spread"": 0.03 }
             ]";
-
 			item.Extend(jsonArr);
-
 			Assert.NotNull(item["Bid"]);
 			Assert.NotNull(item["Ask"]);
 			Assert.NotNull(item["Spread"]);
-
 			// Assert.Equal(1, item.HistoryCount("Bid"));
 			// Assert.Equal(1, item.HistoryCount("Ask"));
 			// Assert.Equal(1, item.HistoryCount("Spread"));
 		}
 	}
-
 	public sealed class PitItem_ExtendJson_Tests
 	{
 		[Fact]
@@ -498,26 +422,20 @@ namespace JsonPit.Tests
 			// Arrange
 			var before = DateTimeOffset.UtcNow;
 			var json = @"{ ""Price"": 223.57, ""Volume"": 17320 }";
-
 			// Act
 			var item = new PitItem(id: "AAPL", extendWithAsJson: json, comment: "tiingo");
-
 			// Assert
 			var after = DateTimeOffset.UtcNow;
-
 			Assert.Equal("AAPL", item.Id);
 			Assert.False(item.Deleted);
 			Assert.Equal("tiingo", item.Note);
-
 			// Modified is set by Invalidate() in the ctor; allow a small window.
 			Assert.True(item.Modified >= before.AddSeconds(-1) && item.Modified <= after.AddSeconds(1));
-
 			Assert.NotNull(item["Price"]);
 			Assert.NotNull(item["Volume"]);
 			Assert.Equal(223.57, item["Price"]!.Value<double>(), 5);
 			Assert.Equal(17320, item["Volume"]!.Value<int>());
 		}
-
 		[Fact]
 		public void Ctor_WithJArrayJson_UnionsSchemaAndLastValueWinsPerAttribute()
 		{
@@ -526,50 +444,39 @@ namespace JsonPit.Tests
               { ""Bid"": 263.41, ""Ask"": 263.44 },
               { ""Bid"": 263.43, ""Ask"": 263.40 }
             ]";
-
 			// Act
 			var item = new PitItem(id: "AAPL", extendWithAsJson: json);
-
 			// Assert
 			// Schema extension: Ask/Bid exist even if they were not present previously.
 			Assert.NotNull(item["Bid"]);
 			Assert.NotNull(item["Ask"]);
-
 			// In-memory behavior: last row wins for repeated keys.
 			Assert.Equal(263.43, item["Bid"]!.Value<double>(), 5);
 			Assert.Equal(263.40, item["Ask"]!.Value<double>(), 5);
 		}
-
 		[Fact]
 		public void Extend_Array_AddsNewAttributes_AndDoesNotTouchExistingOnes()
 		{
 			// Arrange
 			var item = new PitItem("AAPL");
 			item.SetProperty(new { Price = 262.77 }); // sets Modified and Dirty
-
 			var priceBefore = item["Price"]!.Value<double>();
-
 			var jsonArr = @"[
               { ""Bid"": 263.41, ""Ask"": 263.44 },
               { ""Bid"": 263.43, ""Ask"": 263.40 }
             ]";
-
 			// Act
 			item.Extend(jsonArr);
-
 			// Assert
 			// Existing property remains unchanged because the array doesn't contain "Price".
 			Assert.Equal(priceBefore, item["Price"]!.Value<double>(), 5);
-
 			// New properties added.
 			Assert.NotNull(item["Bid"]);
 			Assert.NotNull(item["Ask"]);
-
 			// Last row wins per attribute (in-memory).
 			Assert.Equal(263.43, item["Bid"]!.Value<double>(), 5);
 			Assert.Equal(263.40, item["Ask"]!.Value<double>(), 5);
 		}
-
 		[Fact]
 		public void Extend_Array_WithNonObjectElement_SetsRawToLastNonObject()
 		{
@@ -580,19 +487,14 @@ namespace JsonPit.Tests
               42,
               ""hello""
             ]";
-
 			// Act
 			item.Extend(jsonArr);
-
 			// Assert
 			// Your current implementation overwrites Raw each time it sees a non-object.
 			Assert.NotNull(item["_"]);
-
 			// last non-object wins => "hello"
 			Assert.Equal("hello", item["_"]!.Value<string>());
 		}
 	}
-
 	#endregion 
-
 } // namespace JsonPit.Tests

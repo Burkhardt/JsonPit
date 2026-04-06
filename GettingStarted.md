@@ -8,7 +8,7 @@ It is based on the current JsonPit 3.7.3 code and tests in this repository.
 
 - The supported cloud-backed provider claim for the package stack is `OneDrive`, `GoogleDrive`, and `Dropbox`.
 - `PitItem.Id` is now the canonical framework identifier.
-- Legacy persisted payloads that still contain `Name` without `Id` are normalized internally to `Id`, and the framework-managed `Name` field is dropped during normalization.
+- Legacy persisted payloads that still contain `Name` without `Id` are normalized internally by copying `Name` into `Id`, while preserving `Name`.
 - Future use of `Name` as an application-defined custom field remains supported outside the framework identifier contract.
 
 ## Purpose and Mental Model
