@@ -74,27 +74,34 @@ Important naming detail:
 
 ## Storage Root and OsLib Configuration
 
-JsonPit commonly uses OsLib for path selection, especially `Os.CloudStorageRootDir`.
+JsonPit commonly uses OsLib for path selection, but the current approach is to read one explicit configured root from `Os.Config.Cloud` rather than relying on a preferred-root helper on `Os`.
 
 For shared synchronized storage, configure OsLib explicitly rather than hard-coding machine-specific special cases.
 
 Current OsLib default config location:
 
-- `~/.config/RAIkeep/osconfig.json`
-
-JsonPit 3.7.3 should be documented against that fixed RAIkeep config path.
+- `~/.config/RAIkeep/osconfig.json5`
 
 Typical cloud-root config example:
 
-```json
+```json5
 {
-  "cloud": {
-   "googledrive": "/Users/me/Library/CloudStorage/GoogleDrive/AfricaStage/"
-  }
+   Cloud: {
+      GoogleDrive: "/Users/me/Library/CloudStorage/GoogleDrive/AfricaStage/"
+   }
 }
 ```
 
-If your service is meant to work against a shared synchronized folder, prefer deriving the pit root from `Os.CloudStorageRootDir` or another explicit configured root.
+If your service is meant to work against a shared synchronized folder, prefer deriving the pit root from one explicit configured root.
+
+Example:
+
+```csharp
+var configuredCloudRootText = (string?)Os.Config.Cloud?.GoogleDrive
+   ?? throw new InvalidOperationException("Set Cloud.GoogleDrive in ~/.config/RAIkeep/osconfig.json5 first.");
+
+var configuredCloudRoot = new RaiPath(configuredCloudRootText);
+```
 
 ## Quick Start From The WWWA Integration Test
 
@@ -103,7 +110,7 @@ If you want the simplest path to create a pit and seed it from the sample JSON5 
 Core path setup:
 
 ```csharp
-var testDirInCloud = Os.CloudStorageRootDir / "RAIkeep" / "WwwaTests";
+var testDirInCloud = configuredCloudRoot / "RAIkeep" / "WwwaTests";
 var personPitFile = new PitFile(testDirInCloud, "Person");
 var personPit = new Pit(personPitFile);
 ```
@@ -111,7 +118,7 @@ var personPit = new Pit(personPitFile);
 Seed the pit from the copied sample file:
 
 ```csharp
-var sampleDir = Os.CloudStorageRootDir / "RAIkeep" / "sample";
+var sampleDir = configuredCloudRoot / "RAIkeep" / "sample";
 var personData = new TextFile(sampleDir, "Person", "json5").ReadAllText();
 personPit.AddItems(personData);
 personPit.Save();
@@ -137,7 +144,11 @@ using JsonPit;
 using OsLib;
 using RaiUtils;
 
-var pitRoot = Os.CloudStorageRootDir / "AfricaStage" / "OTW" / "person";
+var configuredCloudRootText = (string?)Os.Config.Cloud?.GoogleDrive
+   ?? throw new InvalidOperationException("Set Cloud.GoogleDrive in ~/.config/RAIkeep/osconfig.json5 first.");
+var configuredCloudRoot = new RaiPath(configuredCloudRootText);
+
+var pitRoot = configuredCloudRoot / "AfricaStage" / "OTW" / "person";
 pitRoot.mkdir();
 
 var people = new Pit(
@@ -437,9 +448,10 @@ These packages are often used together.
 
 Use OsLib for:
 
-- configured cloud roots via `Os.CloudStorageRootDir`
+- explicit configured cloud roots via `Os.Config.Cloud`
 - path helpers like `Os.UserHomeDir`, `Os.AppRootDir`, `Os.TempDir`, `Os.LocalBackupDir`
 - file and directory abstractions such as `RaiFile`
+- buffered cloud classification through `RaiPath.Cloud`
 
 ### RaiUtils
 
@@ -450,7 +462,7 @@ JsonPit depends on RaiUtils internally and you may use it alongside JsonPit for 
 `RaiPath` is the most practical helper when composing stable pit roots:
 
 ```csharp
-var root = Os.CloudStorageRootDir / "AfricaStage" / "OTW" / "person";
+var root = configuredCloudRoot / "AfricaStage" / "OTW" / "person";
 root.mkdir();
 
 var people = new Pit(root.Path, readOnly: false, autoload: true, backup: false);
@@ -529,7 +541,11 @@ using JsonPit;
 using OsLib;
 using RaiUtils;
 
-var personPitRoot = Os.CloudStorageRootDir / "AfricaStage" / "OTW" / "person";
+var configuredCloudRootText = (string?)Os.Config.Cloud?.GoogleDrive
+   ?? throw new InvalidOperationException("Set Cloud.GoogleDrive in ~/.config/RAIkeep/osconfig.json5 first.");
+var configuredCloudRoot = new RaiPath(configuredCloudRootText);
+
+var personPitRoot = configuredCloudRoot / "AfricaStage" / "OTW" / "person";
 personPitRoot.mkdir();
 
 var personPit = new Pit(

@@ -18,7 +18,7 @@ public class JsonPitBase
 	private static string version;
 	public static RaiPath ConfigDefaultDir
 	{
-		get => configDirDefault ??= Os.CloudStorageRootDir / "Config";
+		get => configDirDefault ??= Os.ConfigureDiagnostics Os	CloudStorageRootDir / "Config";
 		set => configDirDefault = value;
 	}
 	private static RaiPath configDirDefault;

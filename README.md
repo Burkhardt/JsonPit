@@ -91,14 +91,14 @@ JsonPit
 
 ## cloud root convention
 
-JsonPit resolves cloud-backed storage locations through OsLib, most commonly via `Os.CloudStorageRoot`.
+JsonPit resolves cloud-backed storage locations through OsLib, but the current approach is to read an explicit configured root from `Os.Config.Cloud` rather than relying on a preferred-root helper.
 
 For Ubuntu development machines, especially when Google Drive is mounted through `rclone`, GNOME integration, or a team-specific mount path, prefer explicit configuration instead of probe-only discovery.
 
 Recommended shared contract:
-- Use `osconfig.json` to point the supported provider roots `cloud.dropbox`, `cloud.onedrive`, and `cloud.googledrive` at the active synchronized mounts.
-- Keep that file at `~/.config/RAIkeep/osconfig.json`.
-- Reuse the same `cloud` keys as OsLib: `dropbox`, `onedrive`, `googledrive`.
+- Use `osconfig.json5` to point the supported provider roots `Cloud.Dropbox`, `Cloud.OneDrive`, and `Cloud.GoogleDrive` at the active synchronized mounts.
+- Keep that file at `~/.config/RAIkeep/osconfig.json5`.
+- Reuse the same PascalCase keys as OsLib.
 
 That keeps JsonPit aligned with OsLib in .NET today and with the upcoming Python `OsLib`, `RaiUtils`, and `JsonPit` packages later.
 
