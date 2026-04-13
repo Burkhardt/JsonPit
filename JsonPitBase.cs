@@ -12,16 +12,9 @@ public class JsonPitBase
 {
 	public static string Version
 	{
-		get => version ??= System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString(2);
-		set => version = value;
+		get => field ??= System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString(2);
+		set => field = value;
 	}
-	private static string version;
-	public static RaiPath ConfigDefaultDir
-	{
-		get => configDirDefault ??= Os.ConfigureDiagnostics Os	CloudStorageRootDir / "Config";
-		set => configDirDefault = value;
-	}
-	private static RaiPath configDirDefault;
 	public static Options jilOptions = new(prettyPrint: true, excludeNulls: false, jsonp: false,
 		dateFormat: DateTimeFormat.ISO8601, includeInherited: true);
 	#region Semaphore
