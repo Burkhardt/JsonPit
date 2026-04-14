@@ -45,7 +45,7 @@ namespace JsonPit.Tests
 			var diskArray = JArray.Parse(rawJson);
 			Assert.True(diskArray[0] is JArray, "The JSON on disk is flattened! It must be an array of history arrays.");
 			Assert.Equal(2, ((JArray)diskArray[0]).Count);
-			var pitB = new Pit(pitDirectory: new RaiPath(persistedFileFullName), readOnly: true, autoload: true);
+			var pitB = new Pit(pitDirectory: RaiPath.SplitRaiPathAndName(persistedFileFullName).path, readOnly: true, autoload: true);
 			Assert.True(pitB.ContainsKey("Sensor_1"));
 			var historyStack = pitB.HistoricItems["Sensor_1"];
 			Assert.Equal(2, historyStack.Count);

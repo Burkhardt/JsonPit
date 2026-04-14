@@ -61,5 +61,13 @@ namespace JsonPit.Tests
 				Cleanup(root);
 			}
 		}
+		[Fact]
+		public void ApplyPathConvention_PitFile()
+		{
+			string s = "/Users/RSB/Library/CloudStorage/OneDrive/OneDriveData/pits/output/Person.pit";
+			string expected = "/Users/RSB/Library/CloudStorage/OneDrive/OneDriveData/pits/output/Person/Person.pit";
+			var pf = new PitFile(s);
+			Assert.Equal(expected, pf.FullName);
+		}
 	}
 }
