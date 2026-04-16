@@ -208,34 +208,72 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 		});
 	public string Subscriber { get; private set; }
 	#region Load / Store / Save
-	public void Load(bool undercover = false)
+	/// <summary>
+	/// Maximum number of retry attempts when Load() encounters a JSON parse error
+	/// (e.g. from reading a partially synced file).  Retries use exponential backoff:
+	/// 200 ms, 1 s, 3 s, 5 s, 5 s.
+	/// </summary>
+	public static int MaxLoadRetries { get; set; } = 5;
+	private static readonly int[] LoadRetryDelaysMs = { 200, 1000, 3000, 5000, 5000 };
+	/// <summary>
+	/// Loads the pit from disk.  Returns true if data was loaded successfully,
+	/// false if the file does not exist, is empty, or all retry attempts failed.
+	/// <para>
+	/// When a JSON parse error occurs (common during cloud sync of large pit files),
+	/// Load re-reads from disk up to <see cref="MaxLoadRetries"/> times with exponential
+	/// backoff before giving up.
+	/// </para>
+	/// </summary>
+	public bool Load(bool undercover = false)
 	{
-		if (!JsonFile.Exists()) return;
+		if (!JsonFile.Exists()) return false;
 		var loadedOk = false;
 		var hasData = false;
-		try
+		Exception lastException = null;
+		for (int attempt = 0; attempt <= MaxLoadRetries; attempt++)
 		{
-			var textFile = new TextFile(JsonFile.FullName);
-			var jsonArrayOfArrayOfObject = string.Join(Environment.NewLine, textFile.Read());
-			bool emptyFile = string.IsNullOrEmpty(jsonArrayOfArrayOfObject) || jsonArrayOfArrayOfObject.Length < 2;
-			for (int i = 0, square = 0; i < jsonArrayOfArrayOfObject.Length && i < 100 && square < 2; i++)
+			if (attempt > 0)
 			{
-				if (jsonArrayOfArrayOfObject[i] == '[') square++;
-				else if (jsonArrayOfArrayOfObject[i] == '{')
-					throw new FormatException("JSON file format is not compatible with JsonPit");
+				var delay = attempt - 1 < LoadRetryDelaysMs.Length
+					? LoadRetryDelaysMs[attempt - 1]
+					: LoadRetryDelaysMs[^1];
+				Debug.WriteLine($"[JsonPit] Load retry {attempt}/{MaxLoadRetries} for {JsonFile.Name} after {delay} ms");
+				Thread.Sleep(delay);
+				if (!JsonFile.Exists()) return false;  // file disappeared between retries
 			}
-			HistoricItems = new ConcurrentDictionary<string, PitItems>(Comparer);
-			if (!emptyFile) initValues(JArray.Parse(jsonArrayOfArrayOfObject));
-			hasData = !emptyFile;
-			loadedOk = true;
+			try
+			{
+				var textFile = new TextFile(JsonFile.FullName);
+				var jsonArrayOfArrayOfObject = string.Join(Environment.NewLine, textFile.Read());
+				bool emptyFile = string.IsNullOrEmpty(jsonArrayOfArrayOfObject) || jsonArrayOfArrayOfObject.Length < 2;
+				for (int i = 0, square = 0; i < jsonArrayOfArrayOfObject.Length && i < 100 && square < 2; i++)
+				{
+					if (jsonArrayOfArrayOfObject[i] == '[') square++;
+					else if (jsonArrayOfArrayOfObject[i] == '{')
+						throw new FormatException("JSON file format is not compatible with JsonPit");
+				}
+				HistoricItems = new ConcurrentDictionary<string, PitItems>(Comparer);
+				if (!emptyFile) initValues(JArray.Parse(jsonArrayOfArrayOfObject));
+				hasData = !emptyFile;
+				loadedOk = true;
+				lastException = null;
+				break;  // success — exit retry loop
+			}
+			catch (InvalidOperationException) { throw; }  // not a transient error
+			catch (FormatException) { throw; }             // structural incompatibility, not transient
+			catch (Exception ex) when (ex is JsonReaderException or JsonException or System.IO.IOException)
+			{
+				lastException = ex;
+				Debug.WriteLine($"[JsonPit] Load attempt {attempt} failed for {JsonFile.Name}: {ex.Message}");
+				// continue to next retry
+			}
 		}
-		catch (InvalidOperationException) { throw; }
-		finally
-		{
-			if (loadedOk && hasData && !(undercover || unflagged))
-				ProcessFlag().Update(GetLatestItemChanged());
-			Interlocked.Exchange(ref usingPersistence, 0);
-		}
+		if (loadedOk && hasData && !(undercover || unflagged))
+			ProcessFlag().Update(GetLatestItemChanged());
+		Interlocked.Exchange(ref usingPersistence, 0);
+		if (lastException is not null)
+			Debug.WriteLine($"[JsonPit] Load gave up after {MaxLoadRetries} retries for {JsonFile.Name}: {lastException.Message}");
+		return loadedOk;
 	}
 	protected void Store(bool force = false, bool pretty = false, char indentChar = '\t')
 	{
@@ -394,7 +432,10 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 					MergeIntoHistory(changeItems);
 				processedChangeFiles.Add(new RaiFile(file.FullName));
 			}
-			catch (InvalidOperationException) { }
+			catch (Exception ex) when (ex is InvalidOperationException or JsonReaderException or JsonException or System.IO.IOException)
+			{
+				Debug.WriteLine($"[JsonPit] MergeChanges skipped change file {file.Name}: {ex.Message}");
+			}
 		}
 		// Gate: check master rights *after* merging (step 4) but *before* writing (steps 5+6)
 		if (!ReadOnly && TryAcquireMaster())
