@@ -1,12 +1,13 @@
 ## Requirements for JsonPit
 
-## 3.7.3 release decisions
+## 3.7.6 release decisions
 
 - The supported cloud-backed provider claim for the packaged stack is `OneDrive`, `GoogleDrive`, and `Dropbox`.
 - `PitItem.Id` is the canonical framework identifier.
 - Legacy files that still contain `Name` without `Id` are normalized internally by copying `Name` into `Id`, while preserving `Name`.
 - `Name` remains available as an application-defined custom field outside the framework identifier contract.
-- The aligned fallback package line is `OsLibCore 3.7.3` plus `RaiUtils 3.7.3`.
+- The aligned fallback package line is `OsLibCore 3.7.6` plus `RaiUtils 3.7.6`.
+- Remote-sync workflows can rely on OsLib's configurable `SyncPropagationDelayMs` and `BackdateCreationTime(...)` timing control where needed.
 
 ### Basic Ideas
 - Store all information in the file system.

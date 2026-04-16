@@ -1,15 +1,16 @@
-# Getting Started with JsonPit 3.7.3
+# Getting Started with JsonPit 3.7.6
 
 This guide is written for practical implementation work, especially when you want to use JsonPit from NuGet packages in another service such as OTW / AfricaStage.
 
-It is based on the current JsonPit 3.7.3 code and tests in this repository.
+It is based on the current JsonPit 3.7.6 code and tests in this repository.
 
-## 3.7.3 key decisions
+## 3.7.6 key decisions
 
 - The supported cloud-backed provider claim for the package stack is `OneDrive`, `GoogleDrive`, and `Dropbox`.
 - `PitItem.Id` is now the canonical framework identifier.
 - Legacy persisted payloads that still contain `Name` without `Id` are normalized internally by copying `Name` into `Id`, while preserving `Name`.
 - Future use of `Name` as an application-defined custom field remains supported outside the framework identifier contract.
+- Remote-sync workflows can use OsLib's configurable propagation delay handling when file metadata must settle across providers.
 
 ## Purpose and Mental Model
 
@@ -42,7 +43,7 @@ It is not trying to replace a transactional database.
 
 ## Package Setup
 
-Use the NuGet package ids at version `3.7.3`:
+Use the NuGet package ids at version `3.7.6`:
 
 - `JsonPit`
 - `RaiUtils`
@@ -51,9 +52,9 @@ Use the NuGet package ids at version `3.7.3`:
 Typical install commands:
 
 ```bash
-dotnet add package JsonPit --version 3.7.3
-dotnet add package RaiUtils --version 3.7.3
-dotnet add package OsLibCore --version 3.7.3
+dotnet add package JsonPit --version 3.7.6
+dotnet add package RaiUtils --version 3.7.6
+dotnet add package OsLibCore --version 3.7.6
 ```
 
 Typical namespaces in code:
@@ -80,7 +81,7 @@ For shared synchronized storage, configure OsLib explicitly rather than hard-cod
 
 Current OsLib default config location:
 
-- `~/.config/RAIkeep/osconfig.json5`
+- `~/.config/RAIkeep.json5`
 
 Typical cloud-root config example:
 
@@ -98,7 +99,7 @@ Example:
 
 ```csharp
 var configuredCloudRootText = (string?)Os.Config.Cloud?.GoogleDrive
-   ?? throw new InvalidOperationException("Set Cloud.GoogleDrive in ~/.config/RAIkeep/osconfig.json5 first.");
+   ?? throw new InvalidOperationException("Set Cloud.GoogleDrive in ~/.config/RAIkeep.json5 first.");
 
 var configuredCloudRoot = new RaiPath(configuredCloudRootText);
 ```
@@ -145,7 +146,7 @@ using OsLib;
 using RaiUtils;
 
 var configuredCloudRootText = (string?)Os.Config.Cloud?.GoogleDrive
-   ?? throw new InvalidOperationException("Set Cloud.GoogleDrive in ~/.config/RAIkeep/osconfig.json5 first.");
+   ?? throw new InvalidOperationException("Set Cloud.GoogleDrive in ~/.config/RAIkeep.json5 first.");
 var configuredCloudRoot = new RaiPath(configuredCloudRootText);
 
 var pitRoot = configuredCloudRoot / "AfricaStage" / "OTW" / "person";
@@ -542,7 +543,7 @@ using OsLib;
 using RaiUtils;
 
 var configuredCloudRootText = (string?)Os.Config.Cloud?.GoogleDrive
-   ?? throw new InvalidOperationException("Set Cloud.GoogleDrive in ~/.config/RAIkeep/osconfig.json5 first.");
+   ?? throw new InvalidOperationException("Set Cloud.GoogleDrive in ~/.config/RAIkeep.json5 first.");
 var configuredCloudRoot = new RaiPath(configuredCloudRootText);
 
 var personPitRoot = configuredCloudRoot / "AfricaStage" / "OTW" / "person";

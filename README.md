@@ -4,7 +4,7 @@
 
 ## Start Here
 
-If you want to use JsonPit 3.7.3 from NuGet in another service or agent workflow, start with [GettingStarted.md](GettingStarted.md).
+If you want to use JsonPit 3.7.6 from NuGet in another service or agent workflow, start with [GettingStarted.md](GettingStarted.md).
 
 That guide now covers:
 
@@ -15,19 +15,15 @@ That guide now covers:
 - persistence and synchronized-storage expectations
 - a practical `PersonPit` example for OTW / AfricaStage style backend work
 
-## 3.7.3
+## 3.7.6
 
-- Patch: aligns JsonPit with `OsLibCore 3.7.3` and `RaiUtils 3.7.3` in the correct NuGet publish order.
+- Patch: aligns JsonPit with `OsLibCore 3.7.6` and `RaiUtils 3.7.6` in the current publish order.
 - Keeps the WWWA-based quick-start section in [GettingStarted.md](GettingStarted.md) for cloud-path pit creation and sample JSON5 seeding.
 - The supported cloud-backed provider claim is now `OneDrive`, `GoogleDrive`, and `Dropbox`.
 - `PitItem.Id` is now the canonical framework identifier.
 - Legacy payloads that still contain `Name` without `Id` are normalized internally by copying `Name` into `Id`, while preserving `Name`.
 - Future use of `Name` as an application-defined custom field remains supported.
-
-## 3.7.3
-
-- Patch: aligns JsonPit with `OsLibCore 3.7.3` and `RaiUtils 3.7.3` in the correct NuGet publish order.
-- Adds a WWWA-based quick-start section in [GettingStarted.md](GettingStarted.md) that shows cloud-path pit creation and sample JSON5 seeding.
+- Remote-sync workflows now align with OsLib's configurable metadata propagation delay handling.
 
 ## namespace
 
@@ -96,8 +92,8 @@ JsonPit resolves cloud-backed storage locations through OsLib, but the current a
 For Ubuntu development machines, especially when Google Drive is mounted through `rclone`, GNOME integration, or a team-specific mount path, prefer explicit configuration instead of probe-only discovery.
 
 Recommended shared contract:
-- Use `osconfig.json5` to point the supported provider roots `Cloud.Dropbox`, `Cloud.OneDrive`, and `Cloud.GoogleDrive` at the active synchronized mounts.
-- Keep that file at `~/.config/RAIkeep/osconfig.json5`.
+- Use `RAIkeep.json5` to point the supported provider roots `Cloud.Dropbox`, `Cloud.OneDrive`, and `Cloud.GoogleDrive` at the active synchronized mounts.
+- Keep that file at `~/.config/RAIkeep.json5`.
 - Reuse the same PascalCase keys as OsLib.
 
 That keeps JsonPit aligned with OsLib in .NET today and with the upcoming Python `OsLib`, `RaiUtils`, and `JsonPit` packages later.
@@ -114,4 +110,4 @@ That keeps JsonPit aligned with OsLib in .NET today and with the upcoming Python
 
 ## release notes
 
-- Latest release notes: [RELEASE_NOTES_3.7.3.md](RELEASE_NOTES_3.7.3.md)
+- Latest release notes: [RELEASE_NOTES_3.7.6.md](RELEASE_NOTES_3.7.6.md)
