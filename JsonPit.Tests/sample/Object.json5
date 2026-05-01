@@ -1,5 +1,14 @@
 [
 	{
+		Id: "KPBS26Img",
+		Images: [
+			{
+				Src: "/img/400/BeMyNeighborDay20260418.webp",
+				Alt: "Nomsa performs at Be My Neighbor Day 2026"
+			}
+		]
+	},
+	{
 		Id: "Ticket_SDSU26",
 		Price: "$10.00 – $15.00",
 		PurchaseLink: "https://sdsupsfa.universitytickets.com/w/event.aspx?Id=3259"

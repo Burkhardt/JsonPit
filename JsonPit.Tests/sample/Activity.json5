@@ -1,5 +1,40 @@
 [
 	{
+		Id: "KPBS26",
+		Title: "Be My Neighbor Day!",
+		Summary: "Be My Neighbor Day is a free outdoor event for young children and families. This year, we'll celebrate what it means to be a community helper, just like Daniel Tiger! Join us to learn how even a small act of service can bring a lot of joy and make a very big difference.",
+		DetailLead: "KPBS presents:",
+		DetailTitle: "Be My Neighbor Day!",
+		ShowTime: {
+			Date: "April 18, 2026",
+			Time: "9:00 AM - 12:30 PM"
+		},
+		Where: {
+			Venue: "KPBSSDSUCampus"
+		},
+		Who: {
+			Performer: "Nomsa"
+		},
+		What: {
+			ShowImages: [
+				"KPBS26Img"
+			]
+		},
+		Description: "Be My Neighbor Day is a free outdoor event for young children and families. This year, we'll celebrate what it means to be a community helper, just like Daniel Tiger! Join us to learn how even a small act of service can bring a lot of joy and make a very big difference. All attendees will receive a KPBS KIDS giveaway, as well as resources on how to continue to serve as a community helper and caring neighbor!",
+		Details: [
+			{
+				Label: "Calendar",
+				Value: "Sat Apr 18, 9:00 AM",
+				Url: "/Shows?handler=Calendar&id=KPBS26&date=April%2018%2C%202026&time=9%3A00%20AM"
+			},
+			{
+				Label: "Register",
+				Value: "Free tickets on Eventbrite",
+				Url: "https://bemyneighborday2026.eventbrite.com"
+			}
+		]
+	},
+	{
 		Id: "SDZSP26",
 		Title: "Nomsa performing in the Elephant Valley",
 		Summary: "Live performances at Elephant Valley across March 5-8.",

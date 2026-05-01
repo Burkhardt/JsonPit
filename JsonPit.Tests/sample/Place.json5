@@ -1,5 +1,11 @@
 [
 	{
+		Id: "KPBSSDSUCampus",
+		Name: "KPBS, SDSU Campus",
+		Address: "5200 Campanile Dr, San Diego, CA 92182",
+		Homepage: "https://www.kpbs.org"
+	},
+	{
 		Id: "SDZSafariPark",
 		Name: "San Diego Zoo Safari Park",
 		Homepage: "https://sdzsafaripark.org/"
