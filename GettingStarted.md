@@ -1,10 +1,10 @@
-# Getting Started with JsonPit 3.7.7
+# Getting Started with JsonPit 3.7.9
 
 This guide is written for practical implementation work, especially when you want to use JsonPit from NuGet packages in another service such as OTW / AfricaStage.
 
-It is based on the current JsonPit 3.7.7 code and tests in this repository.
+It is based on the current JsonPit 3.7.9 code and tests in this repository.
 
-## 3.7.7 key decisions
+## 3.7.9 key decisions
 
 - The supported cloud-backed provider claim for the package stack is `OneDrive`, `GoogleDrive`, and `Dropbox`.
 - `PitItem.Id` is now the canonical framework identifier.
@@ -43,7 +43,7 @@ It is not trying to replace a transactional database.
 
 ## Package Setup
 
-Use the NuGet package ids at version `3.7.7`:
+Use the NuGet package ids at version `3.7.9`:
 
 - `JsonPit`
 - `RaiUtils`
@@ -52,9 +52,9 @@ Use the NuGet package ids at version `3.7.7`:
 Typical install commands:
 
 ```bash
-dotnet add package JsonPit --version 3.7.7
-dotnet add package RaiUtils --version 3.7.7
-dotnet add package OsLibCore --version 3.7.7
+dotnet add package JsonPit --version 3.7.9
+dotnet add package RaiUtils --version 3.7.9
+dotnet add package OsLibCore --version 3.7.9
 ```
 
 Typical namespaces in code:
