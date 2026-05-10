@@ -1,6 +1,6 @@
 # JsonPit
 
-    Stores json files across servers (synchronized).
+	Stores JsonPits, json files with a value history, across machines/servers ("eventually persistent").
 
 ## Start Here
 
