@@ -3,8 +3,9 @@
 	<PropertyGroup>
 		<Title>JsonPit</Title>
 		<PackageId>JsonPit</PackageId>
-		<Version>3.7.9</Version>
+		<Version>3.8.0</Version>
 		<Authors>Rainer Burkhardt</Authors>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
 		<Description>Stores json files across servers (synchronized).</Description>
 		<TargetFramework>net10.0</TargetFramework>
 		<NoWarn>$(NoWarn);CS1591</NoWarn>
@@ -16,7 +17,7 @@
 		<Copyright>© Rainer Burkhardt. All rights reserved.</Copyright>
 		<RepositoryUrl>https://github.com/Burkhardt/JsonPit</RepositoryUrl>
 		<RepositoryType>github</RepositoryType>
-		<PackageReleaseNotes>3.7.9 patch: refreshes current docs and aligns JsonPit with OsLibCore 3.7.9 and RaiUtils 3.7.9 in the current publish order.</PackageReleaseNotes>
+		<PackageReleaseNotes>3.8.0 release: refreshes current docs and aligns JsonPit with OsLibCore 3.8.0 and RaiUtils 3.8.0 in the current publish order while packaging the README for NuGet.</PackageReleaseNotes>
 		<PackageIcon>HardCastle.png</PackageIcon>
 		<DefaultItemExcludes>$(DefaultItemExcludes);JsonPit.Tests\**</DefaultItemExcludes>
 	</PropertyGroup>
@@ -25,6 +26,7 @@
 		<PackageReference Include="Jil" Version="2.17.0" />
 		<PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
 		<PackageReference Include="Sigil" Version="5.0.0" />
+		<None Include="README.md" Pack="true" PackagePath="\" />
 		<None Include="HardCastle.png" Pack="true" PackagePath="" />
 	</ItemGroup>
 
@@ -41,8 +43,8 @@
 	</ItemGroup>
 
 	<ItemGroup Condition="'$(OsLibProjectPath)' == '' or '$(RaiUtilsProjectPath)' == ''">
-		<PackageReference Include="OsLibCore" Version="3.7.9" />
-		<PackageReference Include="RaiUtils" Version="3.7.9" />
+		<PackageReference Include="OsLibCore" Version="3.8.0" />
+		<PackageReference Include="RaiUtils" Version="3.8.0" />
 	</ItemGroup>
 
 </Project>
