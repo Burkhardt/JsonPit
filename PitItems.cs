@@ -16,6 +16,7 @@ public class ItemsBase(string key = null)
 /// <summary>
 /// History stack of PitItem versions for a single key.
 /// Immutable — Push returns a new instance, enabling lock-free CAS updates on ConcurrentDictionary.
+/// Stack semantics: <c>History[0]</c> is the newest fragment, <c>History[^1]</c> the oldest.
 /// </summary>
 public class PitItems : ItemsBase, IEnumerable<PitItem>
 {
@@ -31,18 +32,20 @@ public class PitItems : ItemsBase, IEnumerable<PitItem>
 		new(key, ImmutableList<PitItem>.Empty, maxCount);
 	public PitItems Push(PitItem item)
 	{
+		// Newest first: descending by Modified.  History[0] is the most
+		// recently modified fragment; History[^1] is the oldest.
 		var newHistory = History.Add(item)
-			.Sort((a, b) => a.Modified.CompareTo(b.Modified));
+			.Sort((a, b) => b.Modified.CompareTo(a.Modified));
 		if (MaxCount > 0 && newHistory.Count > MaxCount)
-			newHistory = newHistory.RemoveRange(0, newHistory.Count - MaxCount);
+			newHistory = newHistory.RemoveRange(MaxCount, newHistory.Count - MaxCount);
 		return new PitItems(Key, newHistory, MaxCount);
 	}
-	internal PitItem LatestFragment() => History.IsEmpty ? null : History[^1];
+	internal PitItem LatestFragment() => History.IsEmpty ? null : History[0];
 	private int FindProjectionStartIndex(DateTimeOffset? at)
 	{
 		if (History.IsEmpty) return -1;
-		if (at is null) return History.Count - 1;
-		for (int i = History.Count - 1; i >= 0; i--)
+		if (at is null) return 0;
+		for (int i = 0; i < History.Count; i++)
 			if (History[i].Modified <= at.Value)
 				return i;
 		return -1;
@@ -63,7 +66,7 @@ public class PitItems : ItemsBase, IEnumerable<PitItem>
 			});
 		}
 		var accumulator = new JObject();
-		for (int i = startIndex; i >= 0; i--)
+		for (int i = startIndex; i < History.Count; i++)
 		{
 			var fragment = History[i];
 			if (fragment.Deleted) break;
@@ -89,7 +92,7 @@ public class PitItems : ItemsBase, IEnumerable<PitItem>
 		if (value is not null)
 		{
 			foreach (var v in value) list = list.Add(v);
-			if (list.Count > 1) list = list.Sort((a, b) => a.Modified.CompareTo(b.Modified));
+			if (list.Count > 1) list = list.Sort((a, b) => b.Modified.CompareTo(a.Modified));
 			Key = key ?? list.FirstOrDefault()?.Id;
 		}
 		History = list;

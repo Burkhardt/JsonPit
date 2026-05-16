@@ -110,7 +110,8 @@ namespace JsonPit.Tests
 				var pit = new Pit(snapshot, root, readOnly: false, autoload: false, backup: false);
 				var history = pit.HistoricItems["Rainer"];
 				Assert.Equal(3, history.Count);
-				Assert.Null(history.History.Last()["Email"]);
+				// Newest-first: the most recently added fragment is at History[0].
+				Assert.Null(history.History.First()["Email"]);
 				Assert.Equal("rainer@africastage.com", pit["Rainer"]?["Email"]?.Value<string>());
 				Assert.Equal("Dr2RAI", pit["Rainer"]?["Instagram"]?.Value<string>());
 				Assert.Equal("+27-82-000-0000", pit["Rainer"]?["Phone"]?.Value<string>());

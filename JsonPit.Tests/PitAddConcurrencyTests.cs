@@ -128,14 +128,15 @@ namespace JsonPit.Tests
 			Create_JsonPitTests_Pit();
 			// Arrange
 			const int n = 200;
-			var baseTs = DateTimeOffset.UtcNow;
-			// Ensure the list exists and won't trim to MaxCount (which is why you saw "5")
+			// Ensure the list exists and won't trim to MaxCount.
 			jsonPitTestsPit.HistoricItems["AAPL"] = PitItems.Create("AAPL", 0); // unlimited history for this test
-			// Act
+			// Act — Pit.Add now stamps Modified=UtcNow itself, so caller-supplied
+			// timestamps are no longer meaningful for ordering.  Each iteration
+			// must still produce a CONTENT-distinct PitItem; otherwise the
+			// EqualsIgnoringModified dedup will (correctly) drop it.
 			Parallel.For(0, n, i =>
 			{
-				// Each item must differ in CONTENT, not just Modified, otherwise the new Add() dedupe will drop it.
-				var item = new PitItem("AAPL", invalidate: false, timestamp: baseTs.AddMilliseconds(i));
+				var item = new PitItem("AAPL", invalidate: false);
 				item["Bid"] = 1000 + i;
 				item["Seq"] = i;
 				jsonPitTestsPit.Add(item);
@@ -144,11 +145,14 @@ namespace JsonPit.Tests
 			Assert.True(jsonPitTestsPit.HistoricItems.ContainsKey("AAPL"));
 			var history = jsonPitTestsPit.HistoricItems["AAPL"];
 			Assert.Equal(n, history.Count);
-			var top = jsonPitTestsPit["AAPL"];
-			Assert.NotNull(top);
-			// The top item should be the one with the highest timestamp (i = n-1)
-			Assert.Equal(n - 1, top.Value<int>("Seq"));
-			Assert.Equal(1000 + (n - 1), top.Value<int>("Bid"));
+			// Every Seq value 0..n-1 must be present in history exactly once —
+			// nothing was lost to CAS contention or dedup.
+			var seqs = new System.Collections.Generic.HashSet<int>();
+			foreach (var fragment in history)
+				seqs.Add(fragment.Value<int>("Seq"));
+			Assert.Equal(n, seqs.Count);
+			for (int i = 0; i < n; i++)
+				Assert.Contains(i, seqs);
 		}
 	} // class Pit_Add_Concurrency_Tests
 } // namespace JsonPit.Tests

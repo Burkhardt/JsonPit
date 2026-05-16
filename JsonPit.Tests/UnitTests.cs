@@ -207,9 +207,9 @@ namespace JsonPit.Tests
 			list = list.Push(older); // out of order -> triggers Sort()
 			Assert.Equal(tsNewer, newer.Modified);
 			Assert.Equal(tsOlder, older.Modified);
-			// Ensure ordering still correct after sort (oldest first).
-			Assert.Equal(tsOlder, list.History.First().Modified);
-			Assert.Equal(tsNewer, list.History.Last().Modified);
+			// Ensure ordering still correct after sort (newest first).
+			Assert.Equal(tsNewer, list.History.First().Modified);
+			Assert.Equal(tsOlder, list.History.Last().Modified);
 		}
 	}
 	public sealed class Pit_GetAt_Tests
@@ -304,13 +304,13 @@ namespace JsonPit.Tests
 				var item1 = new PitItem(symbol, invalidate: false, timestamp: baseTs.AddMinutes(-3));
 				item1["Email"] = "before@example.org";
 				item1["Country"] = "ZA";
-				pit.Add(item1);
+				pit.AddHistorical(item1);
 				var item2 = new PitItem(symbol, invalidate: false, timestamp: baseTs.AddMinutes(-2));
 				item2["Phone"] = "+27-82-000-0000";
-				pit.Add(item2);
+				pit.AddHistorical(item2);
 				var item3 = new PitItem(symbol, invalidate: false, timestamp: baseTs.AddMinutes(-1));
 				item3["Email"] = "after@example.org";
-				pit.Add(item3);
+				pit.AddHistorical(item3);
 				var projected = pit[symbol];
 				Assert.NotNull(projected);
 				Assert.Equal(symbol, projected!.Id);
@@ -318,7 +318,8 @@ namespace JsonPit.Tests
 				Assert.Equal("after@example.org", projected["Email"]!.Value<string>());
 				Assert.Equal("ZA", projected["Country"]!.Value<string>());
 				Assert.Equal("+27-82-000-0000", projected["Phone"]!.Value<string>());
-				Assert.Null(pit.HistoricItems[symbol].History.Last()["Country"]);
+				// Newest-first: History.First() is the most recent fragment (item3) which only has Email.
+				Assert.Null(pit.HistoricItems[symbol].History.First()["Country"]);
 			}
 			finally
 			{
@@ -337,13 +338,13 @@ namespace JsonPit.Tests
 				var original = new PitItem(symbol, invalidate: false, timestamp: baseTs.AddMinutes(-3));
 				original["Email"] = "before@example.org";
 				original["Country"] = "ZA";
-				pit.Add(original);
+				pit.AddHistorical(original);
 				var tombstone = new PitItem(symbol, invalidate: false, timestamp: baseTs.AddMinutes(-2));
 				tombstone.Deleted = true;
-				pit.Add(tombstone);
+				pit.AddHistorical(tombstone);
 				var resurrected = new PitItem(symbol, invalidate: false, timestamp: baseTs.AddMinutes(-1));
 				resurrected["Email"] = "after@example.org";
-				pit.Add(resurrected);
+				pit.AddHistorical(resurrected);
 				var projected = pit.GetAt(symbol, resurrected.Modified.AddTicks(1));
 				Assert.NotNull(projected);
 				Assert.Equal("after@example.org", projected!["Email"]!.Value<string>());

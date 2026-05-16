@@ -80,15 +80,45 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 		}
 	}
 	/// <summary>
-	/// Add a PitItem as a new historic version using lock-free CAS algorithm.
+	/// Add a PitItem as a new historic version using a lock-free CAS algorithm.
+	/// <para>
+	/// This is the live-mutation entry point: <paramref name="item"/>'s
+	/// <see cref="PitItem.Modified"/> is refreshed to <c>UtcNow</c> immediately
+	/// before the item is pushed onto the history stack — guaranteeing that
+	/// every accepted fragment is stamped with the wall-clock instant of the
+	/// insertion, regardless of any pre-existing <c>Modified</c> the caller
+	/// may have inherited (from a copy ctor, a deserialized snapshot, etc.).
+	/// </para>
+	/// <para>
+	/// Historical replay paths (loading from disk, merging change files,
+	/// rebuilding from a <see cref="JArray"/>) must <em>not</em> route through
+	/// here; they use <see cref="AddPreservingModified"/> so that original
+	/// timestamps are kept intact.
+	/// </para>
 	/// </summary>
-	public bool Add(PitItem item)
+	public bool Add(PitItem item) => AddCore(item, refreshModified: true);
+	/// <summary>
+	/// Historical-replay variant of <see cref="Add(PitItem)"/>: pushes the
+	/// item onto the history stack <em>without</em> refreshing its
+	/// <see cref="PitItem.Modified"/>. Use this only for genuine historical
+	/// data ingestion — loading from disk, replaying change files, importing
+	/// a snapshot whose original timestamps must be preserved verbatim.
+	/// <para>
+	/// For all live in-process mutations call <see cref="Add(PitItem)"/>;
+	/// it is the contract of <c>Add</c> that the stored fragment carries
+	/// the wall-clock instant of insertion, not whatever <c>Modified</c>
+	/// the caller's PitItem happened to inherit.
+	/// </para>
+	/// </summary>
+	public bool AddHistorical(PitItem item) => AddCore(item, refreshModified: false);
+	private bool AddCore(PitItem item, bool refreshModified)
 	{
 		while (true)
 		{
 			var currentStore = HistoricItems.GetOrAdd(item.Id, key => PitItems.Create(key, DefaultMaxCount));
 			var top = currentStore.LatestFragment();
 			if (top is not null && EqualsIgnoringModified(top, item)) return false;
+			if (refreshModified) item.Invalidate();
 			var newStore = currentStore.Push(item);
 			if (HistoricItems.TryUpdate(item.Id, newStore, currentStore)) return true;
 		}
@@ -497,7 +527,9 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 			switch (token)
 			{
 				case JObject obj:
-					Add(new PitItem(obj));
+					// Historical replay: preserve the original Modified timestamp
+					// recorded in the persisted JSON instead of stamping UtcNow.
+					AddHistorical(new PitItem(obj));
 					break;
 				case JArray inner when inner.HasValues:
 					if (inner.Any(element => element is not JObject))

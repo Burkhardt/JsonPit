@@ -36,8 +36,12 @@ namespace JsonPit.Tests
 				[nameof(PitItem.Deleted)] = false,
 				["Temp"] = 74
 			});
-			pitA.Add(fragment1);
-			pitA.Add(fragment2);
+			// Use AddHistorical: the test's intent is to verify that raw history
+			// fragments with explicit timestamps round-trip through Save/Load
+			// unchanged.  Pit.Add (live mutation) deliberately refreshes Modified
+			// to UtcNow and would defeat the purpose of this test.
+			pitA.AddHistorical(fragment1);
+			pitA.AddHistorical(fragment2);
 			pitA.Save(force: true);
 			var persistedFileFullName = pitA.JsonFile.FullName;
 			var textFile = new TextFile(persistedFileFullName);
@@ -49,8 +53,9 @@ namespace JsonPit.Tests
 			Assert.True(pitB.ContainsKey("Sensor_1"));
 			var historyStack = pitB.HistoricItems["Sensor_1"];
 			Assert.Equal(2, historyStack.Count);
-			Assert.Equal(time1, historyStack.Items[0].Modified);
-			Assert.Equal(time2, historyStack.Items[1].Modified);
+			// PitItems is newest-first: Items[0] is the most recent fragment.
+			Assert.Equal(time2, historyStack.Items[0].Modified);
+			Assert.Equal(time1, historyStack.Items[1].Modified);
 		}
 		[Fact]
 		public void RenameId_MigratesStateAndTombstonesOldKey()
@@ -71,7 +76,8 @@ namespace JsonPit.Tests
 			Assert.Equal("NASDAQ", newState["Exchange"]!.Value<string>());
 			Assert.True(pit.HistoricItems.ContainsKey("LegacyTicker"));
 			var oldHistory = pit.HistoricItems["LegacyTicker"];
-			Assert.True(oldHistory.History.Last().Deleted);
+			// Newest-first: the tombstone (most recent fragment) sits at History[0].
+			Assert.True(oldHistory.History.First().Deleted);
 			var oldDeletedState = pit.Get("LegacyTicker", withDeleted: true);
 			Assert.NotNull(oldDeletedState);
 			Assert.True(oldDeletedState!["Deleted"]!.Value<bool>());
