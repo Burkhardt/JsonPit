@@ -10,4 +10,4 @@
 ## Validation
 
 - `dotnet test RAIkeep.slnx --nologo -v minimal`: 243 passed, 0 failed, 1 skipped.
-- NuGet publishing and tag-triggered release workflows were intentionally not run.
+- NuGet publishing is handled by the RAIkeep Sequential NuGet Release Chain.

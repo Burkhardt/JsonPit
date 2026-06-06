@@ -4,7 +4,7 @@
 
 ## Start Here
 
-If you want to use JsonPit 3.8.12 from NuGet in another service or agent workflow, start with [GettingStarted.md](GettingStarted.md).
+If you want to use JsonPit 3.8.14 from NuGet in another service or agent workflow, start with [GettingStarted.md](GettingStarted.md).
 
 That guide now covers:
 
@@ -15,16 +15,16 @@ That guide now covers:
 - persistence and synchronized-storage expectations
 - a practical `PersonPit` example for OTW / AfricaStage style backend work
 
-## 3.8.12
+## 3.8.14
 
-- Coordinated release: aligns JsonPit with `OsLibCore 3.8.12` and `RaiUtils 3.8.12` in the current dependency order.
+- Coordinated release: aligns JsonPit with `OsLibCore 3.8.14` and `RaiUtils 3.8.14` in the current dependency order.
 - Keeps the WWWA-based quick-start section in [GettingStarted.md](GettingStarted.md) for cloud-path pit creation and sample JSON5 seeding.
 - The supported cloud-backed provider claim is now `OneDrive`, `GoogleDrive`, and `Dropbox`.
 - `PitItem.Id` is now the canonical framework identifier.
 - Legacy payloads that still contain `Name` without `Id` are normalized internally by copying `Name` into `Id`, while preserving `Name`.
 - Future use of `Name` as an application-defined custom field remains supported.
 - Remote-sync workflows continue to align with OsLib's configurable metadata propagation delay handling, including the `mkdir` polymorphism package line update in OsLib.
-- Live docs and release-note pointers were refreshed for the `3.8.12` release line, and this README is packaged with the NuGet release.
+- Live docs and release-note pointers were refreshed for the `3.8.14` release line, and this README is packaged with the NuGet release.
 
 ## namespace
 
@@ -111,4 +111,4 @@ That keeps JsonPit aligned with OsLib in .NET today and with the upcoming Python
 
 ## release notes
 
-- Latest release notes: [RELEASE_NOTES_3.8.12.md](RELEASE_NOTES_3.8.12.md)
+- Latest release notes: [RELEASE_NOTES_3.8.14.md](RELEASE_NOTES_3.8.14.md)
