@@ -4,7 +4,7 @@
 
 ## Start Here
 
-If you want to use JsonPit 3.9.1 from NuGet in another service or agent workflow, start with [GettingStarted.md](GettingStarted.md).
+If you want to use JsonPit 3.10.0 from NuGet in another service or agent workflow, start with [GettingStarted.md](GettingStarted.md).
 
 That guide now covers:
 
@@ -15,17 +15,17 @@ That guide now covers:
 - persistence and synchronized-storage expectations
 - a practical `PersonPit` example for OTW / AfricaStage style backend work
 
-## 3.9.1
+## 3.10.0
 
-- Coordinated patch release: aligns JsonPit with `OsLibCore 3.9.1` and `RaiUtils 3.9.1` in the current dependency order.
+- Coordinated minor release: aligns JsonPit with `OsLibCore 3.10.0` and `RaiUtils 3.10.0` in the current dependency order.
 - Keeps the WWWA-based quick-start section in [GettingStarted.md](GettingStarted.md) for cloud-path pit creation and sample JSON5 seeding.
 - The supported cloud-backed provider claim is now `OneDrive`, `GoogleDrive`, and `Dropbox`.
 - `PitItem.Id` is now the canonical framework identifier.
 - Legacy payloads that still contain `Name` without `Id` are normalized internally by copying `Name` into `Id`, while preserving `Name`.
 - Future use of `Name` as an application-defined custom field remains supported.
 - Remote-sync workflows continue to align with OsLib's configurable metadata propagation delay handling, including the `mkdir` polymorphism package line update in OsLib.
-- No JsonPit API changes were required beyond the `3.9.0` line; this release refreshes the aligned package baseline and packaged docs.
-- Live docs and release-note pointers were refreshed for the `3.9.1` release line, and this README is packaged with the NuGet release.
+- No JsonPit API changes were required beyond the `3.9.1` line; this release refreshes the aligned package baseline and packaged docs.
+- Live docs and release-note pointers were refreshed for the `3.10.0` release line, and this README is packaged with the NuGet release.
 
 ## namespace
 
@@ -112,4 +112,4 @@ That keeps JsonPit aligned with OsLib in .NET today and with the upcoming Python
 
 ## release notes
 
-- Latest release notes: [RELEASE_NOTES_3.9.1.md](RELEASE_NOTES_3.9.1.md)
+- Latest release notes: [RELEASE_NOTES_3.10.0.md](RELEASE_NOTES_3.10.0.md)
