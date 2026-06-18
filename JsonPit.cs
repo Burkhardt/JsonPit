@@ -442,7 +442,7 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 		// Steps 1–4: everybody does this (both master and client)
 		// 4. Read all change files and merge into history
 		var processedChangeFiles = new List<RaiFile>();
-		foreach (var file in EnumerateChangeFiles().OrderByDescending(x => x))
+		foreach (var file in EnumerateChangeFiles().OrderByDescending(file => file.Name, StringComparer.Ordinal))
 		{
 			try
 			{

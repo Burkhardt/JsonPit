@@ -1,5 +1,4 @@
 using System;
-using System.IO;
 using OsLib;
 using Xunit;
 using System.Threading;
@@ -18,7 +17,7 @@ namespace JsonPit.Tests
 			}
 		}
 		#endregion
-		private static string CreateUniquePitFileName() => RAIkeepTestEnvironment.CloudFile("PitFiles", "Test", "JsonPitTests");
+		private static string CreateUniquePitFileName() => RAIkeepTestEnvironment.CloudFile("PitFiles", "Test", Guid.NewGuid().ToString("N"), "JsonPitTests");
 		private PitFile jsonPitTestPitFile = new PitFile(CreateUniquePitFileName());	// make sure it's a CanonicalFile
 		private Pit jsonPitTestsPit;
 		
