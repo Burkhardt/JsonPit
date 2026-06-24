@@ -327,7 +327,7 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 			if (!unflagged)
 			{
 				var changeTime = GetLatestItemChanged();
-				MasterFlag().Update(changeTime);
+				MasterFlag().Update(changeTime, originator: ParticipantIdentity);
 				ProcessFlag().Update(changeTime);
 			}
 			foreach (var kvp in HistoricItems)
@@ -397,7 +397,7 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 	{
 		if (item is null) return;
 		var ticks = item.Modified.UtcTicks.ToString();
-		var machineName = server ?? Environment.MachineName;
+		var machineName = server ?? ParticipantIdentity;
 		var fileName = $"{ticks}_{machineName}";
 		var changeFile = new RaiFile(PitDir, fileName, "json");
 		if (changeFile.Exists()) return;
@@ -599,12 +599,19 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 	/// Constructor for opening a Pit from a PitFile.
 	/// </summary>
 	public Pit(PitFile pitFile, bool readOnly = false)
+		: this(pitFile, subscriber: null, readOnly)
+	{
+	}
+	/// <summary>
+	/// Constructor for opening a Pit from a PitFile with an explicit process identity.
+	/// </summary>
+	public Pit(PitFile pitFile, string subscriber, bool readOnly = false)
 		: base(readOnly, backup: false, unflagged: false, descending: false)
 	{
 		ArgumentNullException.ThrowIfNull(pitFile);
 		JsonFile = pitFile;
-		Subscriber = null;
-		processIdentity = null;  // falls back to MachineName-ProcessName
+		Subscriber = subscriber;
+		processIdentity = subscriber;
 		orderBy = x => x.Id;
 		this.descending = false;
 		HistoricItems = new ConcurrentDictionary<string, PitItems>();

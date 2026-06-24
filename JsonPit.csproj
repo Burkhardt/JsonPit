@@ -17,7 +17,7 @@
 		<Copyright>© Rainer Burkhardt. All rights reserved.</Copyright>
 		<RepositoryUrl>https://github.com/Burkhardt/JsonPit</RepositoryUrl>
 		<RepositoryType>github</RepositoryType>
-		<PackageReleaseNotes>3.11.1 release: carries forward the coordinated package line, refreshes current docs and diagram markers, and makes no JsonPit API changes from 3.11.0.</PackageReleaseNotes>
+		<PackageReleaseNotes>3.11.1 release: fixes master ticket ownership to participant identity (Machine-Subscriber), preserves canonical writes for the active owner, and routes non-owner writes to change files within the ticket window.</PackageReleaseNotes>
 		<PackageIcon>HardCastle.png</PackageIcon>
 		<DefaultItemExcludes>$(DefaultItemExcludes);JsonPit.Tests\**</DefaultItemExcludes>
 	</PropertyGroup>

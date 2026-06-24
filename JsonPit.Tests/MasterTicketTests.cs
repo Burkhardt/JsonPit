@@ -226,7 +226,7 @@ public sealed class MasterTicketTests : IDisposable
 		Assert.True(otherFlag.IsExpired);
 		var pit = new Pit(pitPath, readOnly: false, autoload: false, subscriber: "pits");
 		Assert.True(pit.TryAcquireMaster());
-		Assert.Equal(Environment.MachineName, pit.MasterFlag().Originator);
+		Assert.Equal(ProcessFlagFile.FlagName("pits"), pit.MasterFlag().Originator);
 	}
 	[Fact]
 	public void TryAcquireMaster_RefusedWhenForeignProcessRecentlyActive()
@@ -272,6 +272,61 @@ public sealed class MasterTicketTests : IDisposable
 		var changeFiles = pit.PitDir.EnumerateFiles("*.json")
 			.Where(f => f.Name != pit.JsonFile.Name).ToList();
 		Assert.NotEmpty(changeFiles);
+	}
+	[Fact]
+	public void LocalProcessTicketWindow_ApiShutdownWritesChangeFilesWhenPitsOwnsMaster()
+	{
+		MasterFlagFile.TicketDuration = TimeSpan.FromMinutes(5);
+		var pitPath = (root / "local-api-pits-window" / "Activity").mkdir();
+		var apiIdentity = ProcessFlagFile.FlagName("AfricaStage.Api");
+		var pitsIdentity = ProcessFlagFile.FlagName("pits");
+
+		var apiPit = new Pit(pitPath, readOnly: false, autoload: false, subscriber: "AfricaStage.Api");
+		var initialItem = new PitItem("InitialActivity");
+		initialItem.SetProperty(new { Source = "AfricaStage.Api", Phase = "Startup" });
+		apiPit.Add(initialItem);
+		apiPit.Save(force: true);
+
+		Assert.Equal(apiIdentity, apiPit.MasterFlag().Originator);
+		Assert.True(apiPit.JsonFile.Exists());
+
+		var expiredTicketTime = DateTimeOffset.UtcNow - MasterFlagFile.TicketDuration - TimeSpan.FromSeconds(10);
+		apiPit.MasterFlag().Update(expiredTicketTime, originator: apiIdentity);
+		Assert.True(apiPit.MasterFlag().IsExpired);
+
+		var cliPit = new Pit(pitPath, readOnly: false, autoload: true, subscriber: "pits");
+		var cliItem = new PitItem("PitsCliSeededActivity");
+		cliItem.SetProperty(new { Source = "pits", Phase = "Seed" });
+		cliPit.Add(cliItem);
+		cliPit.Save(force: true);
+
+		Assert.Equal(pitsIdentity, cliPit.MasterFlag().Originator);
+		Assert.False(cliPit.MasterFlag().IsExpired);
+
+		var shutdownItem = new PitItem("ApiShutdownFlushActivity");
+		shutdownItem.SetProperty(new { Source = "AfricaStage.Api", Phase = "Shutdown" });
+		apiPit.Add(shutdownItem);
+		apiPit.Save();
+
+		Assert.Equal(pitsIdentity, apiPit.MasterFlag().Originator);
+		var changeFiles = apiPit.PitDir.EnumerateFiles("*.json")
+			.Where(f => f.Name != apiPit.JsonFile.Name)
+			.ToList();
+		Assert.Contains(changeFiles, file => file.Name.EndsWith("_" + apiIdentity, StringComparison.OrdinalIgnoreCase));
+
+		var canonicalBeforeMerge = File.ReadAllText(apiPit.JsonFile.FullName);
+		Assert.Contains("PitsCliSeededActivity", canonicalBeforeMerge);
+		Assert.DoesNotContain("ApiShutdownFlushActivity", canonicalBeforeMerge);
+
+		var nextMasterLoad = new Pit(pitPath, readOnly: false, autoload: true, subscriber: "pits");
+
+		Assert.NotNull(nextMasterLoad.Get("InitialActivity"));
+		Assert.NotNull(nextMasterLoad.Get("PitsCliSeededActivity"));
+		Assert.NotNull(nextMasterLoad.Get("ApiShutdownFlushActivity"));
+		Assert.Equal(pitsIdentity, nextMasterLoad.MasterFlag().Originator);
+
+		var canonicalAfterMerge = File.ReadAllText(nextMasterLoad.JsonFile.FullName);
+		Assert.Contains("ApiShutdownFlushActivity", canonicalAfterMerge);
 	}
 	#endregion
 	#region MergeChanges: 6-step workflow

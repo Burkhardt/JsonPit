@@ -97,7 +97,7 @@ public sealed class RemoteSyncTests : IDisposable
 		pit.Save(force: true);
 
 		Assert.True(pitFile.Exists(), "Pit file must exist after Save()");
-		Assert.Equal("Nkosikazi", pit.MasterFlag().Originator);
+		Assert.StartsWith($"{Environment.MachineName}-", pit.MasterFlag().Originator);
 		Assert.False(pit.MasterFlag().IsExpired);
 		Assert.NotNull(pit["NkosikaziEntry"]);
 		output.WriteLine("Phase 1  PASS — pit created, Nkosikazi is master");

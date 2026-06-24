@@ -4,8 +4,8 @@ using System.Linq;
 using OsLib;
 namespace JsonPit;
 /// <summary>
-/// Flag file tracking which machine currently holds master rights for a pit.
-/// Stored as a single-line text file: "MachineName|ISO8601-timestamp".
+/// Flag file tracking which participant currently holds master rights for a pit.
+/// Stored as a single-line text file: "OwnerIdentity|ISO8601-timestamp".
 /// The timestamp acts as a timed ticket — master rights expire after <see cref="TicketDuration"/>.
 /// </summary>
 public class MasterFlagFile : TextFile
@@ -65,26 +65,31 @@ public class MasterFlagFile : TextFile
 		}
 	}
 	/// <summary>
-	/// True when this machine+process currently owns the master ticket and it hasn't expired.
+	/// True when this machine currently owns the master ticket and it hasn't expired.
 	/// </summary>
 	public bool IsOwnedByMe => !IsExpired && Originator == Environment.MachineName;
 	/// <summary>
-	/// Attempts to claim master rights for this machine.
+	/// True when the supplied participant identity owns the current master ticket and it hasn't expired.
+	/// </summary>
+	public bool IsOwnedBy(string originator) => !IsExpired && Originator == originator;
+	/// <summary>
+	/// Attempts to claim master rights for the supplied participant identity.
 	/// Succeeds when:
 	///   - the ticket is expired (no active master), or
-	///   - this machine already owns the ticket (renewal).
+	///   - this participant already owns the ticket (renewal).
 	/// On success, writes a fresh ticket valid for another <see cref="TicketDuration"/>.
 	/// </summary>
-	/// <returns>true if this machine now holds the master ticket</returns>
-	public bool TryClaim()
+	/// <returns>true if this participant now holds the master ticket</returns>
+	public bool TryClaim(string originator = null)
 	{
 		lock (locker)
 		{
+			var claimant = string.IsNullOrWhiteSpace(originator) ? Environment.MachineName : originator;
 			// Re-read from disk — another process may have claimed since our last read
 			Read();
-			if (!IsExpired && Originator != Environment.MachineName)
+			if (!IsExpired && Originator != claimant)
 				return false;   // someone else has a valid ticket
-			Update();           // writes MachineName|now
+			Update(originator: claimant);
 			return true;
 		}
 	}

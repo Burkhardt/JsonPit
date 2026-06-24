@@ -28,8 +28,9 @@ public class JsonPitBase
 	/// Note: this does NOT verify ticket expiration — use <see cref="TryAcquireMaster"/> for that.
 	/// </summary>
 	public bool RunningOnMaster() =>
-		unflagged || MasterFlag().Originator == Environment.MachineName;
+		unflagged || MasterFlag().Originator == ParticipantIdentity;
 	protected bool unflagged;
+	protected string ParticipantIdentity => ProcessFlagFile.FlagName(processIdentity);
 	public ProcessFlagFile ProcessFlag()
 	{
 		fileFlag ??= new ProcessFlagFile(PitDir, processIdentity);
@@ -48,14 +49,14 @@ public class JsonPitBase
 	{
 		masterFlag = new MasterFlagFile(PitDir, "Master");
 		if (string.IsNullOrEmpty(masterFlag.Originator))
-			masterFlag.Update();
+			masterFlag.Update(originator: ParticipantIdentity);
 		return masterFlag;
 	}
 	private MasterFlagFile masterFlag;
 	/// <summary>
 	/// Attempts to acquire master rights using the timed-ticket protocol:
 	/// <list type="number">
-	///   <item>a) Scan all *.flag files to see if anybody was active within <see cref="MasterFlagFile.TicketDuration"/>.</item>
+	///   <item>a) Scan remote *.flag files to see if another machine was active within <see cref="MasterFlagFile.TicketDuration"/>.</item>
 	///   <item>b) Check if the ticket in Master.flag has expired, or if we already own it.</item>
 	///   <item>c) If the ticket expired (and no other process is active, or we're already master), claim it.</item>
 	///   <item>d) Return true only if we now hold a valid master ticket.</item>
@@ -67,9 +68,9 @@ public class JsonPitBase
 		if (unflagged) return true;
 		var master = MasterFlag();
 		// Fast path: we already own a valid ticket — renew it
-		if (master.IsOwnedByMe)
+		if (master.IsOwnedBy(ParticipantIdentity))
 		{
-			master.TryClaim();  // refresh the timestamp
+			master.TryClaim(ParticipantIdentity);  // refresh the timestamp
 			return true;
 		}
 		// If the ticket is still valid and somebody else owns it, we can't claim
@@ -80,11 +81,11 @@ public class JsonPitBase
 		if (AnyForeignProcessActive())
 			return false;
 		// c) Nobody active + ticket expired → claim it
-		return master.TryClaim();
+		return master.TryClaim(ParticipantIdentity);
 	}
 	/// <summary>
-	/// Scans all *.flag files in PitDir (excluding Master.flag and our own process flag)
-	/// and returns true if any other machine/process wrote its flag within <see cref="MasterFlagFile.TicketDuration"/>.
+	/// Scans all *.flag files in PitDir (excluding Master.flag and same-machine process flags)
+	/// and returns true if another machine/process wrote its flag within <see cref="MasterFlagFile.TicketDuration"/>.
 	/// Each flag file is named "{MachineName}-{AppName}.flag", so different apps on the
 	/// same machine are treated as separate participants.
 	/// </summary>
@@ -100,6 +101,9 @@ public class JsonPitBase
 				continue;
 			// Skip our own process flag
 			if (flagRaiFile.Name.Equals(myFlagName, StringComparison.OrdinalIgnoreCase))
+				continue;
+			var separator = flagRaiFile.Name.IndexOf('-');
+			if (separator > 0 && flagRaiFile.Name[..separator].Equals(Environment.MachineName, StringComparison.OrdinalIgnoreCase))
 				continue;
 			var flag = new TextFile(flagRaiFile.FullName);
 			flag.Read();
@@ -143,7 +147,7 @@ public class JsonPitBase
 	/// </summary>
 	public bool ForeignChangesAvailable() =>
 		EnumerateChangeFiles()
-			.Any(cf => !cf.Name.EndsWith("_" + Environment.MachineName, StringComparison.OrdinalIgnoreCase));
+			.Any(cf => !cf.Name.EndsWith("_" + ParticipantIdentity, StringComparison.OrdinalIgnoreCase));
 	/// <summary>
 	/// Directory where the PitFile, change files, and flag files all live together.
 	/// No separate Changes subdirectory — everything sits alongside the pit file.
