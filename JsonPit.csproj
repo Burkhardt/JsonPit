@@ -3,7 +3,7 @@
 	<PropertyGroup>
 		<Title>JsonPit</Title>
 		<PackageId>JsonPit</PackageId>
-		<Version>3.13.0</Version>
+		<Version>3.12.1</Version>
 		<Authors>Rainer Burkhardt</Authors>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
 		<Description>Stores json files across servers (synchronized).</Description>
@@ -17,7 +17,7 @@
 		<Copyright>© Rainer Burkhardt. All rights reserved.</Copyright>
 		<RepositoryUrl>https://github.com/Burkhardt/JsonPit</RepositoryUrl>
 		<RepositoryType>github</RepositoryType>
-		<PackageReleaseNotes>3.13.0 minor release: carries forward the participant-identity ticket ownership behavior, preserves canonical writes for the active owner, and keeps non-owner writes routed to change files within the ticket window.</PackageReleaseNotes>
+		<PackageReleaseNotes>3.12.1 patch release: carries forward the participant-identity ticket ownership behavior, preserves canonical writes for the active owner, and keeps non-owner writes routed to change files within the ticket window.</PackageReleaseNotes>
 		<PackageIcon>HardCastle.png</PackageIcon>
 		<DefaultItemExcludes>$(DefaultItemExcludes);JsonPit.Tests\**</DefaultItemExcludes>
 	</PropertyGroup>
@@ -43,8 +43,8 @@
 	</ItemGroup>
 
 	<ItemGroup Condition="'$(OsLibProjectPath)' == '' or '$(RaiUtilsProjectPath)' == ''">
-		<PackageReference Include="OsLibCore" Version="3.13.0" />
-		<PackageReference Include="RaiUtils" Version="3.13.0" />
+		<PackageReference Include="OsLibCore" Version="3.12.1" />
+		<PackageReference Include="RaiUtils" Version="3.12.1" />
 	</ItemGroup>
 
 </Project>
