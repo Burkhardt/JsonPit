@@ -1,12 +1,12 @@
 ## Requirements for JsonPit
 
-## 3.13.0 release decisions
+## 3.11.4 release decisions
 
 - The supported cloud-backed provider claim for the packaged stack is `OneDrive`, `GoogleDrive`, and `Dropbox`.
 - `PitItem.Id` is the canonical framework identifier.
 - Legacy files that still contain `Name` without `Id` are normalized internally by copying `Name` into `Id`, while preserving `Name`.
 - `Name` remains available as an application-defined custom field outside the framework identifier contract.
-- The aligned fallback package line is `OsLibCore 3.13.0` plus `RaiUtils 3.13.0`.
+- The aligned fallback package line is `OsLibCore 3.11.4` plus `RaiUtils 3.11.4`.
 - Remote-sync workflows can rely on OsLib's configurable `SyncPropagationDelayMs` and `BackdateCreationTime(...)` timing control where needed.
 
 ### Basic Ideas
@@ -51,6 +51,8 @@
 - Values stored in a history list, ordered by date, youngest first.
 - History length limited to prevent file size explosion.
 - Method to read value history for time series data.
+- A top-level `null` value in the newest history fragment is an attribute tombstone: projected reads omit that attribute and do not resurrect older values for the same property.
+- A newer non-null value for the same top-level property reintroduces the attribute normally.
 
 ### Main Server Fail-Safe
 - Failover mechanism for incapacitated main server.

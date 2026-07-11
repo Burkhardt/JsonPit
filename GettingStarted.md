@@ -1,10 +1,10 @@
-# Getting Started with JsonPit 3.13.0
+# Getting Started with JsonPit 3.11.4
 
 This guide is written for practical implementation work, especially when you want to use JsonPit from NuGet packages in another service such as OTW / AfricaStage.
 
-It is based on the current JsonPit 3.13.0 code and tests in this repository.
+It is based on the current JsonPit 3.11.4 code and tests in this repository.
 
-## 3.13.0 key decisions
+## 3.11.4 key decisions
 
 - The supported cloud-backed provider claim for the package stack is `OneDrive`, `GoogleDrive`, and `Dropbox`.
 - `PitItem.Id` is now the canonical framework identifier.
@@ -43,7 +43,7 @@ It is not trying to replace a transactional database.
 
 ## Package Setup
 
-Use the NuGet package ids at version `3.13.0`:
+Use the NuGet package ids at version `3.11.4`:
 
 - `JsonPit`
 - `RaiUtils`
@@ -52,9 +52,9 @@ Use the NuGet package ids at version `3.13.0`:
 Typical install commands:
 
 ```bash
-dotnet add package JsonPit --version 3.13.0
-dotnet add package RaiUtils --version 3.13.0
-dotnet add package OsLibCore --version 3.13.0
+dotnet add package JsonPit --version 3.11.4
+dotnet add package RaiUtils --version 3.11.4
+dotnet add package OsLibCore --version 3.11.4
 ```
 
 Typical namespaces in code:
@@ -275,6 +275,7 @@ Notes:
 - `PitItem.SetProperty(...)` updates only the provided properties.
 - If the new value is identical to the old value, JsonPit does not treat it as a change.
 - `Pit.Add(...)` stores a new historical version for that item key when the item actually changed.
+- `PitItem.DeleteProperty(...)` removes a top-level property by appending a null tombstone; projected reads omit that property entirely while preserving older history for time travel.
 
 There is also a convenience setter:
 
@@ -283,6 +284,30 @@ people.PitItem = existing;
 ```
 
 But for onboarding, `people.Add(existing)` is clearer.
+
+## Removing a Top-Level Attribute
+
+JsonPit keeps item history append-only. To remove a top-level attribute, fetch the current projected item, call `DeleteProperty(...)`, add it back, and save:
+
+```csharp
+var existing = people["Max"];
+if (existing == null)
+   throw new InvalidOperationException("Max does not exist.");
+
+existing.DeleteProperty("Instagram");
+
+people.Add(existing);
+people.Save();
+```
+
+Projected reads no longer contain the deleted property:
+
+```csharp
+var max = people.Get("Max");
+var instagramIsPresent = ((JObject)max).ContainsKey("Instagram"); // false
+```
+
+The deletion is represented in history as a top-level `null` marker. During projection, that marker blocks older values of the same property from reappearing, but a later non-null value can introduce the property again. This applies to top-level attributes; for nested objects or arrays, replace the containing top-level value.
 
 ## Flexible Attributes and Schema Evolution
 

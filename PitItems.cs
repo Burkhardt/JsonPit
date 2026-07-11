@@ -66,12 +66,17 @@ public class PitItems : ItemsBase, IEnumerable<PitItem>
 			});
 		}
 		var accumulator = new JObject();
+		var seen = new HashSet<string>(StringComparer.Ordinal);
 		for (int i = startIndex; i < History.Count; i++)
 		{
 			var fragment = History[i];
 			if (fragment.Deleted) break;
 			foreach (var property in fragment.Properties())
-				accumulator.TryAdd(property.Name, property.Value.DeepClone());
+			{
+				if (!seen.Add(property.Name)) continue;
+				if (property.Value is null || property.Value.Type == JTokenType.Null) continue;
+				accumulator[property.Name] = property.Value.DeepClone();
+			}
 		}
 		accumulator[nameof(PitItem.Id)] = newest.Id;
 		accumulator[nameof(PitItem.Modified)] = newest.Modified;
