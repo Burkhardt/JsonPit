@@ -1,8 +1,8 @@
 # JsonPit CURRENT_STATUS
 
-Last updated: 2026-07-13
+Last updated: 2026-07-20
 
-Current package line: `3.12.0`
+Current package line: `3.12.1`
 
 ## Current Local State
 
@@ -10,15 +10,15 @@ Current package line: `3.12.0`
 - `PitItems.ProjectState(...)` continues to treat a top-level `null` in the newest matching fragment as an attribute tombstone: the projected object omits that property and older values for the same property stay suppressed.
 - A later non-null fragment for the same property reintroduces the property normally.
 - The behavior is top-level only. Nested attribute removal remains an application-level replacement of the containing top-level JSON object or array.
-- Fallback package references now align to `OsLibCore 3.12.0` and `RaiUtils 3.12.0`.
-- Packaged docs, release notes, and the class-diagram release marker are aligned with the `3.12.0` minor line.
+- Fallback package references now align to `OsLibCore 3.12.1` and `RaiUtils 3.12.1`.
+- Packaged docs, release notes, and the class-diagram release marker are aligned with the `3.12.1` patch line.
 
 ## Files Changed In This Slice
 
-- `JsonPit.csproj`: bumped package metadata to `3.12.0` and aligned fallback package references to `OsLibCore 3.12.0` and `RaiUtils 3.12.0`.
-- `README.md`, `GettingStarted.md`, and `Requirements.md`: refreshed the current package-line wording and install examples to `3.12.0`.
-- `JsonPit-ClassDiagram.puml` and `JsonPit-ClassDiagram.svg`: refreshed the tracked release marker render for the new minor line.
-- `RELEASE_NOTES_3.12.0.md`: records the carried-forward DeleteProperty tombstone behavior for this package release.
+- `JsonPit.csproj`: bumped package metadata to `3.12.1` and aligned fallback package references to `OsLibCore 3.12.1` and `RaiUtils 3.12.1`.
+- `README.md`, `GettingStarted.md`, and `Requirements.md`: refreshed the current package-line wording and install examples to `3.12.1`.
+- `JsonPit-ClassDiagram.puml` and `JsonPit-ClassDiagram.svg`: refreshed the tracked release marker render for the new patch line.
+- `RELEASE_NOTES_3.12.1.md`: records the carried-forward DeleteProperty tombstone behavior for this package release.
 
 ## Validation
 
@@ -28,5 +28,5 @@ Current package line: `3.12.0`
 
 ## Documentation Notes
 
-- The class diagram release marker was refreshed for `3.12.0`, but no public method signatures, class relationships, or ownership boundaries changed.
-- `RELEASE_NOTES_3.12.0.md` records the carried-forward DeleteProperty projection behavior for this package release.
+- The class diagram release marker was refreshed for `3.12.1`, but no public method signatures, class relationships, or ownership boundaries changed.
+- `RELEASE_NOTES_3.12.1.md` records the carried-forward DeleteProperty projection behavior for this package release.
