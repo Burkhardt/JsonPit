@@ -92,7 +92,7 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 	/// <para>
 	/// Historical replay paths (loading from disk, merging change files,
 	/// rebuilding from a <see cref="JArray"/>) must <em>not</em> route through
-	/// here; they use <see cref="AddPreservingModified"/> so that original
+	/// here; they use <see cref="AddHistorical(PitItem)"/> so that original
 	/// timestamps are kept intact.
 	/// </para>
 	/// </summary>
@@ -299,7 +299,7 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 			}
 		}
 		if (loadedOk && hasData && !(undercover || unflagged))
-			ProcessFlag().Update(GetLatestItemChanged());
+			ProcessFlag().Update();
 		Interlocked.Exchange(ref usingPersistence, 0);
 		if (lastException is not null)
 			Debug.WriteLine($"[JsonPit] Load gave up after {MaxLoadRetries} retries for {JsonFile.Name}: {lastException.Message}");
@@ -323,7 +323,6 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 			pitFile.Lines = [rawJson];
 			pitFile.Changed = true;
 			pitFile.Save();
-			// TODO: Rainer — consider adding SetLastWriteTimeUtc to RaiFile
 			if (!unflagged)
 			{
 				var changeTime = GetLatestItemChanged();
@@ -577,13 +576,21 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 		this.descending = descending;
 		HistoricItems = new ConcurrentDictionary<string, PitItems>();
 		initValues(values);
-		if (autoload)
+		try
 		{
-			if (JsonFile.Exists()) Load(undercover);
-			MergeChanges();
+			if (autoload)
+			{
+				if (JsonFile.Exists()) Load(undercover);
+				MergeChanges();
+			}
+			if (string.IsNullOrEmpty(JsonFile.Name) || string.IsNullOrEmpty(JsonFile.Ext))
+				throw new ArgumentException("JsonFile must have a valid name and extension - 3");
 		}
-		if (string.IsNullOrEmpty(JsonFile.Name) || string.IsNullOrEmpty(JsonFile.Ext))
-			throw new ArgumentException("JsonFile must have a valid name and extension - 3");
+		catch
+		{
+			TryReleaseProcessWindow();
+			throw;
+		}
 	}
 	public Pit(JArray values, RaiPath pitDirectory, string subscriber = null,
 		bool descending = false, bool readOnly = true, bool backup = false, bool undercover = false,
@@ -591,9 +598,17 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 		: this(pitDirectory, Enumerable.Empty<PitItems>(), subscriber, descending, readOnly,
 			backup, undercover, unflagged, autoload, ignoreCase, version)
 	{
-		initValues(values);
-		if (string.IsNullOrEmpty(JsonFile.Name) || string.IsNullOrEmpty(JsonFile.Ext))
-			throw new ArgumentException("JsonFile must have a valid name and extension - 2");
+		try
+		{
+			initValues(values);
+			if (string.IsNullOrEmpty(JsonFile.Name) || string.IsNullOrEmpty(JsonFile.Ext))
+				throw new ArgumentException("JsonFile must have a valid name and extension - 2");
+		}
+		catch
+		{
+			TryReleaseProcessWindow();
+			throw;
+		}
 	}
 	/// <summary>
 	/// Constructor for opening a Pit from a PitFile.
@@ -615,10 +630,18 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 		orderBy = x => x.Id;
 		this.descending = false;
 		HistoricItems = new ConcurrentDictionary<string, PitItems>();
-		if (JsonFile.Exists()) Load(undercover: false);
-		MergeChanges();
-		if (string.IsNullOrEmpty(JsonFile.Name) || string.IsNullOrEmpty(JsonFile.Ext))
-			throw new ArgumentException("JsonFile must have a valid name and extension - 1");
+		try
+		{
+			if (JsonFile.Exists()) Load(undercover: false);
+			MergeChanges();
+			if (string.IsNullOrEmpty(JsonFile.Name) || string.IsNullOrEmpty(JsonFile.Ext))
+				throw new ArgumentException("JsonFile must have a valid name and extension - 1");
+		}
+		catch
+		{
+			TryReleaseProcessWindow();
+			throw;
+		}
 	}
 	#endregion
 	#region IDisposable

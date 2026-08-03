@@ -40,9 +40,17 @@ public class JsonPitBase
 	}
 	private ProcessFlagFile fileFlag;
 	/// <summary>
-	/// Application identity for the process flag filename, e.g. "pits", "RAIkeep", "Nomsa".
+	/// Expires the current process activity window when this instance created one
+	/// and the flag is still owned by the current OS process.
+	/// This does not release or modify the master writer ticket.
+	/// </summary>
+	public bool TryReleaseProcessWindow() =>
+		!unflagged && fileFlag is not null && fileFlag.TryReleaseCurrentProcess();
+	/// <summary>
+	/// Application identity used in the process activity flag filename and stable master-ticket identity,
+	/// e.g. "pits", "RAIkeep", "Nomsa".
 	/// Set from Pit's Subscriber. Falls back to OS process name if null.
-	/// Result: "{MachineName}-{processIdentity}.flag", e.g. "ubuntu-pits.flag".
+	/// Process activity filename: "{MachineName}-{processIdentity}-{PID}.flag".
 	/// </summary>
 	protected string processIdentity;
 	public MasterFlagFile MasterFlag()
@@ -86,14 +94,14 @@ public class JsonPitBase
 	/// <summary>
 	/// Scans all *.flag files in PitDir (excluding Master.flag and same-machine process flags)
 	/// and returns true if another machine/process wrote its flag within <see cref="MasterFlagFile.TicketDuration"/>.
-	/// Each flag file is named "{MachineName}-{AppName}.flag", so different apps on the
-	/// same machine are treated as separate participants.
+	/// Each process activity flag is named "{MachineName}-{AppName}-{PID}.flag".
+	/// Same-machine flags are excluded because the stable master ticket coordinates writers there.
 	/// </summary>
 	private bool AnyForeignProcessActive()
 	{
 		if (!PitDir.Exists()) return false;
 		var now = DateTimeOffset.UtcNow;
-		var myFlagName = ProcessFlagFile.FlagName(processIdentity);
+		var myFlagName = ProcessFlagFile.CurrentFlagName(processIdentity);
 		foreach (var flagRaiFile in PitDir.EnumerateFiles("*.flag"))
 		{
 			// Skip Master.flag — that's the ticket, not a process flag
@@ -127,12 +135,7 @@ public class JsonPitBase
 	/// <summary>
 	/// Overload this in derived classes to give it some per-item meaning.
 	/// </summary>
-	public virtual DateTimeOffset GetFileChanged()
-	{
-		// TODO: Rainer — consider adding LastWriteTimeUtc to RaiFile so we don't need System.IO.FileInfo here
-		var info = new System.IO.FileInfo(JsonFile.FullName);
-		return info.LastWriteTimeUtc;
-	}
+	public virtual DateTimeOffset GetFileChanged() => JsonFile.LastWriteTimeUtc;
 	/// <summary>
 	/// Overload this in derived classes to give it some per-item meaning once Infos is defined.
 	/// </summary>

@@ -105,7 +105,7 @@ public sealed class MasterTicketTests : IDisposable
 		var flag = new ProcessFlagFile(dir, "RAIkeep");
 		flag.Update();
 		Assert.True(flag.Exists());
-		Assert.Equal($"{Environment.MachineName}-RAIkeep", flag.Name);
+		Assert.Equal($"{Environment.MachineName}-RAIkeep-{Environment.ProcessId}", flag.Name);
 	}
 	[Fact]
 	public void ProcessFlagFile_ContentContainsMachineAndProcessInfo()
@@ -117,6 +117,29 @@ public sealed class MasterTicketTests : IDisposable
 		// Content should be "MachineName:ProcessName:PID|timestamp"
 		Assert.Contains(Environment.MachineName, flag.Lines[0]);
 		Assert.Contains("|", flag.Lines[0]);
+	}
+	[Fact]
+	public void TryReleaseCurrentProcess_ExpiresOwnedActivityWindow()
+	{
+		var dir = (root / "flag-release-owned").mkdir();
+		var flag = new ProcessFlagFile(dir, "pits");
+		flag.Update();
+
+		Assert.False(flag.IsExpired);
+		Assert.True(flag.TryReleaseCurrentProcess());
+		Assert.True(flag.IsExpired);
+		Assert.True(flag.Exists());
+	}
+	[Fact]
+	public void TryReleaseCurrentProcess_DoesNotReleaseAnotherProcessWindow()
+	{
+		var dir = (root / "flag-release-foreign").mkdir();
+		var flag = new ProcessFlagFile(dir, "pits");
+		flag.Update(process: $"{Environment.MachineName}:pits:999999");
+
+		Assert.False(flag.TryReleaseCurrentProcess());
+		Assert.False(flag.IsExpired);
+		Assert.Equal($"{Environment.MachineName}:pits:999999", flag.Process);
 	}
 	#endregion
 	#region MasterFlagFile ticket tests
@@ -199,6 +222,18 @@ public sealed class MasterTicketTests : IDisposable
 		var pitPath = (root / "unflagged-pit").mkdir();
 		var pit = new Pit(pitPath, readOnly: false, autoload: false, unflagged: true);
 		Assert.True(pit.TryAcquireMaster());
+	}
+	[Fact]
+	public void ReleasingProcessWindow_DoesNotReleaseMasterWriterTicket()
+	{
+		var pitPath = (root / "release-process-not-master").mkdir();
+		var pit = new Pit(pitPath, readOnly: false, autoload: false, subscriber: "pits");
+		pit.ProcessFlag().Update();
+		Assert.True(pit.TryAcquireMaster());
+
+		Assert.True(pit.TryReleaseProcessWindow());
+		Assert.True(pit.ProcessFlag().IsExpired);
+		Assert.True(pit.MasterFlag().IsOwnedBy(ProcessFlagFile.FlagName("pits")));
 	}
 	[Fact]
 	public void TryAcquireMaster_SucceedsWhenNobodyElseActive()

@@ -17,7 +17,7 @@ public class MasterFlagFile : TextFile
 	private readonly object locker = new();
 	public new void Save(bool backup = false)
 	{
-		lock (locker) { base.Save(backup); }
+		lock (locker) { base.SaveInPlace(); }
 	}
 	public string Originator
 	{
@@ -115,11 +115,11 @@ public class MasterFlagFile : TextFile
 	}
 }
 /// <summary>
-/// Per machine+application flag file.
-/// Filename: "{MachineName}-{Subscriber}.flag", e.g. "Nkosikazi-pits.flag", "Mzansi-RAIkeep.flag".
+/// Per process activity flag file.
+/// Filename: "{MachineName}-{Subscriber}-{PID}.flag", e.g. "Nkosikazi-pits-12345.flag".
 /// Content: "{MachineName}:{ProcessName}:{PID}|{ISO8601-timestamp}" for diagnostics.
-/// Both parts are needed: Subscriber alone isn't unique (runs on multiple servers),
-/// MachineName alone isn't unique (multiple apps per machine).
+/// The process-specific filename prevents finite CLI invocations on the same machine
+/// from deleting or overwriting each other's activity window.
 /// </summary>
 public class ProcessFlagFile : MasterFlagFile
 {
@@ -187,6 +187,11 @@ public class ProcessFlagFile : MasterFlagFile
 	/// </summary>
 	public static string FlagName(string subscriber = null) =>
 		$"{Environment.MachineName}-{subscriber ?? System.Diagnostics.Process.GetCurrentProcess().ProcessName}";
+	/// <summary>
+	/// Builds the process-specific activity flag name for the current process.
+	/// </summary>
+	public static string CurrentFlagName(string subscriber = null) =>
+		$"{FlagName(subscriber)}-{Environment.ProcessId}";
 	public string Process
 	{
 		get
@@ -210,10 +215,35 @@ public class ProcessFlagFile : MasterFlagFile
 		Save();
 		return tv;
 	}
+	/// <summary>
+	/// True when the activity flag is currently owned by this OS process.
+	/// </summary>
+	public bool IsOwnedByCurrentProcess
+	{
+		get
+		{
+			Read();
+			if (Lines is not { Count: > 0 }) return false;
+			return new TimestampedValue(Lines[0]).Value == CurrentProcessId();
+		}
+	}
+	/// <summary>
+	/// Expires this process activity window when, and only when, the flag content
+	/// still identifies the current OS process. The file is retained as a diagnostic
+	/// tombstone so cloud providers do not receive a delete/recreate cycle.
+	/// </summary>
+	public bool TryReleaseCurrentProcess()
+	{
+		if (!IsOwnedByCurrentProcess) return false;
+		Update(
+			time: DateTimeOffset.UnixEpoch,
+			process: CurrentProcessId());
+		return true;
+	}
 	/// <param name="dir">PitDir where all flag files live</param>
 	/// <param name="subscriber">Application identity, e.g. "pits", "RAIkeep", "Nomsa".</param>
 	public ProcessFlagFile(RaiPath dir, string subscriber = null)
-		: base(dir, FlagName(subscriber))
+		: base(dir, CurrentFlagName(subscriber))
 	{
 	}
 }
