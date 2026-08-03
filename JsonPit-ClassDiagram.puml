@@ -1,5 +1,5 @@
 @startuml JsonPit-ClassDiagram
-' Release: 3.13.0
+' Release: 3.13.1
 
 title JsonPit Class Diagram
 
@@ -47,6 +47,7 @@ package "JsonPit" {
 		+JsonFile : PitFile
 		+RunningOnMaster() : bool
 		+ProcessFlag() : ProcessFlagFile
+		+TryReleaseProcessWindow() : bool
 		+MasterFlag() : MasterFlagFile
 		+MasterUpdatesAvailable() : bool
 		+FileHasChangedOnDisk() : bool
@@ -72,6 +73,9 @@ package "JsonPit" {
 	class "<size:18>ProcessFlagFile</size>" as ProcessFlagFile {
 		+Process : string
 		+{static} CurrentProcessId() : string
+		+{static} CurrentFlagName(subscriber : string = null) : string
+		+IsOwnedByCurrentProcess : bool
+		+TryReleaseCurrentProcess() : bool
 		+Update(time : DateTimeOffset? = null, process : string = null) : TimestampedValue
 	}
 

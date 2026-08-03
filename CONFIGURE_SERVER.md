@@ -1,8 +1,12 @@
 # Configuring your machine name for JsonPit
 
 JsonPit uses `Environment.MachineName` as part of its flag file naming scheme.
-Each machine+application combination gets its own process flag file:
-`{MachineName}-{Subscriber}.flag`, e.g. `Nkosikazi-pits.flag`, `Mzansi-RAIkeep.flag`.
+Each active process gets its own activity flag file:
+`{MachineName}-{Subscriber}-{PID}.flag`, e.g. `Nkosikazi-pits-12345.flag`, `Mzansi-RAIkeep-67890.flag`.
+
+The stable `{MachineName}-{Subscriber}` identity is still used for the master writer ticket. The PID suffix belongs only to the process activity flag, allowing one finite process to release its own window without modifying another process's flag.
+
+Activity flags use a 60-second timeout by default. Explicit release writes an expired epoch timestamp in place and retains the file as a diagnostic tombstone; it does not delete/recreate the cloud-synced path. Master tickets are separate and are not released by process-window cleanup.
 
 If your machine has a generic hostname like `ubuntu`, `localhost`, or `DESKTOP-A1B2C3D`,
 flag file collisions will occur when multiple machines access the same pit.

@@ -1,10 +1,12 @@
 # JsonPit
 
+JsonPit change requests and release notes are centralized in the RAIkeep [`doc/`](https://github.com/Burkhardt/RAIkeep/tree/main/doc) directory under `JsonPit_...` filenames; they are not stored separately in this child repository.
+
 	Stores JsonPits, json files with a value history, across machines/servers ("eventually persistent").
 
 ## Start Here
 
-If you want to use JsonPit 3.13.0 from NuGet in another service or agent workflow, start with [GettingStarted.md](GettingStarted.md).
+If you want to use JsonPit 3.13.1 from NuGet in another service or agent workflow, start with [GettingStarted.md](GettingStarted.md).
 
 That guide now covers:
 
@@ -15,9 +17,9 @@ That guide now covers:
 - persistence and synchronized-storage expectations
 - a practical `PersonPit` example for OTW / AfricaStage style backend work
 
-## 3.13.0
+## 3.13.1
 
-- Coordinated minor release: aligns JsonPit with `OsLibCore 3.13.0` and `RaiUtils 3.13.0` in the current dependency order.
+- Coordinated patch release: aligns JsonPit with `OsLibCore 3.13.1` and `RaiUtils 3.13.1` in the current dependency order.
 - Keeps the WWWA-based quick-start section in [GettingStarted.md](GettingStarted.md) for cloud-path pit creation and sample JSON5 seeding.
 - The supported cloud-backed provider claim is now `OneDrive`, `GoogleDrive`, and `Dropbox`.
 - `PitItem.Id` is now the canonical framework identifier.
@@ -26,7 +28,7 @@ That guide now covers:
 - `PitItem.DeleteProperty(...)` now projects top-level null tombstones as absent attributes instead of leaking a permanent null shadow.
 - Remote-sync workflows continue to align with OsLib's configurable metadata propagation delay handling, including the `mkdir` polymorphism package line update in OsLib.
 - No JsonPit API changes were required beyond the `3.12.0` line; this release refreshes the aligned package baseline and packaged docs.
-- Live docs and release-note pointers were refreshed for the `3.13.0` release line, and this README is packaged with the NuGet release.
+- Live docs and release-note pointers were refreshed for the `3.13.1` release line, and this README is packaged with the NuGet release.
 
 ## namespace
 
@@ -43,7 +45,7 @@ JsonPit
 <details>
 <summary>JsonPitBase: Common base for pits with config, flags, and persistence helpers.</summary>
 
-- JsonPitBase: `ReadOnly`, `Backup`, `RunningOnMaster`, `MasterUpdatesAvailable`, `ChangeDir`, `JsonFile`
+- JsonPitBase: `ReadOnly`, `Backup`, `RunningOnMaster`, `MasterUpdatesAvailable`, `TryReleaseProcessWindow`, `ChangeDir`, `JsonFile`
 </details>
 
 <details>
@@ -61,7 +63,10 @@ JsonPit
 <details>
 <summary>ProcessFlagFile: Flag file used to track the current process and last update time.</summary>
 
-- ProcessFlagFile: `Process`, `Update`, `CurrentProcessId`
+- ProcessFlagFile: `Process`, `Update`, `CurrentProcessId`, `CurrentFlagName`, `IsOwnedByCurrentProcess`, `TryReleaseCurrentProcess`
+- Activity filename: `{MachineName}-{Subscriber}-{PID}.flag`; the PID makes ownership process-specific.
+- Explicit release verifies the current process identity and expires the flag in place without deleting the cloud-synced file.
+- Process activity windows and master writer tickets are separate; releasing the former never releases the latter.
 </details>
 
 <details>
@@ -113,4 +118,4 @@ That keeps JsonPit aligned with OsLib in .NET today and with the upcoming Python
 
 ## release notes
 
-- Latest release notes: [RELEASE_NOTES_3.13.0.md](RELEASE_NOTES_3.13.0.md)
+- Latest release notes: [JsonPit_RELEASE_NOTES_3.13.1.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_3.13.1.md)
