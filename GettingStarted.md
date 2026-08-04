@@ -6,7 +6,7 @@ It is based on the current JsonPit 3.13.1 code and tests in this repository.
 
 ## 3.13.1 key decisions
 
-- The supported cloud-backed provider claim for the package stack is `OneDrive`, `GoogleDrive`, and `Dropbox`.
+- The supported cloud-backed provider claim for the package stack is `Dropbox`, `OneDrive`, `GoogleDrive`, and `ICloudDrive`.
 - `PitItem.Id` is now the canonical framework identifier.
 - Legacy persisted payloads that still contain `Name` without `Id` are normalized internally by copying `Name` into `Id`, while preserving `Name`.
 - Future use of `Name` as an application-defined custom field remains supported outside the framework identifier contract.
@@ -458,6 +458,7 @@ In other words, JsonPit is designed to live comfortably inside shared folders su
 - Google Drive
 - Dropbox
 - OneDrive
+- iCloud Drive
 - another synchronized directory chosen explicitly by your service
 
 For typical application usage, think in terms of:

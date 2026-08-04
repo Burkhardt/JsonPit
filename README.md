@@ -21,7 +21,7 @@ That guide now covers:
 
 - Coordinated patch release: aligns JsonPit with `OsLibCore 3.13.1` and `RaiUtils 3.13.1` in the current dependency order.
 - Keeps the WWWA-based quick-start section in [GettingStarted.md](GettingStarted.md) for cloud-path pit creation and sample JSON5 seeding.
-- The supported cloud-backed provider claim is now `OneDrive`, `GoogleDrive`, and `Dropbox`.
+- The supported cloud-backed provider claim is `Dropbox`, `OneDrive`, `GoogleDrive`, and `ICloudDrive`.
 - `PitItem.Id` is now the canonical framework identifier.
 - Legacy payloads that still contain `Name` without `Id` are normalized internally by copying `Name` into `Id`, while preserving `Name`.
 - Future use of `Name` as an application-defined custom field remains supported.
@@ -100,7 +100,7 @@ JsonPit resolves cloud-backed storage locations through OsLib, but the current a
 For Ubuntu development machines, especially when Google Drive is mounted through `rclone`, GNOME integration, or a team-specific mount path, prefer explicit configuration instead of probe-only discovery.
 
 Recommended shared contract:
-- Use `RAIkeep.json5` to point the supported provider roots `Cloud.Dropbox`, `Cloud.OneDrive`, and `Cloud.GoogleDrive` at the active synchronized mounts.
+- Use `RAIkeep.json5` to point the supported provider roots `Cloud.Dropbox`, `Cloud.OneDrive`, `Cloud.GoogleDrive`, and `Cloud.ICloudDrive` at the active synchronized mounts.
 - Keep that file at `~/.config/RAIkeep.json5`.
 - Reuse the same PascalCase keys as OsLib.
 

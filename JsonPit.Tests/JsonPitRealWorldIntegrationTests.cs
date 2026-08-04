@@ -93,7 +93,7 @@ namespace JsonPit.Tests
 		{
 			// Try each known cloud provider from Os.Config
 			string cloudDir = null;
-			foreach (var provider in new[] { "OneDrive", "GoogleDrive", "Dropbox" })
+			foreach (var provider in new[] { "OneDrive", "GoogleDrive", "Dropbox", "ICloudDrive" })
 			{
 				cloudDir = Os.Config?.Cloud?[provider];
 				if (!string.IsNullOrWhiteSpace(cloudDir))

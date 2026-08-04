@@ -2,7 +2,7 @@
 
 ## 3.13.1 release decisions
 
-- The supported cloud-backed provider claim for the packaged stack is `OneDrive`, `GoogleDrive`, and `Dropbox`.
+- The supported cloud-backed provider claim for the packaged stack is `Dropbox`, `OneDrive`, `GoogleDrive`, and `ICloudDrive`.
 - `PitItem.Id` is the canonical framework identifier.
 - Legacy files that still contain `Name` without `Id` are normalized internally by copying `Name` into `Id`, while preserving `Name`.
 - `Name` remains available as an application-defined custom field outside the framework identifier contract.
