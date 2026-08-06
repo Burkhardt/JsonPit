@@ -48,7 +48,8 @@ namespace JsonPit.Tests
 				pit.CreateChangeFile(peerItem, "ubuntu");
 					var changePits = Directory.GetFiles(pit.PitDir.ToString(), "*.json", SearchOption.AllDirectories).OrderBy(x => x).ToArray();
 					Assert.NotEmpty(changePits);
-					Assert.Contains(changePits, file => file.EndsWith("_ubuntu.json", StringComparison.OrdinalIgnoreCase));
+					// v3.13.2 collision-safe naming: {ticks}_{identity}_{sha256}.json
+					Assert.Contains(changePits, file => file.Contains("_ubuntu_", StringComparison.OrdinalIgnoreCase) && file.EndsWith(".json", StringComparison.OrdinalIgnoreCase));
 			}
 			finally
 			{
@@ -71,6 +72,7 @@ namespace JsonPit.Tests
 				var peerItem = new PitItem("PeerItem");
 				peerItem.SetProperty(new { Value = 126, CreatedBy = "Mzansi", Marker = "peer-marker" });
 				masterPit.CreateChangeFile(peerItem, "ubuntu");
+				masterPit.Dispose(); // release canonical-path ownership before reopening (CR003 §4)
 				var reloaded = new Pit(pitPath, readOnly: false, autoload: false, backup: false);
 				reloaded.Load(undercover: true);
 				Assert.NotNull(reloaded.Get("CloudItem"));

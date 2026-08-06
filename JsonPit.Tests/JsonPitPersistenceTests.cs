@@ -44,12 +44,13 @@ namespace JsonPit.Tests
 			pitA.AddHistorical(fragment2);
 			pitA.Save(force: true);
 			var persistedFileFullName = pitA.JsonFile.FullName;
+			pitA.Dispose(); // release canonical-path ownership before reopening (CR003 §4)
 			var textFile = new TextFile(persistedFileFullName);
 			var rawJson = string.Join(Environment.NewLine, textFile.Read());
 			var diskArray = JArray.Parse(rawJson);
 			Assert.True(diskArray[0] is JArray, "The JSON on disk is flattened! It must be an array of history arrays.");
 			Assert.Equal(2, ((JArray)diskArray[0]).Count);
-			var pitB = new Pit(pitDirectory: RaiPath.SplitRaiPathAndName(persistedFileFullName).path, readOnly: true, autoload: true);
+			using var pitB = new Pit(pitDirectory: RaiPath.SplitRaiPathAndName(persistedFileFullName).path, readOnly: true, autoload: true);
 			Assert.True(pitB.ContainsKey("Sensor_1"));
 			var historyStack = pitB.HistoricItems["Sensor_1"];
 			Assert.Equal(2, historyStack.Count);
@@ -60,7 +61,7 @@ namespace JsonPit.Tests
 		[Fact]
 		public void RenameId_MigratesStateAndTombstonesOldKey()
 		{
-			var pit = new Pit(pitDirectory: _testFile.Path, readOnly: false, autoload: false);
+			using var pit = new Pit(pitDirectory: _testFile.Path, readOnly: false, autoload: false);
 			var original = new PitItem("LegacyTicker");
 			original.SetProperty(new { Price = 262.77, Exchange = "NASDAQ" });
 			pit.Add(original);

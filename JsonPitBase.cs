@@ -23,14 +23,25 @@ public class JsonPitBase
 	#endregion
 	#region Flag file
 	/// <summary>
-	/// Quick check: does this machine currently appear as the master originator?
+	/// Quick check: is this exact process currently recorded as the master owner?
 	/// For unflagged pits this always returns true.
 	/// Note: this does NOT verify ticket expiration — use <see cref="TryAcquireMaster"/> for that.
 	/// </summary>
 	public bool RunningOnMaster() =>
-		unflagged || MasterFlag().Originator == ParticipantIdentity;
+		unflagged || MasterFlag().Originator == ExactProcessIdentity;
 	protected bool unflagged;
-	protected string ParticipantIdentity => ProcessFlagFile.FlagName(processIdentity);
+	/// <summary>
+	/// Stable participant identity: "{MachineName}-{Subscriber}". Meaningful and stable
+	/// across process restarts; it does not distinguish concurrent PIDs.
+	/// </summary>
+	public string ParticipantIdentity => ProcessFlagFile.FlagName(processIdentity);
+	/// <summary>
+	/// Exact process identity: the PID-specific process-flag stem
+	/// "{MachineName}-{Subscriber}-{PID}" (CR003, coordinated v3.13.2). Master ownership
+	/// and change-file authorship record this exact identity; only the exact owning
+	/// process may renew its active master lease directly.
+	/// </summary>
+	public string ExactProcessIdentity => ProcessFlagFile.CurrentFlagName(processIdentity);
 	public ProcessFlagFile ProcessFlag()
 	{
 		fileFlag ??= new ProcessFlagFile(PitDir, processIdentity);
@@ -57,39 +68,76 @@ public class JsonPitBase
 	{
 		masterFlag = new MasterFlagFile(PitDir, "Master");
 		if (string.IsNullOrEmpty(masterFlag.Originator))
-			masterFlag.Update(originator: ParticipantIdentity);
+			masterFlag.Update(originator: ExactProcessIdentity);
 		return masterFlag;
 	}
 	private MasterFlagFile masterFlag;
 	/// <summary>
-	/// Attempts to acquire master rights using the timed-ticket protocol:
+	/// Hook invoked after every <see cref="TryAcquireMaster"/> outcome so derived classes
+	/// can track exact-process master tenures and detect live authority transfers.
+	/// </summary>
+	/// <param name="acquired">Whether this exact process now holds the master lease.</param>
+	/// <param name="recordedOwner">The owner recorded in Master.flag (may be this process).</param>
+	/// <param name="ownerLeaseValid">Whether the recorded owner's lease is currently valid.</param>
+	protected virtual void OnMasterAuthorityEvaluated(bool acquired, string recordedOwner, bool ownerLeaseValid) { }
+	/// <summary>
+	/// Attempts to acquire master rights under the agreed v3.13.2 exact-process ownership
+	/// contract (CR003):
 	/// <list type="number">
-	///   <item>a) Scan remote *.flag files to see if another machine was active within <see cref="MasterFlagFile.TicketDuration"/>.</item>
-	///   <item>b) Check if the ticket in Master.flag has expired, or if we already own it.</item>
-	///   <item>c) If the ticket expired (and no other process is active, or we're already master), claim it.</item>
-	///   <item>d) Return true only if we now hold a valid master ticket.</item>
+	///   <item>Only the exact owning process (matching PID-specific identity) may renew its active master lease directly.</item>
+	///   <item>A different PID with the same stable participant must not inherit master authority while the
+	///   recorded owner's process window remains active — it follows the non-master change-file path.</item>
+	///   <item>When the recorded owner's process window has been explicitly released or has expired, a new PID
+	///   with the same stable participant may inherit the still-protected participant lease.</item>
+	///   <item>An expired lease may be claimed by any participant unless a foreign process was recently active.</item>
 	/// </list>
-	/// Unflagged pits always return true.
+	/// PID-level collision detection and safe handover are JsonPit responsibilities; callers
+	/// do not invent unique subscribers merely to distinguish PIDs. Unflagged pits always return true.
 	/// </summary>
 	public bool TryAcquireMaster()
 	{
 		if (unflagged) return true;
 		var master = MasterFlag();
-		// Fast path: we already own a valid ticket — renew it
-		if (master.IsOwnedBy(ParticipantIdentity))
+		// Fast path: this exact process already owns a valid lease — renew it.
+		if (master.IsOwnedBy(ExactProcessIdentity))
 		{
-			master.TryClaim(ParticipantIdentity);  // refresh the timestamp
+			master.TryClaim(ExactProcessIdentity);  // refresh the timestamp
+			OnMasterAuthorityEvaluated(true, ExactProcessIdentity, true);
 			return true;
 		}
-		// If the ticket is still valid and somebody else owns it, we can't claim
 		if (!master.IsExpired)
+		{
+			var recordedOwner = master.Originator;
+			var ownerParticipant = MasterFlagFile.ParticipantOf(recordedOwner);
+			if (ownerParticipant == ParticipantIdentity)
+			{
+				// Same stable participant, different (or legacy pre-PID) process identity.
+				var ownerIsExact = MasterFlagFile.IsExactProcessIdentity(recordedOwner);
+				if (ownerIsExact && ProcessFlagFile.IsProcessWindowActive(PitDir, recordedOwner))
+				{
+					// Recorded owner's process window is still active — change-file path.
+					OnMasterAuthorityEvaluated(false, recordedOwner, true);
+					return false;
+				}
+				// Owner released/expired its window — inherit the still-protected participant lease.
+				master.Update(originator: ExactProcessIdentity);
+				OnMasterAuthorityEvaluated(true, ExactProcessIdentity, true);
+				return true;
+			}
+			// A different participant holds a valid lease — we cannot claim.
+			OnMasterAuthorityEvaluated(false, recordedOwner, true);
 			return false;
+		}
 		// Ticket is expired — but is anybody else actively writing?
-		// a) scan all process flag files; if any foreign process was active within TicketDuration, back off
 		if (AnyForeignProcessActive())
+		{
+			OnMasterAuthorityEvaluated(false, master.Originator, false);
 			return false;
-		// c) Nobody active + ticket expired → claim it
-		return master.TryClaim(ParticipantIdentity);
+		}
+		// Nobody active + ticket expired → claim it.
+		var claimed = master.TryClaim(ExactProcessIdentity);
+		OnMasterAuthorityEvaluated(claimed, claimed ? ExactProcessIdentity : master.Originator, claimed);
+		return claimed;
 	}
 	/// <summary>
 	/// Scans all *.flag files in PitDir (excluding Master.flag and same-machine process flags)
@@ -146,11 +194,17 @@ public class JsonPitBase
 	public bool DiskHasNewerChanges() =>
 		JsonFile.Exists() && GetFileChanged() > GetMemChanged();
 	/// <summary>
-	/// Changes from other servers are available when foreign change files exist.
+	/// Changes from other processes are available when change files exist that were not
+	/// authored by this exact process (CR003, coordinated v3.13.2).
 	/// </summary>
 	public bool ForeignChangesAvailable() =>
 		EnumerateChangeFiles()
-			.Any(cf => !cf.Name.EndsWith("_" + ParticipantIdentity, StringComparison.OrdinalIgnoreCase));
+			.Any(cf =>
+			{
+				var identity = ChangeFile.IdentityOf(cf.Name);
+				return identity is not null &&
+					!identity.Equals(ExactProcessIdentity, StringComparison.OrdinalIgnoreCase);
+			});
 	/// <summary>
 	/// Directory where the PitFile, change files, and flag files all live together.
 	/// No separate Changes subdirectory — everything sits alongside the pit file.

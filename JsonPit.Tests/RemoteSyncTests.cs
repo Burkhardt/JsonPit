@@ -119,8 +119,10 @@ public sealed class RemoteSyncTests : IDisposable
 		var seedOutput = SshExec($"pits -n -s /tmp/{PitName}.json5 -r \"{mzansiRoot}/\"");
 		output.WriteLine($"pits on Mzansi:\n{seedOutput}");
 
-		// Mzansi should have created change files (it cannot write the canonical pit)
-		var mzansiChangeFiles = SshExec($"ls \"{mzansiPitDir}/\" 2>/dev/null | grep '_Mzansi.json'");
+		// Mzansi should have created change files (it cannot write the canonical pit).
+		// Match the identity segment only — the exact filename differs between the legacy
+		// {ticks}_{participant}.json and the v3.13.2 {ticks}_{exactProcess}_{sha256}.json form.
+		var mzansiChangeFiles = SshExec($"ls \"{mzansiPitDir}/\" 2>/dev/null | grep '_Mzansi'");
 		Assert.False(string.IsNullOrWhiteSpace(mzansiChangeFiles),
 			"Mzansi must create change files as a client (not overwrite the pit)");
 		output.WriteLine($"Mzansi change files:\n{mzansiChangeFiles}");
@@ -135,7 +137,12 @@ public sealed class RemoteSyncTests : IDisposable
 		// ──────────────────────────────────────────────────────────────
 		var pitDir = pit.PitDir;
 		WaitForLocalChangeFiles(pitDir, "_Mzansi.json");
-
+		// One live public Pit per canonical path per process (CR003 §4): dispose before reopening.
+		pit.Dispose();
+		// The provider may have dehydrated the local canonical while syncing; wait until
+		// its bytes are locally readable so the bounded in-library retry window is not
+		// spent on File Provider hydration timeouts.
+		WaitForLocalReadable(pitFile);
 		// Re-open the pit (autoload triggers Load + MergeChanges)
 		var reloaded = new Pit(pitFile, readOnly: false);
 
@@ -159,17 +166,18 @@ public sealed class RemoteSyncTests : IDisposable
 		// running pits on Mzansi — otherwise it reads a half-written file.
 		// In a real scenario the TicketDuration (60 s) provides this buffer
 		// naturally; here we simulate expiry, so we wait explicitly.
+		reloaded.Dispose(); // graceful disposal exports and releases authority before Mzansi takes over
 		WaitForContentOnMzansi(mzansiPitFilePath, "MzansiEntry",
 			"merged pit file to finish syncing to Mzansi");
 
 		// "Better idea": instead of waiting 60 s for TicketDuration to elapse,
 		// we overwrite the flag files on Mzansi's local copy with expired timestamps.
-		// This deterministically simulates the passage of time.
+		// This deterministically simulates the passage of time. Since v3.13.2 the master
+		// owner and the process flags carry exact PID identities, so every Nkosikazi flag
+		// is expired regardless of its PID suffix.
 		var expiredTimestamp = DateTimeOffset.UtcNow.AddMinutes(-5).ToString("o");
-		SshExec($"echo 'Nkosikazi|{expiredTimestamp}' > \"{mzansiPitDir}/Master.flag\"");
-		// Also expire Nkosikazi's process flag so AnyForeignProcessActive() returns false
-		var nkosikaziFlagName = ProcessFlagFile.FlagName("pits");  // "Nkosikazi-pits"
-		SshExec($"echo 'Nkosikazi:dotnet:1|{expiredTimestamp}' > \"{mzansiPitDir}/{nkosikaziFlagName}.flag\"");
+		SshExec($"echo 'Nkosikazi|{expiredTimestamp}' > '{mzansiPitDir}/Master.flag'");
+		SshExec($"for f in '{mzansiPitDir}'/Nkosikazi-*.flag; do [ -f \\\"$f\\\" ] && echo 'Nkosikazi:dotnet:1|{expiredTimestamp}' > \\\"$f\\\"; done; true");
 		output.WriteLine("Expired flag files on Mzansi's local copy");
 
 		// Seed a second entry from Mzansi — this time it should become master
@@ -188,6 +196,7 @@ public sealed class RemoteSyncTests : IDisposable
 		// ──────────────────────────────────────────────────────────────
 		// Wait for the updated pit file (written by new master Mzansi) to sync back
 		WaitForMasterChange(pitDir, "Mzansi");
+		WaitForLocalReadable(pitFile);
 
 		var finalPit = new Pit(pitFile, readOnly: true);
 
@@ -195,14 +204,17 @@ public sealed class RemoteSyncTests : IDisposable
 		Assert.NotNull(finalPit["MzansiEntry"]);
 		Assert.NotNull(finalPit["MzansiMasterEntry"]);
 		Assert.Equal("Now I am master", finalPit["MzansiMasterEntry"]["Note"]?.ToString());
+		finalPit.Dispose(); // release canonical-path ownership before phase 6 reopens the pit
 		output.WriteLine("Phase 5  PASS — Nkosikazi sees all 3 entries after Mzansi became master");
 
 		// ──────────────────────────────────────────────────────────────
-		// PHASE 6 — Change file cleanup: master deletes files older than 600 s
+		// PHASE 6 — Change file cleanup: two-stage current-master-only protocol (CR003).
+		// A file becomes deletable only after (1) merge, (2) a successful canonical save
+		// that accounts for it, and (3) a propagation grace measured from that save —
+		// original file age does not count. The 10-minute production grace is shortened
+		// through the settable property for this local phase.
 		// ──────────────────────────────────────────────────────────────
 		// Reclaim master for Nkosikazi so we can test the cleanup path locally.
-		// Expire Mzansi's master flag on the local copy and also expire any
-		// Mzansi process flag so AnyForeignProcessActive() returns false.
 		var expiredTs = DateTimeOffset.UtcNow.AddMinutes(-5);
 		var localMasterFlag = new MasterFlagFile(pitDir, "Master");
 		localMasterFlag.Update(time: expiredTs, originator: "Mzansi");
@@ -219,38 +231,52 @@ public sealed class RemoteSyncTests : IDisposable
 		}
 
 		// Re-open as writable so TryAcquireMaster() can claim
+		WaitForLocalReadable(pitFile);
 		var masterPit = new Pit(pitFile, readOnly: false);
-		Assert.True(masterPit.TryAcquireMaster(), "Nkosikazi should reclaim master after expiring Mzansi's ticket");
-		output.WriteLine("Phase 6  Nkosikazi reclaimed master");
+		var originalGrace = Pit.ChangeFileCleanupGrace;
+		try
+		{
+			Assert.True(masterPit.TryAcquireMaster(), "Nkosikazi should reclaim master after expiring Mzansi's ticket");
+			output.WriteLine("Phase 6  Nkosikazi reclaimed master");
 
-		// Count change files before backdating
-		var changeFilesBefore = pitDir.EnumerateFiles("*.json")
-			.Where(f => f.Name != masterPit.JsonFile.Name)
-			.ToList();
-		Assert.NotEmpty(changeFilesBefore);
-		output.WriteLine($"Phase 6  Change files before cleanup: {changeFilesBefore.Count}");
+			var changeFilesBefore = pitDir.EnumerateFiles("*.json")
+				.Where(f => f.Name != masterPit.JsonFile.Name)
+				.ToList();
+			Assert.NotEmpty(changeFilesBefore);
+			output.WriteLine($"Phase 6  Change files before cleanup: {changeFilesBefore.Count}");
 
-		// Backdate all change files to 11 minutes ago so they exceed the 600 s threshold.
-		// RaiFile.FileAge uses CreationTimeUtc, so BackdateCreationTime sets that.
-		// Propagation delay is skipped here (local-only test, no cloud peers need the backdate).
-		var backdate = DateTime.UtcNow.AddMinutes(-11);
-		foreach (var cf in changeFilesBefore)
-			cf.BackdateCreationTime(backdate, propagationDelayMs: 0);
+			Pit.ChangeFileCleanupGrace = TimeSpan.FromSeconds(2);
 
-		// MergeChanges() on a master pit should now delete the aged-out change files
-		masterPit.MergeChanges();
+			// First pass: merge + canonical save; cleanup eligibility starts NOW, not at file age.
+			masterPit.MergeChanges();
+			var stillPresent = pitDir.EnumerateFiles("*.json")
+				.Where(f => f.Name != masterPit.JsonFile.Name)
+				.ToList();
+			Assert.NotEmpty(stillPresent); // never deleted before the grace measured from the save
+			output.WriteLine("Phase 6  Change files retained through the post-save grace");
 
-		var changeFilesAfter = pitDir.EnumerateFiles("*.json")
-			.Where(f => f.Name != masterPit.JsonFile.Name)
-			.ToList();
-		Assert.Empty(changeFilesAfter);
-		output.WriteLine("Phase 6  PASS — master cleaned up change files older than 600 s");
+			Thread.Sleep(2500); // let the shortened post-save grace elapse
 
-		// Data integrity: all 3 entries still present after cleanup
-		Assert.NotNull(masterPit["NkosikaziEntry"]);
-		Assert.NotNull(masterPit["MzansiEntry"]);
-		Assert.NotNull(masterPit["MzansiMasterEntry"]);
-		output.WriteLine("Phase 6  Data integrity verified — all entries preserved");
+			// Second pass: revalidates exact master authority and canonical health, then deletes.
+			masterPit.MergeChanges();
+
+			var changeFilesAfter = pitDir.EnumerateFiles("*.json")
+				.Where(f => f.Name != masterPit.JsonFile.Name)
+				.ToList();
+			Assert.Empty(changeFilesAfter);
+			output.WriteLine("Phase 6  PASS — master cleaned up change files after the post-save grace");
+
+			// Data integrity: all 3 entries still present after cleanup
+			Assert.NotNull(masterPit["NkosikaziEntry"]);
+			Assert.NotNull(masterPit["MzansiEntry"]);
+			Assert.NotNull(masterPit["MzansiMasterEntry"]);
+			output.WriteLine("Phase 6  Data integrity verified — all entries preserved");
+		}
+		finally
+		{
+			Pit.ChangeFileCleanupGrace = originalGrace;
+			masterPit.Dispose();
+		}
 
 		output.WriteLine($"\nAll phases passed for test {testId}");
 	}
@@ -290,6 +316,32 @@ public sealed class RemoteSyncTests : IDisposable
 	#endregion
 
 	#region Sync polling helpers
+
+	/// <summary>
+	/// Waits until the provider has (re)hydrated the local canonical so its bytes are
+	/// actually readable. macOS OneDrive can dehydrate a file during sync; reading a
+	/// placeholder then blocks until the File Provider times out, which would otherwise
+	/// burn JsonPit's bounded in-library retry window on environmental hydration delays.
+	/// </summary>
+	private void WaitForLocalReadable(PitFile pitFile)
+	{
+		var sw = Stopwatch.StartNew();
+		while (sw.ElapsedMilliseconds < SyncTimeoutMs)
+		{
+			try
+			{
+				var bytes = System.IO.File.ReadAllBytes(pitFile.FullName);
+				if (bytes.Length > 1)
+				{
+					output.WriteLine($"  canonical locally readable ({bytes.Length} bytes) after {sw.Elapsed.TotalSeconds:F1} s");
+					return;
+				}
+			}
+			catch (System.IO.IOException) { }
+			Thread.Sleep(SyncPollMs);
+		}
+		Assert.Fail($"Timed out ({SyncTimeoutMs / 1000} s) waiting for the provider to hydrate {pitFile.FullName}");
+	}
 
 	private void WaitForFileOnMzansi(string remotePath, string description)
 	{
@@ -353,9 +405,11 @@ public sealed class RemoteSyncTests : IDisposable
 			try
 			{
 				var flag = new MasterFlagFile(pitDir, "Master");
-				if (flag.Originator == expectedMaster)
+				// v3.13.2 owners are exact process identities ({Machine}-{Subscriber}-{PID});
+				// match the machine prefix so the check works for legacy values too.
+				if (flag.Originator?.StartsWith(expectedMaster, StringComparison.OrdinalIgnoreCase) == true)
 				{
-					output.WriteLine($"  master changed in {sw.Elapsed.TotalSeconds:F1} s");
+					output.WriteLine($"  master changed in {sw.Elapsed.TotalSeconds:F1} s → {flag.Originator}");
 					return;
 				}
 			}

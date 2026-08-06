@@ -227,13 +227,14 @@ public sealed class MasterTicketTests : IDisposable
 	public void ReleasingProcessWindow_DoesNotReleaseMasterWriterTicket()
 	{
 		var pitPath = (root / "release-process-not-master").mkdir();
-		var pit = new Pit(pitPath, readOnly: false, autoload: false, subscriber: "pits");
+		using var pit = new Pit(pitPath, readOnly: false, autoload: false, subscriber: "pits");
 		pit.ProcessFlag().Update();
 		Assert.True(pit.TryAcquireMaster());
 
 		Assert.True(pit.TryReleaseProcessWindow());
 		Assert.True(pit.ProcessFlag().IsExpired);
-		Assert.True(pit.MasterFlag().IsOwnedBy(ProcessFlagFile.FlagName("pits")));
+		// v3.13.2: master ownership records the exact process identity ({Machine}-{Subscriber}-{PID}).
+		Assert.True(pit.MasterFlag().IsOwnedBy(ProcessFlagFile.CurrentFlagName("pits")));
 	}
 	[Fact]
 	public void TryAcquireMaster_SucceedsWhenNobodyElseActive()
@@ -259,9 +260,10 @@ public sealed class MasterTicketTests : IDisposable
 		var otherFlag = new MasterFlagFile(pitPath, "Master", server: "FarAwayServer");
 		otherFlag.Update(time: DateTimeOffset.UtcNow - TimeSpan.FromSeconds(5), originator: "FarAwayServer");
 		Assert.True(otherFlag.IsExpired);
-		var pit = new Pit(pitPath, readOnly: false, autoload: false, subscriber: "pits");
+		using var pit = new Pit(pitPath, readOnly: false, autoload: false, subscriber: "pits");
 		Assert.True(pit.TryAcquireMaster());
-		Assert.Equal(ProcessFlagFile.FlagName("pits"), pit.MasterFlag().Originator);
+		// v3.13.2: the claim records the exact process identity, not only the participant.
+		Assert.Equal(ProcessFlagFile.CurrentFlagName("pits"), pit.MasterFlag().Originator);
 	}
 	[Fact]
 	public void TryAcquireMaster_RefusedWhenForeignProcessRecentlyActive()
@@ -311,56 +313,60 @@ public sealed class MasterTicketTests : IDisposable
 	[Fact]
 	public void LocalProcessTicketWindow_ApiShutdownWritesChangeFilesWhenPitsOwnsMaster()
 	{
+		// CR003 §4 rejects a second live public Pit per canonical path, so the pits CLI
+		// process is represented here by its exact on-disk footprint: a Master.flag lease
+		// recorded for another exact PID and that PID's active process window.
 		MasterFlagFile.TicketDuration = TimeSpan.FromMinutes(5);
 		var pitPath = (root / "local-api-pits-window" / "Activity").mkdir();
-		var apiIdentity = ProcessFlagFile.FlagName("AfricaStage.Api");
-		var pitsIdentity = ProcessFlagFile.FlagName("pits");
+		var apiExactIdentity = ProcessFlagFile.CurrentFlagName("AfricaStage.Api");
+		var cliExactIdentity = $"{Environment.MachineName}-pits-999999";
 
-		var apiPit = new Pit(pitPath, readOnly: false, autoload: false, subscriber: "AfricaStage.Api");
+		using var apiPit = new Pit(pitPath, readOnly: false, autoload: false, subscriber: "AfricaStage.Api");
 		var initialItem = new PitItem("InitialActivity");
 		initialItem.SetProperty(new { Source = "AfricaStage.Api", Phase = "Startup" });
 		apiPit.Add(initialItem);
 		apiPit.Save(force: true);
 
-		Assert.Equal(apiIdentity, apiPit.MasterFlag().Originator);
+		Assert.Equal(apiExactIdentity, apiPit.MasterFlag().Originator);
 		Assert.True(apiPit.JsonFile.Exists());
 
-		var expiredTicketTime = DateTimeOffset.UtcNow - MasterFlagFile.TicketDuration - TimeSpan.FromSeconds(10);
-		apiPit.MasterFlag().Update(expiredTicketTime, originator: apiIdentity);
-		Assert.True(apiPit.MasterFlag().IsExpired);
-
-		var cliPit = new Pit(pitPath, readOnly: false, autoload: true, subscriber: "pits");
-		var cliItem = new PitItem("PitsCliSeededActivity");
-		cliItem.SetProperty(new { Source = "pits", Phase = "Seed" });
-		cliPit.Add(cliItem);
-		cliPit.Save(force: true);
-
-		Assert.Equal(pitsIdentity, cliPit.MasterFlag().Originator);
-		Assert.False(cliPit.MasterFlag().IsExpired);
+		// The pits CLI process (different exact PID) claims the expired lease and holds
+		// an active process window — planted exactly as that process would write it.
+		apiPit.MasterFlag().Update(originator: cliExactIdentity);
+		var cliWindow = new TextFile(pitPath, cliExactIdentity, "flag");
+		cliWindow.Lines = [new TimestampedValue($"{Environment.MachineName}:pits:999999", DateTimeOffset.UtcNow).ToString()];
+		cliWindow.Changed = true;
+		cliWindow.Save();
 
 		var shutdownItem = new PitItem("ApiShutdownFlushActivity");
 		shutdownItem.SetProperty(new { Source = "AfricaStage.Api", Phase = "Shutdown" });
 		apiPit.Add(shutdownItem);
 		apiPit.Save();
 
-		Assert.Equal(pitsIdentity, apiPit.MasterFlag().Originator);
+		// The API process must not inherit the valid foreign lease: change files only.
+		Assert.Equal(cliExactIdentity, apiPit.MasterFlag().Originator);
 		var changeFiles = apiPit.PitDir.EnumerateFiles("*.json")
 			.Where(f => f.Name != apiPit.JsonFile.Name)
 			.ToList();
-		Assert.Contains(changeFiles, file => file.Name.EndsWith("_" + apiIdentity, StringComparison.OrdinalIgnoreCase));
+		Assert.Contains(changeFiles, file => ChangeFile.IdentityOf(file.Name) == apiExactIdentity);
 
 		var canonicalBeforeMerge = File.ReadAllText(apiPit.JsonFile.FullName);
-		Assert.Contains("PitsCliSeededActivity", canonicalBeforeMerge);
 		Assert.DoesNotContain("ApiShutdownFlushActivity", canonicalBeforeMerge);
 
-		var nextMasterLoad = new Pit(pitPath, readOnly: false, autoload: true, subscriber: "pits");
+		// The CLI process window ends; the API process may claim and fold the changes in.
+		var expired = DateTimeOffset.UtcNow - MasterFlagFile.TicketDuration - TimeSpan.FromSeconds(10);
+		apiPit.MasterFlag().Update(expired, originator: cliExactIdentity);
+		cliWindow.Lines = [new TimestampedValue($"{Environment.MachineName}:pits:999999", expired).ToString()];
+		cliWindow.Changed = true;
+		cliWindow.Save();
 
-		Assert.NotNull(nextMasterLoad.Get("InitialActivity"));
-		Assert.NotNull(nextMasterLoad.Get("PitsCliSeededActivity"));
-		Assert.NotNull(nextMasterLoad.Get("ApiShutdownFlushActivity"));
-		Assert.Equal(pitsIdentity, nextMasterLoad.MasterFlag().Originator);
+		apiPit.MergeChanges();
 
-		var canonicalAfterMerge = File.ReadAllText(nextMasterLoad.JsonFile.FullName);
+		Assert.NotNull(apiPit.Get("InitialActivity"));
+		Assert.NotNull(apiPit.Get("ApiShutdownFlushActivity"));
+		Assert.Equal(apiExactIdentity, apiPit.MasterFlag().Originator);
+
+		var canonicalAfterMerge = File.ReadAllText(apiPit.JsonFile.FullName);
 		Assert.Contains("ApiShutdownFlushActivity", canonicalAfterMerge);
 	}
 	#endregion
@@ -375,7 +381,8 @@ public sealed class MasterTicketTests : IDisposable
 		var clientItem = new PitItem("ClientItem");
 		clientItem.SetProperty(new { Value = 42 });
 		masterPit.CreateChangeFile(clientItem, "ClientMachine");
-		var reloaded = new Pit(pitPath, readOnly: false, autoload: true, subscriber: "RAIkeep");
+		masterPit.Dispose(); // release canonical-path ownership before reopening (CR003 §4)
+		using var reloaded = new Pit(pitPath, readOnly: false, autoload: true, subscriber: "RAIkeep");
 		Assert.NotNull(reloaded.Get("MasterItem"));
 		Assert.NotNull(reloaded.Get("ClientItem"));
 		Assert.Equal(42, reloaded.Get("ClientItem")?["Value"]?.ToObject<int>());
@@ -389,9 +396,10 @@ public sealed class MasterTicketTests : IDisposable
 		setupPit.Add(new PitItem("BaseItem"));
 		setupPit.Save(force: true);
 		setupPit.CreateChangeFile(new PitItem("PeerItem"), "PeerMachine");
+		setupPit.Dispose(); // release canonical-path ownership before reopening (CR003 §4)
 		// Re-plant master flag (setupPit may have overwritten it)
 		var masterFlagAgain = new MasterFlagFile(pitPath, "Master", server: "TheMaster");
-		var clientPit = new Pit(pitPath, readOnly: false, autoload: false, subscriber: "pits");
+		using var clientPit = new Pit(pitPath, readOnly: false, autoload: false, subscriber: "pits");
 		clientPit.Load(undercover: true);
 		clientPit.MergeChanges();
 		Assert.NotNull(clientPit.Get("PeerItem"));

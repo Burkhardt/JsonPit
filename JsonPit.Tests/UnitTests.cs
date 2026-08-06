@@ -19,7 +19,7 @@ using JsonPit;
 using System.ComponentModel.DataAnnotations;
 namespace JsonPit.Tests
 {
-	public class JsonPitTestClass
+	public class JsonPitTestClass : IDisposable
 	{
 		/// to make sure tests are repeatable, I chose to add an attribute to the simple tests.
 		/// the value of the attribute is Seconds; I make sure Seconds is not the same for two tests running after each other.
@@ -35,6 +35,9 @@ namespace JsonPit.Tests
 			// Directory.CreateDirectory(dir);
 			return new Pit(PitPath, readOnly: false);
 		}
+		// One live public Pit per canonical path per process (CR003 §4): each test instance
+		// must release its ownership so the next test can reopen the shared pit.
+		public void Dispose() => pit?.Dispose();
 		
 		[Fact]
 		public void AddPitItem_Test()
@@ -106,14 +109,14 @@ namespace JsonPit.Tests
 			Seconds++;
 			try
 			{
-				pit = Open_ObjectPit_Pit();
 				var item = new PitItem("AAPL");
 				item.SetProperty(new { Price = 262.77 });
 				item.SetProperty(new { Zeit = Seconds });
 				pit.Add(item);
 				pit.Save();
 				var savedModified = pit["AAPL"].Modified;
-				var reloaded = new Pit(PitPath, readOnly: true, unflagged: true);
+				pit.Dispose(); // release canonical-path ownership before reopening (CR003 §4)
+				using var reloaded = new Pit(PitPath, readOnly: true, unflagged: true);
 				var loadedItem = reloaded["AAPL"];
 				Assert.NotNull(loadedItem);
 				Assert.Equal(savedModified, loadedItem.Modified);
@@ -128,7 +131,7 @@ namespace JsonPit.Tests
 		public void JsonPit_StepByStepExample_Test()
 		{
 			// Initialize the JsonPit
-			var examplesPit = new Pit(pitDirectory: RAIkeepTestEnvironment.CloudPath("Examples"), readOnly: false);
+			using var examplesPit = new Pit(pitDirectory: RAIkeepTestEnvironment.CloudPath("Examples"), readOnly: false);
 			// no file not found exception will be thrown if the path does not exist
 			// Create a PitItem
 			var pitItem = new PitItem("RSB");
@@ -167,7 +170,7 @@ namespace JsonPit.Tests
 		public void DirectAccess_Test()
 		{
 			// Pit 
-			var Families = new Pit(RAIkeepTestEnvironment.CloudPath("UnitTest"), readOnly: false);
+			using var Families = new Pit(RAIkeepTestEnvironment.CloudPath("UnitTest"), readOnly: false);
 			var Burkhardt = new PitItem("Burkhardt");
 			Burkhardt["Address"] = "123 Main St";
 			Burkhardt["Father"] = "John Doe";

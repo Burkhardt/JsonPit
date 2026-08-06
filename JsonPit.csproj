@@ -3,7 +3,7 @@
 	<PropertyGroup>
 		<Title>JsonPit</Title>
 		<PackageId>JsonPit</PackageId>
-		<Version>3.13.1</Version>
+		<Version>3.13.2</Version>
 		<Authors>Rainer Burkhardt</Authors>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
 		<Description>Stores json files across servers (synchronized).</Description>
@@ -17,7 +17,7 @@
 		<Copyright>© Rainer Burkhardt. All rights reserved.</Copyright>
 		<RepositoryUrl>https://github.com/Burkhardt/JsonPit</RepositoryUrl>
 		<RepositoryType>github</RepositoryType>
-		<PackageReleaseNotes>3.13.1 patch release: adds ownership-verified per-process activity-window release, avoids delete/recreate flag updates, and preserves separate master writer tickets.</PackageReleaseNotes>
+		<PackageReleaseNotes>3.13.2 (CR003): explicit concurrency contract — brief snapshot gate for concurrent Add/Save, exact-process master ownership, one live public Pit per canonical path, validated candidate loads with bounded-retry persistence exceptions, collision-safe hashed change files, live split-master recovery with durable audit events.</PackageReleaseNotes>
 		<PackageIcon>HardCastle.png</PackageIcon>
 		<DefaultItemExcludes>$(DefaultItemExcludes);JsonPit.Tests\**</DefaultItemExcludes>
 	</PropertyGroup>
@@ -43,7 +43,7 @@
 	</ItemGroup>
 
 	<ItemGroup Condition="'$(OsLibProjectPath)' == '' or '$(RaiUtilsProjectPath)' == ''">
-		<PackageReference Include="OsLibCore" Version="3.13.1" />
+		<PackageReference Include="OsLibCore" Version="3.13.2" />
 		<PackageReference Include="RaiUtils" Version="3.13.1" />
 	</ItemGroup>
 

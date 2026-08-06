@@ -204,16 +204,18 @@ public class PitAddTimestampStalenessTests
 
 	// =====================================================================
 	// 5. CONCURRENT-WRITERS SCENARIO (regression guard)
-	//    Many writers racing to Add distinct payloads for the same id must
-	//    each get a unique Modified. Duplicates here would indicate either
-	//    the staleness bug above or a separate clock-collision race.
+	//    CR003 timestamp boundary: Modified is a real UTC timestamp and is
+	//    NOT guaranteed unique. The decisive promises are that no accepted
+	//    addition disappears and that history/projection stay deterministic
+	//    even when timestamps coincide.
 	// =====================================================================
 	[Fact]
-	public void Pit_Add_Concurrent_HasNoDuplicateTimestamps()
+	public void Pit_Add_Concurrent_PreservesEveryAcceptedAddition_EvenWithEqualTimestamps()
 	{
 		var pit = NewPit("concurrent");
 		const int writers = 8;
 		const int perWriter = 25;
+		var accepted = 0;
 		var barrier = new Barrier(writers);
 		var threads = new Thread[writers];
 		for (int w = 0; w < writers; w++)
@@ -225,15 +227,29 @@ public class PitAddTimestampStalenessTests
 				for (int i = 0; i < perWriter; i++)
 				{
 					var json = $"{{ \"Id\": \"{ItemId}\", \"Payload\": \"{writerId}-{i}\" }}";
-					pit.Add(json);
+					if (pit.Add(json))
+						Interlocked.Increment(ref accepted);
 				}
 			});
 		}
 		foreach (var t in threads) t.Start();
 		foreach (var t in threads) t.Join();
 
+		// Every accepted addition is preserved — equal timestamps must not suppress fragments.
 		var stamps = HistoryTimestamps(pit, ItemId);
-		var distinct = new HashSet<long>(stamps.Select(s => s.UtcTicks));
-		Assert.Equal(stamps.Count, distinct.Count);
+		Assert.Equal(accepted, stamps.Count);
+
+		// Deterministic history: rebuilding the same fragments in reverse arrival order
+		// produces the identical ordered history and identical projection.
+		var history = pit.HistoricItems[ItemId];
+		var rebuilt = PitItems.Create(ItemId, maxCount: 0);
+		foreach (var fragment in history.History.Reverse())
+			rebuilt = rebuilt.Push(new PitItem(fragment));
+		Assert.Equal(
+			history.History.Select(f => CanonicalJson.Canonicalize(f)).ToList(),
+			rebuilt.History.Select(f => CanonicalJson.Canonicalize(f)).ToList());
+		Assert.Equal(
+			CanonicalJson.Canonicalize(history.ProjectState()),
+			CanonicalJson.Canonicalize(rebuilt.ProjectState()));
 	}
 }

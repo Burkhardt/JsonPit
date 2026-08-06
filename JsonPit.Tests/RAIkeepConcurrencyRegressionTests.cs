@@ -98,8 +98,9 @@ namespace JsonPit.Tests
 
                         pit.Add(item);
                         pit.Save(force: true);
+                        pit.Dispose(); // release canonical-path ownership before reopening (CR003 §4)
 
-                        var reloaded = new Pit(
+                        using var reloaded = new Pit(
                             workerScratchPath,
                             readOnly: true,
                             autoload: true,
@@ -294,8 +295,9 @@ namespace JsonPit.Tests
 
                 pit.MergeChanges();
                 pit.Save(force: true);
+                pit.Dispose(); // release canonical-path ownership before reopening (CR003 §4)
 
-                var reloaded = new Pit(
+                using var reloaded = new Pit(
                     testRoot,
                     readOnly: true,
                     autoload: true,
@@ -378,8 +380,9 @@ namespace JsonPit.Tests
                 // save but had its dirty flag cleared by that save, this call will not
                 // write it and the reload assertions below will expose the loss.
                 pit.Save();
+                pit.Dispose(); // release canonical-path ownership before reopening (CR003 §4)
 
-                var reloaded = new Pit(
+                using var reloaded = new Pit(
                     testRoot,
                     readOnly: true,
                     autoload: true,

@@ -44,8 +44,9 @@ namespace JsonPit.Tests
 			live.DeleteProperty("A");
 			pit.Add(live);
 			pit.Save(force: true);
+			pit.Dispose(); // release canonical-path ownership before reopening (CR003 §4)
 
-			var reloaded = new Pit(root, readOnly: true, autoload: true, unflagged: true);
+			using var reloaded = new Pit(root, readOnly: true, autoload: true, unflagged: true);
 			var projected = reloaded.Get(id);
 
 			Assert.NotNull(projected);

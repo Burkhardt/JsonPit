@@ -30,12 +30,40 @@ public class PitItems : ItemsBase, IEnumerable<PitItem>
 	}
 	public static PitItems Create(string key, int maxCount = 10) =>
 		new(key, ImmutableList<PitItem>.Empty, maxCount);
+	/// <summary>
+	/// Deterministic history ordering (CR003, coordinated v3.13.2):
+	/// <list type="number">
+	/// <item>Primary: <c>Modified</c> descending (newest first).</item>
+	/// <item>Equal timestamps: the fragment with fewer JSON properties sorts first and
+	/// therefore has projection precedence for contradictory overlapping properties.</item>
+	/// <item>Equal timestamp and property count: canonicalized fragment content supplies
+	/// the final deterministic ordinal tie-break. This comparison is performed only for
+	/// that final double-tie case; ordinary additions and projections do not pay it.</item>
+	/// </list>
+	/// Every participant therefore produces the same deterministic order from the same
+	/// history regardless of fragment arrival order.
+	/// </summary>
+	public static int CompareFragments(PitItem a, PitItem b)
+	{
+		var byTime = b.Modified.CompareTo(a.Modified);
+		if (byTime != 0) return byTime;
+		var byPropertyCount = a.Count.CompareTo(b.Count);
+		if (byPropertyCount != 0) return byPropertyCount;
+		return string.CompareOrdinal(
+			OsLib.CanonicalJson.Canonicalize(a),
+			OsLib.CanonicalJson.Canonicalize(b));
+	}
+	/// <summary>
+	/// Pushes a fragment onto the history using the deterministic ordering above.
+	/// Replaying an exact fragment already present in this history is idempotent:
+	/// the duplicate is ignored and does not consume another bounded-history slot.
+	/// </summary>
 	public PitItems Push(PitItem item)
 	{
-		// Newest first: descending by Modified.  History[0] is the most
-		// recently modified fragment; History[^1] is the oldest.
-		var newHistory = History.Add(item)
-			.Sort((a, b) => b.Modified.CompareTo(a.Modified));
+		// Exact replay idempotence: same timestamp and identical content → ignore.
+		if (History.Any(f => f.Modified.UtcTicks == item.Modified.UtcTicks && JToken.DeepEquals(f, item)))
+			return this;
+		var newHistory = History.Add(item).Sort(CompareFragments);
 		if (MaxCount > 0 && newHistory.Count > MaxCount)
 			newHistory = newHistory.RemoveRange(MaxCount, newHistory.Count - MaxCount);
 		return new PitItems(Key, newHistory, MaxCount);
@@ -97,7 +125,7 @@ public class PitItems : ItemsBase, IEnumerable<PitItem>
 		if (value is not null)
 		{
 			foreach (var v in value) list = list.Add(v);
-			if (list.Count > 1) list = list.Sort((a, b) => b.Modified.CompareTo(a.Modified));
+			if (list.Count > 1) list = list.Sort(CompareFragments);
 			Key = key ?? list.FirstOrDefault()?.Id;
 		}
 		History = list;

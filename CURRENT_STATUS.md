@@ -1,10 +1,22 @@
 # JsonPit CURRENT_STATUS
 
-Last updated: 2026-08-03
+Last updated: 2026-08-05
 
-Current package line: `3.13.1`
+Current package line: `3.13.2` (CR003 implemented locally; publication pending release authorization)
 
-## Current Local State
+## CR003 Implementation (coordinated 3.13.2)
+
+- State/snapshot gate: concurrent `Add` calls run in shared mode; `Save` captures a brief exclusive, byte-stable snapshot and releases the gate before serialization and cloud I/O. Only fragments in the written snapshot are validated; later additions stay dirty for the next save. The confirmed `SaveInterleavedWithAdds` race is fixed.
+- `Master.flag` records exact process identity (`{Machine}-{Subscriber}-{PID}`); only the exact owner renews; a same-participant PID is refused while the owner's window is active and inherits after release/expiry.
+- One live public `Pit` per canonical path per process (weak-reference registry, `PitInstanceConflictException`); internal comparison/merge paths use private snapshot readers.
+- Validated candidate loads: live state replaced only after a complete parse; transient read-during-write failures retried; bounded exhaustion throws `JsonPitPersistenceException`.
+- Collision-safe change files `{Modified.UtcTicks}_{ExactProcessIdentity}_{Sha256}.json` (hash over exact canonical UTF-8 bytes); merge requires hash+parse validation; legacy names still ingested for upgrade.
+- Two-stage current-master-only cleanup with a grace measured from successful canonical persistence (`Pit.ChangeFileCleanupGrace`, default 10 min); restart/transfer resets eligibility.
+- Live split-master recovery: per-tenure recovery write set, `Master*.flag` watcher plus operation-boundary scans, loser/orphan protocols, live-transfer export, disposal durability boundary; durable canonical-JSON audit events under the pit's `Events` child; `LastRecoveryStatus` + `RecoveryStatusChanged`.
+- Fallback package references align to `OsLibCore 3.13.2` and `RaiUtils 3.13.1`.
+- Mixed-version caution: pre-3.13.2 processes can fail on 3.13.2 hashed change files; upgrade all participants of a shared pit together.
+
+## Previous Local State (3.13.1)
 
 - `PitItem.DeleteProperty(propertyName)` continues to write a top-level `null` marker for the requested property.
 - `PitItems.ProjectState(...)` continues to treat a top-level `null` in the newest matching fragment as an attribute tombstone: the projected object omits that property and older values for the same property stay suppressed.
@@ -27,10 +39,12 @@ Current package line: `3.13.1`
 
 ## Validation
 
-- On 2026-08-03, `103` JsonPit tests passed in the run excluding `SaveInterleavedWithAdds_SubsequentSavePersistsEveryAcceptedItem`. The OneDrive remote-sync test initially observed its known file-materialization timing race, then passed on an immediate isolated rerun in 68 seconds.
-- An immediate isolated rerun failed again in `ConcurrentDictionary.ICollection.CopyTo(...)`; see `doc/JsonPit_CR_concurrency-for-next-release.md`.
+- JsonPit local suites (excluding SSH remote scenarios): `144` passed, `0` failed, `0` skipped — including the new `InProcessConcurrencyTests`, `MultiPitInstanceConcurrencyTests`, `MultiProcessConcurrencyTests`, `EqualTimestampOrderingTests`, `ReadDuringWriteTests`, and `SplitMasterRecoveryTests`, all on the configured OneDrive root.
+- The two-server split-master scenario (Nkosikazi ↔ Mzansi, OneDrive) passed; artifacts and timing are recorded in the umbrella `doc/JsonPit_RELEASE_NOTES_3.13.2.md`.
+- Historical 2026-08-03 state: `103` tests passed excluding `SaveInterleavedWithAdds_SubsequentSavePersistsEveryAcceptedItem`, whose repeated failure motivated CR003; that test now passes repeatedly.
 
 ## Documentation Notes
 
 - The class diagram documents `TryReleaseProcessWindow()` plus the process-flag ownership helpers added for `3.13.1`.
-- `doc/JsonPit_RELEASE_NOTES_3.13.1.md` records both the lifecycle change and the carried-forward DeleteProperty projection behavior.
+- The umbrella `doc/JsonPit-FlagFiles-And-Concurrency.md` now describes the implemented v3.13.2 contract, including the accepted crash/power-loss limitation.
+- Release notes: umbrella `doc/JsonPit_RELEASE_NOTES_3.13.2.md` referencing `CR003_RAI_to_RAIkeep_JsonPit-concurrency-contract-and-persistence-races.md`.

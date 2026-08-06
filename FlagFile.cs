@@ -73,6 +73,44 @@ public class MasterFlagFile : TextFile
 	/// </summary>
 	public bool IsOwnedBy(string originator) => !IsExpired && Originator == originator;
 	/// <summary>
+	/// Extracts the stable participant identity ("{Machine}-{Subscriber}") from a master
+	/// owner value. Since v3.13.2 master ownership records the exact process identity
+	/// ("{Machine}-{Subscriber}-{PID}"); stripping the trailing numeric PID segment
+	/// yields the participant. A legacy participant-only value is returned unchanged.
+	/// </summary>
+	public static string ParticipantOf(string ownerIdentity)
+	{
+		if (string.IsNullOrEmpty(ownerIdentity)) return ownerIdentity;
+		var separator = ownerIdentity.LastIndexOf('-');
+		if (separator > 0 && separator < ownerIdentity.Length - 1 &&
+			ownerIdentity[(separator + 1)..].All(char.IsAsciiDigit))
+			return ownerIdentity[..separator];
+		return ownerIdentity;
+	}
+	/// <summary>
+	/// True when the recorded owner value names an exact process (contains a PID segment).
+	/// </summary>
+	public static bool IsExactProcessIdentity(string ownerIdentity) =>
+		!string.IsNullOrEmpty(ownerIdentity) && ParticipantOf(ownerIdentity) != ownerIdentity;
+	/// <summary>
+	/// Enumerates provider-created master-conflict signals in <paramref name="pitDir"/>:
+	/// any file matching <c>Master*.flag</c> whose filename is longer than
+	/// <c>Master.flag</c>. The suffix is opaque — no provider-specific pattern is parsed.
+	/// The exact canonical <c>Master.flag</c> is the authority record and is never
+	/// returned here; a longer variant is conflict evidence, not a second authority.
+	/// </summary>
+	public static IEnumerable<RaiFile> ConflictFlags(RaiPath pitDir)
+	{
+		if (pitDir is null || !pitDir.Exists()) yield break;
+		foreach (var file in pitDir.EnumerateFiles("Master*.flag"))
+		{
+			if (!file.Name.Equals("Master", StringComparison.Ordinal) &&
+				file.Name.StartsWith("Master", StringComparison.Ordinal) &&
+				file.NameWithExtension.Length > "Master.flag".Length)
+				yield return file;
+		}
+	}
+	/// <summary>
 	/// Attempts to claim master rights for the supplied participant identity.
 	/// Succeeds when:
 	///   - the ticket is expired (no active master), or
@@ -192,6 +230,38 @@ public class ProcessFlagFile : MasterFlagFile
 	/// </summary>
 	public static string CurrentFlagName(string subscriber = null) =>
 		$"{FlagName(subscriber)}-{Environment.ProcessId}";
+	/// <summary>
+	/// True when the process window recorded for <paramref name="exactProcessIdentity"/>
+	/// (its "{Machine}-{Subscriber}-{PID}.flag" activity file in <paramref name="pitDir"/>)
+	/// is still active — the file exists and its timestamp lies within
+	/// <see cref="MasterFlagFile.TicketDuration"/>. A missing, released (tombstoned), or
+	/// aged-out flag means the window has ended.
+	/// </summary>
+	public static bool IsProcessWindowActive(RaiPath pitDir, string exactProcessIdentity)
+	{
+		if (pitDir is null || string.IsNullOrEmpty(exactProcessIdentity)) return false;
+		var flagFile = new RaiFile(pitDir, exactProcessIdentity, "flag");
+		if (!flagFile.Exists()) return false;
+		var flag = new TextFile(flagFile.FullName);
+		flag.Read();
+		if (flag.Lines is not { Count: > 0 }) return false;
+		var tv = new TimestampedValue(flag.Lines[0]);
+		return (DateTimeOffset.UtcNow - tv.Time) <= MasterFlagFile.TicketDuration;
+	}
+	/// <summary>
+	/// Returns the last recorded window timestamp for <paramref name="exactProcessIdentity"/>,
+	/// or null when no window flag exists.
+	/// </summary>
+	public static DateTimeOffset? ProcessWindowTime(RaiPath pitDir, string exactProcessIdentity)
+	{
+		if (pitDir is null || string.IsNullOrEmpty(exactProcessIdentity)) return null;
+		var flagFile = new RaiFile(pitDir, exactProcessIdentity, "flag");
+		if (!flagFile.Exists()) return null;
+		var flag = new TextFile(flagFile.FullName);
+		flag.Read();
+		if (flag.Lines is not { Count: > 0 }) return null;
+		return new TimestampedValue(flag.Lines[0]).Time;
+	}
 	public string Process
 	{
 		get
