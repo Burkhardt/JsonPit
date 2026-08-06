@@ -6,7 +6,7 @@ JsonPit change requests and release notes are centralized in the RAIkeep [`doc/`
 
 ## Start Here
 
-If you want to use JsonPit 3.13.1 from NuGet in another service or agent workflow, start with [GettingStarted.md](GettingStarted.md).
+If you want to use JsonPit 3.13.2 from NuGet in another service or agent workflow, start with [GettingStarted.md](GettingStarted.md).
 
 That guide now covers:
 
@@ -17,9 +17,9 @@ That guide now covers:
 - persistence and synchronized-storage expectations
 - a practical `PersonPit` example for OTW / AfricaStage style backend work
 
-## 3.13.1
+## 3.13.2
 
-- Coordinated patch release: aligns JsonPit with `OsLibCore 3.13.1` and `RaiUtils 3.13.1` in the current dependency order.
+- Coordinated patch release: aligns JsonPit with `OsLibCore 3.13.2` and `RaiUtils 3.13.2` in the current dependency order.
 - Keeps the WWWA-based quick-start section in [GettingStarted.md](GettingStarted.md) for cloud-path pit creation and sample JSON5 seeding.
 - The supported cloud-backed provider claim is `Dropbox`, `OneDrive`, `GoogleDrive`, and `ICloudDrive`.
 - `PitItem.Id` is now the canonical framework identifier.
@@ -28,7 +28,7 @@ That guide now covers:
 - `PitItem.DeleteProperty(...)` now projects top-level null tombstones as absent attributes instead of leaking a permanent null shadow.
 - Remote-sync workflows continue to align with OsLib's configurable metadata propagation delay handling, including the `mkdir` polymorphism package line update in OsLib.
 - No JsonPit API changes were required beyond the `3.12.0` line; this release refreshes the aligned package baseline and packaged docs.
-- Live docs and release-note pointers were refreshed for the `3.13.1` release line, and this README is packaged with the NuGet release.
+- Live docs and release-note pointers were refreshed for the `3.13.2` release line, and this README is packaged with the NuGet release.
 
 ## namespace
 
@@ -118,4 +118,4 @@ That keeps JsonPit aligned with OsLib in .NET today and with the upcoming Python
 
 ## release notes
 
-- Latest release notes: [JsonPit_RELEASE_NOTES_3.13.1.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_3.13.1.md)
+- Latest release notes: [JsonPit_RELEASE_NOTES_3.13.2.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_3.13.2.md)
