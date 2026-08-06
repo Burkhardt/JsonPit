@@ -2,7 +2,7 @@
 
 Last updated: 2026-08-05
 
-Current package line: `3.13.2` (CR003 implemented locally; publication pending release authorization)
+Current package line: `4.0.0` prep in progress (CR003 baseline carried forward; publication pending explicit release authorization)
 
 ## CR003 Implementation (coordinated 3.13.2)
 
@@ -13,7 +13,7 @@ Current package line: `3.13.2` (CR003 implemented locally; publication pending r
 - Collision-safe change files `{Modified.UtcTicks}_{ExactProcessIdentity}_{Sha256}.json` (hash over exact canonical UTF-8 bytes); merge requires hash+parse validation; legacy names still ingested for upgrade.
 - Two-stage current-master-only cleanup with a grace measured from successful canonical persistence (`Pit.ChangeFileCleanupGrace`, default 10 min); restart/transfer resets eligibility.
 - Live split-master recovery: per-tenure recovery write set, `Master*.flag` watcher plus operation-boundary scans, loser/orphan protocols, live-transfer export, disposal durability boundary; durable canonical-JSON audit events under the pit's `Events` child; `LastRecoveryStatus` + `RecoveryStatusChanged`.
-- Fallback package references align to `OsLibCore 3.13.2` and `RaiUtils 3.13.1`.
+- Fallback package references align to `OsLibCore 4.0.0` and `RaiUtils 4.0.0`.
 - Mixed-version caution: pre-3.13.2 processes can fail on 3.13.2 hashed change files; upgrade all participants of a shared pit together.
 
 ## Previous Local State (3.13.1)
