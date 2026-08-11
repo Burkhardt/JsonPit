@@ -1,8 +1,8 @@
 # JsonPit CURRENT_STATUS
 
-Last updated: 2026-08-05
+Last updated: 2026-08-10
 
-Current package line: `4.0.0` prep in progress (CR003 baseline carried forward; publication pending explicit release authorization)
+Current package line: `4.0.1` synchronized CR006 patch prep; JsonPit has version/dependency metadata changes only and publication remains pending explicit release authorization
 
 ## CR003 Implementation (coordinated 3.13.2)
 
@@ -13,7 +13,7 @@ Current package line: `4.0.0` prep in progress (CR003 baseline carried forward; 
 - Collision-safe change files `{Modified.UtcTicks}_{ExactProcessIdentity}_{Sha256}.json` (hash over exact canonical UTF-8 bytes); merge requires hash+parse validation; legacy names still ingested for upgrade.
 - Two-stage current-master-only cleanup with a grace measured from successful canonical persistence (`Pit.ChangeFileCleanupGrace`, default 10 min); restart/transfer resets eligibility.
 - Live split-master recovery: per-tenure recovery write set, `Master*.flag` watcher plus operation-boundary scans, loser/orphan protocols, live-transfer export, disposal durability boundary; durable canonical-JSON audit events under the pit's `Events` child; `LastRecoveryStatus` + `RecoveryStatusChanged`.
-- Fallback package references align to `OsLibCore 4.0.0` and `RaiUtils 4.0.0`.
+- Fallback package references align to `OsLibCore 4.0.1` and `RaiUtils 4.0.1`.
 - Mixed-version caution: pre-3.13.2 processes can fail on 3.13.2 hashed change files; upgrade all participants of a shared pit together.
 
 ## Previous Local State (3.13.1)
@@ -39,7 +39,7 @@ Current package line: `4.0.0` prep in progress (CR003 baseline carried forward; 
 
 ## Validation
 
-- JsonPit local suites (excluding SSH remote scenarios): `144` passed, `0` failed, `0` skipped — including the new `InProcessConcurrencyTests`, `MultiPitInstanceConcurrencyTests`, `MultiProcessConcurrencyTests`, `EqualTimestampOrderingTests`, `ReadDuringWriteTests`, and `SplitMasterRecoveryTests`, all on the configured OneDrive root.
+- JsonPit v4.0.1 umbrella validation, including configured cloud and SSH remote scenarios: `146` passed, `0` failed, `0` skipped.
 - The two-server split-master scenario (Nkosikazi ↔ Mzansi, OneDrive) passed; artifacts and timing are recorded in the umbrella `doc/JsonPit_RELEASE_NOTES_3.13.2.md`.
 - Historical 2026-08-03 state: `103` tests passed excluding `SaveInterleavedWithAdds_SubsequentSavePersistsEveryAcceptedItem`, whose repeated failure motivated CR003; that test now passes repeatedly.
 
