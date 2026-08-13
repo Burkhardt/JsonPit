@@ -6,7 +6,7 @@ JsonPit change requests and release notes are centralized in the RAIkeep [`doc/`
 
 ## Start Here
 
-If you want to use JsonPit 4.0.1 from NuGet in another service or agent workflow, start with [GettingStarted.md](GettingStarted.md).
+If you want to use JsonPit 4.1.0 from NuGet in another service or agent workflow, start with [GettingStarted.md](GettingStarted.md).
 
 That guide now covers:
 
@@ -17,9 +17,12 @@ That guide now covers:
 - persistence and synchronized-storage expectations
 - a practical `PersonPit` example for OTW / AfricaStage style backend work
 
-## 4.0.1
+## 4.1.0
 
-- Coordinated CR006 patch alignment with `OsLibCore 4.0.1` and `RaiUtils 4.0.1`; no JsonPit API, persistence, or concurrency behavior changes from `4.0.0`.
+- Aligns on `OsLibCore 4.1.0` and `RaiUtils 4.1.0`.
+- `FileSystemWatcher` callbacks and debounce work now use weak ownership so an abandoned `Pit` can be collected and its canonical path reopened.
+- The `Pit` finalizer still performs no recovery publication, watcher disposal, or filesystem I/O.
+- The remote synchronization suite now waits for authority-record contents rather than only a materialized `Master.flag` pathname.
 - Keeps the WWWA-based quick-start section in [GettingStarted.md](GettingStarted.md) for cloud-path pit creation and sample JSON5 seeding.
 - The supported cloud-backed provider claim is `Dropbox`, `OneDrive`, `GoogleDrive`, and `ICloudDrive`.
 - `PitItem.Id` is now the canonical framework identifier.
@@ -28,7 +31,7 @@ That guide now covers:
 - `PitItem.DeleteProperty(...)` now projects top-level null tombstones as absent attributes instead of leaking a permanent null shadow.
 - Remote-sync workflows continue to align with OsLib's configurable metadata propagation delay handling, including the `mkdir` polymorphism package line update in OsLib.
 - No JsonPit API changes were required beyond the `3.12.0` line; this release refreshes the aligned package baseline and packaged docs.
-- Live docs and release-note pointers were refreshed for the `4.0.1` release line, and this README is packaged with the NuGet release.
+- Live docs and release-note pointers were refreshed for the `4.1.0` release line, and this README is packaged with the NuGet release.
 
 ## namespace
 
@@ -118,4 +121,4 @@ That keeps JsonPit aligned with OsLib in .NET today and with the upcoming Python
 
 ## release notes
 
-- Latest release notes: [JsonPit_RELEASE_NOTES_4.0.1.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.0.1.md)
+- Latest release notes: [JsonPit_RELEASE_NOTES_4.1.0.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.1.0.md)

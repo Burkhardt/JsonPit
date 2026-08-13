@@ -110,8 +110,13 @@ public sealed class RemoteSyncTests : IDisposable
 
 		WaitForFileOnMzansi(mzansiPitFilePath, "pit file to sync to Mzansi");
 
-		// Also wait for Master.flag — Mzansi needs it to know it is not master
-		WaitForFileOnMzansi($"{mzansiPitDir}/Master.flag", "Master.flag to sync to Mzansi");
+		// Wait for the authority record's contents, not merely its pathname. OneDrive may
+		// materialize a placeholder before the Nkosikazi ownership bytes have arrived;
+		// launching pits in that window would let Mzansi claim an apparently empty ticket.
+		WaitForContentOnMzansi(
+			$"{mzansiPitDir}/Master.flag",
+			"Nkosikazi",
+			"Nkosikazi Master.flag ownership to finish syncing to Mzansi");
 
 		// Create a small JSON seed file on Mzansi and run pits
 		var seedJson = "[{\\\"Id\\\":\\\"MzansiEntry\\\",\\\"Source\\\":\\\"Mzansi\\\",\\\"Note\\\":\\\"Added by client\\\"}]";

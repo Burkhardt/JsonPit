@@ -1137,15 +1137,19 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 		try
 		{
 			var directory = PitDir; // creates the pit directory if needed
+			// FileSystemWatcher remains rooted while native monitoring is active. Its event
+			// delegates therefore must not close over this Pit, or an abandoned Pit can never
+			// become finalizable and its weak path-registry entry continues to look live.
+			var weakOwner = new WeakReference<Pit>(this);
 			conflictWatcher = new System.IO.FileSystemWatcher(directory.FullPath, "Master*.flag")
 			{
 				NotifyFilter = System.IO.NotifyFilters.FileName | System.IO.NotifyFilters.LastWrite | System.IO.NotifyFilters.Size,
 				IncludeSubdirectories = false
 			};
-			conflictWatcher.Created += (_, _) => QueueRecoveryEvaluation("Watcher");
-			conflictWatcher.Changed += (_, _) => QueueRecoveryEvaluation("Watcher");
-			conflictWatcher.Renamed += (_, _) => QueueRecoveryEvaluation("Watcher");
-			conflictWatcher.Error += (_, _) => QueueRecoveryEvaluation("WatcherError");
+			conflictWatcher.Created += (_, _) => QueueRecoveryEvaluation(weakOwner, "Watcher");
+			conflictWatcher.Changed += (_, _) => QueueRecoveryEvaluation(weakOwner, "Watcher");
+			conflictWatcher.Renamed += (_, _) => QueueRecoveryEvaluation(weakOwner, "Watcher");
+			conflictWatcher.Error += (_, _) => QueueRecoveryEvaluation(weakOwner, "WatcherError");
 			conflictWatcher.EnableRaisingEvents = true;
 		}
 		catch (Exception ex)
@@ -1173,32 +1177,44 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 	/// Debounces duplicate or partially materialized notifications and queues at most one
 	/// recovery evaluation for this pit.
 	/// </summary>
+	private static void QueueRecoveryEvaluation(WeakReference<Pit> weakOwner, string operation)
+	{
+		if (weakOwner.TryGetTarget(out var owner))
+			owner.QueueRecoveryEvaluation(operation);
+	}
+
 	private void QueueRecoveryEvaluation(string operation)
 	{
 		if (disposed || ReadOnly || unflagged) return;
 		if (Interlocked.CompareExchange(ref recoveryEvaluationQueued, 1, 0) != 0) return;
 		var token = recoveryCts.Token;
-		Task.Run(async () =>
+		_ = RunQueuedRecoveryEvaluation(new WeakReference<Pit>(this), token, operation);
+	}
+
+	private static async Task RunQueuedRecoveryEvaluation(
+		WeakReference<Pit> weakOwner, CancellationToken token, string operation)
+	{
+		Pit owner = null;
+		try
 		{
-			try
-			{
-				await Task.Delay(RecoveryDebounce, token).ConfigureAwait(false); // wait for materialization
-				if (token.IsCancellationRequested || disposed) return;
-				EvaluateRecovery(operation);
-			}
-			catch (OperationCanceledException) { }
-			catch (Exception ex)
-			{
-				// Never let a recovery failure escape on a background/callback path.
-				PublishRecoveryStatus(RecoveryStage.DeferredForRetry, CurrentRecoveryRole(), operation,
+			await Task.Delay(RecoveryDebounce, token).ConfigureAwait(false); // wait for materialization
+			if (!weakOwner.TryGetTarget(out owner) || token.IsCancellationRequested || owner.disposed) return;
+			owner.EvaluateRecovery(operation);
+		}
+		catch (OperationCanceledException) { }
+		catch (Exception ex)
+		{
+			// Never let a recovery failure escape on a background/callback path.
+			if ((owner is not null || weakOwner.TryGetTarget(out owner)) && !owner.disposed)
+				owner.PublishRecoveryStatus(RecoveryStage.DeferredForRetry, owner.CurrentRecoveryRole(), operation,
 					$"Queued recovery evaluation failed and is deferred to the next operation boundary: {ex.Message}",
 					exception: ex);
-			}
-			finally
-			{
-				Interlocked.Exchange(ref recoveryEvaluationQueued, 0);
-			}
-		}, CancellationToken.None);
+		}
+		finally
+		{
+			if (owner is not null || weakOwner.TryGetTarget(out owner))
+				Interlocked.Exchange(ref owner.recoveryEvaluationQueued, 0);
+		}
 	}
 	/// <summary>
 	/// Operation-boundary conflict scan (construction, master acquisition, Save, Reload,

@@ -289,12 +289,15 @@ public sealed class SplitMasterRecoveryTests : IDisposable
 	public void Finalizer_PerformsNoRecoveryPublicationOrFilesystemIO_AndPathBecomesReopenable()
 	{
 		var root = NewPitRoot("finalizer");
-		CreateAndAbandonPit(root);
+		var abandoned = CreateAndAbandonPit(root);
 		var filesBefore = root.EnumerateFiles("*").Select(f => f.NameWithExtension).OrderBy(n => n).ToList();
 
 		GC.Collect();
 		GC.WaitForPendingFinalizers();
 		GC.Collect();
+
+		Assert.False(abandoned.TryGetTarget(out _),
+			"The native watcher and any queued debounce must not keep an abandoned Pit alive.");
 
 		// The finalizer wrote no change file, flag, event, or canonical content.
 		var filesAfter = root.EnumerateFiles("*").Select(f => f.NameWithExtension).OrderBy(n => n).ToList();
@@ -307,7 +310,7 @@ public sealed class SplitMasterRecoveryTests : IDisposable
 	}
 
 	[System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
-	private static void CreateAndAbandonPit(RaiPath root)
+	private static WeakReference<Pit> CreateAndAbandonPit(RaiPath root)
 	{
 		var pit = new Pit(root, readOnly: false, autoload: false, subscriber: "cr003");
 		pit.Add(new PitItem("Persisted"));
@@ -315,6 +318,7 @@ public sealed class SplitMasterRecoveryTests : IDisposable
 		var dirty = new PitItem("AbandonedDirty");
 		dirty.SetProperty(new { Payload = "lost-by-design-without-dispose" });
 		pit.Add(dirty); // never exported: crash/abandonment is outside the live recovery guarantee
+		return new WeakReference<Pit>(pit);
 	}
 
 	[Fact]

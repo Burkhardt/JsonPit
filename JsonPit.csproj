@@ -3,7 +3,7 @@
 	<PropertyGroup>
 		<Title>JsonPit</Title>
 		<PackageId>JsonPit</PackageId>
-		<Version>4.0.1</Version>
+		<Version>4.1.0</Version>
 		<Authors>Rainer Burkhardt</Authors>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
 		<Description>Stores json files across servers (synchronized).</Description>
@@ -17,7 +17,7 @@
 		<Copyright>© Rainer Burkhardt. All rights reserved.</Copyright>
 		<RepositoryUrl>https://github.com/Burkhardt/JsonPit</RepositoryUrl>
 		<RepositoryType>github</RepositoryType>
-		<PackageReleaseNotes>4.0.1 coordinated patch alignment for CR006; no JsonPit API, persistence, or concurrency behavior changes from 4.0.0.</PackageReleaseNotes>
+		<PackageReleaseNotes>4.1.0 aligns CR008 dependencies and fixes abandoned Pit watcher retention while preserving the no-finalizer-I/O contract.</PackageReleaseNotes>
 		<PackageIcon>HardCastle.png</PackageIcon>
 		<DefaultItemExcludes>$(DefaultItemExcludes);JsonPit.Tests\**</DefaultItemExcludes>
 	</PropertyGroup>
@@ -43,8 +43,8 @@
 	</ItemGroup>
 
 	<ItemGroup Condition="'$(OsLibProjectPath)' == '' or '$(RaiUtilsProjectPath)' == ''">
-		<PackageReference Include="OsLibCore" Version="4.0.1" />
-		<PackageReference Include="RaiUtils" Version="4.0.1" />
+		<PackageReference Include="OsLibCore" Version="4.1.0" />
+		<PackageReference Include="RaiUtils" Version="4.1.0" />
 	</ItemGroup>
 
 </Project>
