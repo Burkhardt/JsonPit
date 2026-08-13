@@ -653,7 +653,7 @@ If you are implementing a small JsonPit-backed feature from NuGet packages, star
 
 ## See Also
 
-- [README.md](README.md)
+- [README.md](https://github.com/Burkhardt/JsonPit/blob/main/README.md)
 - [JsonPit.cs](JsonPit.cs)
 - [PitFile.cs](PitFile.cs)
 - [JsonPit.Tests/UnitTests.cs](JsonPit.Tests/UnitTests.cs)

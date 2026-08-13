@@ -6,7 +6,7 @@ JsonPit change requests and release notes are centralized in the RAIkeep [`doc/`
 
 ## Start Here
 
-If you want to use JsonPit 4.1.0 from NuGet in another service or agent workflow, start with [GettingStarted.md](GettingStarted.md).
+If you want to use JsonPit 4.1.0 from NuGet in another service or agent workflow, start with [GettingStarted.md](https://github.com/Burkhardt/JsonPit/blob/main/GettingStarted.md).
 
 That guide now covers:
 
@@ -23,7 +23,7 @@ That guide now covers:
 - `FileSystemWatcher` callbacks and debounce work now use weak ownership so an abandoned `Pit` can be collected and its canonical path reopened.
 - The `Pit` finalizer still performs no recovery publication, watcher disposal, or filesystem I/O.
 - The remote synchronization suite now waits for authority-record contents rather than only a materialized `Master.flag` pathname.
-- Keeps the WWWA-based quick-start section in [GettingStarted.md](GettingStarted.md) for cloud-path pit creation and sample JSON5 seeding.
+- Keeps the WWWA-based quick-start section in [GettingStarted.md](https://github.com/Burkhardt/JsonPit/blob/main/GettingStarted.md) for cloud-path pit creation and sample JSON5 seeding.
 - The supported cloud-backed provider claim is `Dropbox`, `OneDrive`, `GoogleDrive`, and `ICloudDrive`.
 - `PitItem.Id` is now the canonical framework identifier.
 - Legacy payloads that still contain `Name` without `Id` are normalized internally by copying `Name` into `Id`, while preserving `Name`.
@@ -39,62 +39,44 @@ JsonPit
 
 ## classes
 
-<details>
-<summary>ItemsBase: Base container holding a key identifier for item groups.</summary>
+### ItemsBase: Base container holding a key identifier for item groups.
 
 - ItemsBase: `Key`
-</details>
 
-<details>
-<summary>JsonPitBase: Common base for pits with config, flags, and persistence helpers.</summary>
+### JsonPitBase: Common base for pits with config, flags, and persistence helpers.
 
 - JsonPitBase: `ReadOnly`, `Backup`, `RunningOnMaster`, `MasterUpdatesAvailable`, `TryReleaseProcessWindow`, `ChangeDir`, `JsonFile`
-</details>
 
-<details>
-<summary>TimestampedValue: Value with an attached timestamp and round-trip string format.</summary>
+### TimestampedValue: Value with an attached timestamp and round-trip string format.
 
 - TimestampedValue: `Value`, `Time`, `ToString`
-</details>
 
-<details>
-<summary>MasterFlagFile: Flag file used to track master ownership and last update time.</summary>
+### MasterFlagFile: Flag file used to track master ownership and last update time.
 
 - MasterFlagFile: `Originator`, `Time`, `Update`
-</details>
 
-<details>
-<summary>ProcessFlagFile: Flag file used to track the current process and last update time.</summary>
+### ProcessFlagFile: Flag file used to track the current process and last update time.
 
 - ProcessFlagFile: `Process`, `Update`, `CurrentProcessId`, `CurrentFlagName`, `IsOwnedByCurrentProcess`, `TryReleaseCurrentProcess`
 - Activity filename: `{MachineName}-{Subscriber}-{PID}.flag`; the PID makes ownership process-specific.
 - Explicit release verifies the current process identity and expires the flag in place without deleting the cloud-synced file.
 - Process activity windows and master writer tickets are separate; releasing the former never releases the latter.
-</details>
 
-<details>
-<summary>PitItem: JSON-backed item with metadata and change tracking.</summary>
+### PitItem: JSON-backed item with metadata and change tracking.
 
 - PitItem: `Id`, `Modified`, `Deleted`, `Note`, `SetProperty`, `DeleteProperty`
-</details>
 
-<details>
-<summary>PitItemExtensions: Helpers for comparing items and aligning timestamps.</summary>
+### PitItemExtensions: Helpers for comparing items and aligning timestamps.
 
 - PitItemExtensions: `Equals`, `isLike`, `aligned`
-</details>
 
-<details>
-<summary>PitItems: History stack of PitItem versions for a single key.</summary>
+### PitItems: History stack of PitItem versions for a single key.
 
 - PitItems: `Push`, `Peek`, `Get`, `Merge`, `Count`
-</details>
 
-<details>
-<summary>Pit: JsonPit file container with item history and persistence.</summary>
+### Pit: JsonPit file container with item history and persistence.
 
 - Pit: `Add`, `Get`, `GetAt`, `Delete`, `Save`, `MergeChanges`, `Keys`
-</details>
 
 ## cloud root convention
 
@@ -109,15 +91,15 @@ Recommended shared contract:
 
 That keeps JsonPit aligned with OsLib in .NET today and with the upcoming Python `OsLib`, `RaiUtils`, and `JsonPit` packages later.
 
-<details>
-<summary>Item: Base item with modified tracking and dirty state management.</summary>
+### Item: Base item with modified tracking and dirty state management.
 
 - Item: `Id`, `Modified`, `Deleted`, `Delete`, `Valid`, `Validate`, `Invalidate`
-</details>
-
 ---
 
-@see [GettingStarted.md](GettingStarted.md) for the practical onboarding guide, or check the unit tests for lower-level API examples.
+@see [GettingStarted.md](https://github.com/Burkhardt/JsonPit/blob/main/GettingStarted.md) for the practical onboarding guide, or check the unit tests for lower-level API examples.
+
+Foldable class and contract documentation is available in
+[API.md](https://github.com/Burkhardt/JsonPit/blob/main/API.md).
 
 ## release notes
 
