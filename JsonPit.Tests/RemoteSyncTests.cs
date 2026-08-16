@@ -118,6 +118,16 @@ public sealed class RemoteSyncTests : IDisposable
 			"Nkosikazi",
 			"Nkosikazi Master.flag ownership to finish syncing to Mzansi");
 
+		// The canonical file's first sync can consume most of the 60-second lease.
+		// Renew the exact owning process and wait for that specific timestamp so the
+		// client phase tests active-master behavior instead of racing lease expiry.
+		Assert.True(pit.TryAcquireMaster(), "Nkosikazi should renew its exact-process master lease");
+		var renewedTicketTimestamp = pit.MasterFlag().Time.UtcDateTime.ToString("o");
+		WaitForContentOnMzansi(
+			$"{mzansiPitDir}/Master.flag",
+			renewedTicketTimestamp,
+			"renewed Nkosikazi Master.flag ticket to finish syncing to Mzansi");
+
 		// Create a small JSON seed file on Mzansi and run pits
 		var seedJson = "[{\\\"Id\\\":\\\"MzansiEntry\\\",\\\"Source\\\":\\\"Mzansi\\\",\\\"Note\\\":\\\"Added by client\\\"}]";
 		SshExec($"echo '{seedJson}' > /tmp/{PitName}.json5");

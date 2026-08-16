@@ -1,6 +1,6 @@
 # JsonPit API Reference
 
-This document provides a foldable overview of the public JsonPit 4.1 API.
+This document provides a foldable overview of the public JsonPit 4.2 API.
 
 ## Pit lifecycle and persistence
 

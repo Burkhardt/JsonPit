@@ -18,8 +18,6 @@
 
 	<ItemGroup>
 		<ProjectReference Include="..\JsonPit.csproj" />
-		<ProjectReference Include="..\..\OsLib\OsLib.csproj" />
-		<ProjectReference Include="..\..\RaiUtils\RaiUtils.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>

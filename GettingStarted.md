@@ -1,10 +1,10 @@
-# Getting Started with JsonPit 4.0.0
+# Getting Started with JsonPit 4.2.0
 
 This guide is written for practical implementation work, especially when you want to use JsonPit from NuGet packages in another service such as OTW / AfricaStage.
 
-It is based on the current JsonPit 4.0.0 code and tests in this repository.
+It is based on the current JsonPit 4.2.0 code and tests in this repository.
 
-## 4.0.0 key decisions
+## 4.x key decisions
 
 - The supported cloud-backed provider claim for the package stack is `Dropbox`, `OneDrive`, `GoogleDrive`, and `ICloudDrive`.
 - `PitItem.Id` is now the canonical framework identifier.
@@ -43,7 +43,7 @@ It is not trying to replace a transactional database.
 
 ## Package Setup
 
-Use the NuGet package ids at version `4.0.0`:
+Use the coordinated NuGet package ids at version `4.2.0`:
 
 - `JsonPit`
 - `RaiUtils`
@@ -52,9 +52,9 @@ Use the NuGet package ids at version `4.0.0`:
 Typical install commands:
 
 ```bash
-dotnet add package JsonPit --version 4.0.0
-dotnet add package RaiUtils --version 4.0.0
-dotnet add package OsLibCore --version 4.0.0
+dotnet add package JsonPit --version 4.2.0
+dotnet add package RaiUtils --version 4.2.0
+dotnet add package OsLibCore --version 4.2.0
 ```
 
 Typical namespaces in code:
