@@ -129,9 +129,9 @@ public sealed class RemoteSyncTests : IDisposable
 			"renewed Nkosikazi Master.flag ticket to finish syncing to Mzansi");
 
 		// Create a small JSON seed file on Mzansi and run pits
-		var seedJson = "[{\\\"Id\\\":\\\"MzansiEntry\\\",\\\"Source\\\":\\\"Mzansi\\\",\\\"Note\\\":\\\"Added by client\\\"}]";
+		var seedJson = "[{\"Id\":\"MzansiEntry\",\"Source\":\"Mzansi\",\"Note\":\"Added by client\"}]";
 		SshExec($"echo '{seedJson}' > /tmp/{PitName}.json5");
-		var seedOutput = SshExec($"pits -n -s /tmp/{PitName}.json5 -r \"{mzansiRoot}/\"");
+		var seedOutput = SshExec(BuildRemotePitsSeedCommand($"/tmp/{PitName}.json5"));
 		output.WriteLine($"pits on Mzansi:\n{seedOutput}");
 
 		// Mzansi should have created change files (it cannot write the canonical pit).
@@ -192,13 +192,13 @@ public sealed class RemoteSyncTests : IDisposable
 		// is expired regardless of its PID suffix.
 		var expiredTimestamp = DateTimeOffset.UtcNow.AddMinutes(-5).ToString("o");
 		SshExec($"echo 'Nkosikazi|{expiredTimestamp}' > '{mzansiPitDir}/Master.flag'");
-		SshExec($"for f in '{mzansiPitDir}'/Nkosikazi-*.flag; do [ -f \\\"$f\\\" ] && echo 'Nkosikazi:dotnet:1|{expiredTimestamp}' > \\\"$f\\\"; done; true");
+		SshExec($"for f in '{mzansiPitDir}'/Nkosikazi-*.flag; do [ -f \"$f\" ] && echo 'Nkosikazi:dotnet:1|{expiredTimestamp}' > \"$f\"; done; true");
 		output.WriteLine("Expired flag files on Mzansi's local copy");
 
 		// Seed a second entry from Mzansi — this time it should become master
-		var seed2Json = "[{\\\"Id\\\":\\\"MzansiMasterEntry\\\",\\\"Source\\\":\\\"Mzansi\\\",\\\"Note\\\":\\\"Now I am master\\\"}]";
+		var seed2Json = "[{\"Id\":\"MzansiMasterEntry\",\"Source\":\"Mzansi\",\"Note\":\"Now I am master\"}]";
 		SshExec($"echo '{seed2Json}' > /tmp/{PitName}.json5");
-		var seed2Output = SshExec($"pits -n -s /tmp/{PitName}.json5 -r \"{mzansiRoot}/\"");
+		var seed2Output = SshExec(BuildRemotePitsSeedCommand($"/tmp/{PitName}.json5"));
 		output.WriteLine($"pits on Mzansi (after ticket expiry):\n{seed2Output}");
 
 		// Master.flag should now show Mzansi
@@ -322,8 +322,12 @@ public sealed class RemoteSyncTests : IDisposable
 	{
 		try
 		{
-			var result = RunProcess("ssh", $"-o ConnectTimeout=5 {host} echo ok");
-			return result.Trim() == "ok";
+			var result = SshSystem.ExecuteRemoteCommand(
+				host,
+				"echo ok",
+				timeoutMilliseconds: 5_000,
+				options: new[] { "-o", "ConnectTimeout=5" });
+			return result.Output.Trim() == "ok";
 		}
 		catch { return false; }
 	}
@@ -438,30 +442,23 @@ public sealed class RemoteSyncTests : IDisposable
 
 	#region SSH helper
 
-	private static string SshExec(string command)
+	private string BuildRemotePitsSeedCommand(string sourceFile)
 	{
-		return RunProcess("ssh", $"{MzansiHost} \"{command}\"");
-	}
-
-	private static string RunProcess(string fileName, string arguments)
-	{
-		using var proc = new Process
+		var command = new PitsCommand();
+		var request = PitsSeedRequest.ForPit(PitName, new RaiFile(sourceFile)) with
 		{
-			StartInfo = new ProcessStartInfo
+			Options = new PitsCommandOptions
 			{
-				FileName = fileName,
-				Arguments = arguments,
-				RedirectStandardOutput = true,
-				RedirectStandardError = true,
-				UseShellExecute = false,
-				CreateNoWindow = true
+				PitRoot = new RaiPath(mzansiRoot),
+				NoLogo = true
 			}
 		};
-		proc.Start();
-		var stdout = proc.StandardOutput.ReadToEnd();
-		var stderr = proc.StandardError.ReadToEnd();
-		proc.WaitForExit(30_000);
-		return stdout + stderr;
+		return command.BuildPosixShellCommand(command.BuildSeedArguments(request));
+	}
+
+	private static string SshExec(string command)
+	{
+		return SshSystem.ExecuteRemoteCommand(MzansiHost, command, timeoutMilliseconds: 30_000).Output;
 	}
 
 	#endregion

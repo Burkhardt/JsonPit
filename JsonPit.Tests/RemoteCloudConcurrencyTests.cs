@@ -160,7 +160,14 @@ public sealed class RemoteCloudConcurrencyTests : IDisposable
 
 	private static bool CanSshTo(string host)
 	{
-		try { return RunProcess("ssh", $"-o ConnectTimeout=5 {host} echo ok").Trim() == "ok"; }
+		try
+		{
+			return SshSystem.ExecuteRemoteCommand(
+				host,
+				"echo ok",
+				timeoutMilliseconds: 5_000,
+				options: new[] { "-o", "ConnectTimeout=5" }).Output.Trim() == "ok";
+		}
 		catch { return false; }
 	}
 
@@ -196,28 +203,8 @@ public sealed class RemoteCloudConcurrencyTests : IDisposable
 		Assert.Fail($"Timed out ({SyncTimeoutMs / 1000} s) waiting for {description}");
 	}
 
-	private static string SshExec(string command) => RunProcess("ssh", $"{MzansiHost} \"{command}\"");
-
-	private static string RunProcess(string fileName, string arguments)
-	{
-		using var proc = new Process
-		{
-			StartInfo = new ProcessStartInfo
-			{
-				FileName = fileName,
-				Arguments = arguments,
-				RedirectStandardOutput = true,
-				RedirectStandardError = true,
-				UseShellExecute = false,
-				CreateNoWindow = true
-			}
-		};
-		proc.Start();
-		var stdout = proc.StandardOutput.ReadToEnd();
-		var stderr = proc.StandardError.ReadToEnd();
-		proc.WaitForExit(30_000);
-		return stdout + stderr;
-	}
+	private static string SshExec(string command)
+		=> SshSystem.ExecuteRemoteCommand(MzansiHost, command, timeoutMilliseconds: 30_000).Output;
 
 	#endregion
 }

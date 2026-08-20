@@ -1,8 +1,8 @@
-# Getting Started with JsonPit 4.2.0
+# Getting Started with JsonPit 4.2.2
 
 This guide is written for practical implementation work, especially when you want to use JsonPit from NuGet packages in another service such as OTW / AfricaStage.
 
-It is based on the current JsonPit 4.2.0 code and tests in this repository.
+It is based on the current JsonPit 4.2.2 code and tests in this repository.
 
 ## 4.x key decisions
 
@@ -43,7 +43,7 @@ It is not trying to replace a transactional database.
 
 ## Package Setup
 
-Use the coordinated NuGet package ids at version `4.2.0`:
+Use the coordinated NuGet package ids at version `4.2.2`:
 
 - `JsonPit`
 - `RaiUtils`
@@ -52,9 +52,9 @@ Use the coordinated NuGet package ids at version `4.2.0`:
 Typical install commands:
 
 ```bash
-dotnet add package JsonPit --version 4.2.0
-dotnet add package RaiUtils --version 4.2.0
-dotnet add package OsLibCore --version 4.2.0
+dotnet add package JsonPit --version 4.2.2
+dotnet add package RaiUtils --version 4.2.2
+dotnet add package OsLibCore --version 4.2.2
 ```
 
 Typical namespaces in code:

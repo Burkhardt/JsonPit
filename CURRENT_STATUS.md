@@ -4,13 +4,13 @@ Last updated: 2026-08-14
 
 Current released line: `4.1.0`
 
-Prepared coordinated line: `4.2.0`
+Prepared coordinated line: `4.2.2`
 
 ## Prepared state
 
 - The abandoned-instance watcher ownership fix remains in place: watcher callbacks and debounce work acquire the `Pit` through weak ownership.
 - Forced collection can clear the registry target and make the canonical path reopenable without finalizer recovery publication, watcher disposal, or filesystem I/O.
-- Fallback package references align to `OsLibCore 4.2.0` and `RaiUtils 4.2.0`.
+- Fallback package references align to `OsLibCore 4.2.2` and `RaiUtils 4.2.2`.
 - `UseLocalRAIkeepSources=false` forces package references even inside the RAIkeep umbrella checkout.
 - The test project references JsonPit only; it no longer bypasses package-only validation with duplicate direct OsLib/RaiUtils project references.
 
@@ -20,4 +20,4 @@ Prepared coordinated line: `4.2.0`
 - Run the relevant complete JsonPit Release suite, including configured cloud/remote scenarios where available.
 - Do not tag or publish from this repository directly; the coordinated RAIkeep chain owns release order.
 
-Release notes: [JsonPit_RELEASE_NOTES_4.2.0.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.2.0.md)
+Release notes: [JsonPit_RELEASE_NOTES_4.2.2.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.2.2.md)

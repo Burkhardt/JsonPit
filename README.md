@@ -6,7 +6,7 @@ JsonPit change requests and release notes are centralized in the RAIkeep [`doc/`
 
 ## Start Here
 
-If you want to use JsonPit 4.2.0 from NuGet in another service or agent workflow, start with [GettingStarted.md](https://github.com/Burkhardt/JsonPit/blob/main/GettingStarted.md).
+If you want to use JsonPit 4.2.2 from NuGet in another service or agent workflow, start with [GettingStarted.md](https://github.com/Burkhardt/JsonPit/blob/main/GettingStarted.md).
 
 That guide now covers:
 
@@ -17,9 +17,9 @@ That guide now covers:
 - persistence and synchronized-storage expectations
 - a practical `PersonPit` example for OTW / AfricaStage style backend work
 
-## 4.2.0
+## 4.2.2
 
-- Aligns on `OsLibCore 4.2.0` and `RaiUtils 4.2.0`.
+- Aligns on `OsLibCore 4.2.2` and `RaiUtils 4.2.2`.
 - Makes `UseLocalRAIkeepSources=false` an explicit package-only boundary so release validation cannot silently resolve sibling projects.
 - `FileSystemWatcher` callbacks and debounce work now use weak ownership so an abandoned `Pit` can be collected and its canonical path reopened.
 - The `Pit` finalizer still performs no recovery publication, watcher disposal, or filesystem I/O.
@@ -32,7 +32,7 @@ That guide now covers:
 - `PitItem.DeleteProperty(...)` now projects top-level null tombstones as absent attributes instead of leaking a permanent null shadow.
 - Remote-sync workflows continue to align with OsLib's configurable metadata propagation delay handling, including the `mkdir` polymorphism package line update in OsLib.
 - No JsonPit API changes were required beyond the `3.12.0` line; this release refreshes the aligned package baseline and packaged docs.
-- Live docs and release-note pointers were refreshed for the `4.2.0` release line, and this README is packaged with the NuGet release.
+- Live docs and release-note pointers were refreshed for the `4.2.2` release line, and this README is packaged with the NuGet release.
 
 ## namespace
 
@@ -104,4 +104,4 @@ Foldable class and contract documentation is available in
 
 ## release notes
 
-- Latest release notes: [JsonPit_RELEASE_NOTES_4.2.0.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.2.0.md)
+- Latest release notes: [JsonPit_RELEASE_NOTES_4.2.2.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.2.2.md)

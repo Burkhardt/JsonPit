@@ -392,13 +392,14 @@ namespace JsonPit.Tests
               { ""Bid"": 263.41, ""Ask"": 263.44 },
               { ""Bid"": 263.43, ""Ask"": 263.40 }
             ]";
-			aapl.Extend(jsonArr); // preferred API; or new PitItem("AAPL", jsonArr) if ctor mutates
+			var changed = aapl.Extend(jsonArr); // preferred API; or new PitItem("AAPL", jsonArr) if ctor mutates
 			// Assert.Equal(priceCountBefore, aapl.HistoryCount("Price"));     // no new price values
 			// Assert.Equal(2, aapl.HistoryCount("Bid"));                      // two bid values appended
 			// Assert.Equal(2, aapl.HistoryCount("Ask"));                      // two ask values appended
 			Assert.Equal(263.43, aapl["Bid"].Value<double>(), 5);           // latest bid
 			Assert.Equal(263.40, aapl["Ask"].Value<double>(), 5);           // latest ask
-			Assert.True(aapl.Modified < DateTimeOffset.UtcNow);           // ensure modified timestamp is updated
+			Assert.True(changed);                                        // the array mutation was accepted
+			Assert.NotEqual(default, aapl.Modified);                      // mutation metadata remains populated
 		}
 		[Fact]
 		public void Extend_Array_WithMixedSchema_ExtendsSchemaAsSeen_Test()
