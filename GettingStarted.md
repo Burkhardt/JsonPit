@@ -1,8 +1,8 @@
-# Getting Started with JsonPit 4.2.2
+# Getting Started with JsonPit 4.2.3
 
 This guide is written for practical implementation work, especially when you want to use JsonPit from NuGet packages in another service such as OTW / AfricaStage.
 
-It is based on the current JsonPit 4.2.2 code and tests in this repository.
+It is based on the current JsonPit 4.2.3 code and tests in this repository.
 
 ## 4.x key decisions
 
@@ -43,7 +43,7 @@ It is not trying to replace a transactional database.
 
 ## Package Setup
 
-Use the coordinated NuGet package ids at version `4.2.2`:
+Use the coordinated NuGet package ids at version `4.2.3`:
 
 - `JsonPit`
 - `RaiUtils`
@@ -52,9 +52,9 @@ Use the coordinated NuGet package ids at version `4.2.2`:
 Typical install commands:
 
 ```bash
-dotnet add package JsonPit --version 4.2.2
-dotnet add package RaiUtils --version 4.2.2
-dotnet add package OsLibCore --version 4.2.2
+dotnet add package JsonPit --version 4.2.3
+dotnet add package RaiUtils --version 4.2.3
+dotnet add package OsLibCore --version 4.2.3
 ```
 
 Typical namespaces in code:
@@ -285,9 +285,9 @@ people.PitItem = existing;
 
 But for onboarding, `people.Add(existing)` is clearer.
 
-## Removing a Top-Level Attribute
+## Removing Properties
 
-JsonPit keeps item history append-only. To remove a top-level attribute, fetch the current projected item, call `DeleteProperty(...)`, add it back, and save:
+JsonPit keeps item history append-only. To remove a top-level property, fetch the current projected item, call `DeleteProperty(...)`, add it back, and save:
 
 ```csharp
 var existing = people["Max"];
@@ -307,7 +307,17 @@ var max = people.Get("Max");
 var instagramIsPresent = ((JObject)max).ContainsKey("Instagram"); // false
 ```
 
-The deletion is represented in history as a top-level `null` marker. During projection, that marker blocks older values of the same property from reappearing, but a later non-null value can introduce the property again. This applies to top-level attributes; for nested objects or arrays, replace the containing top-level value.
+The deletion is represented in history as a top-level `null` marker. During projection, that marker blocks older values of the same property from reappearing, but a later non-null value can introduce the property again.
+
+For nested properties, use the explicit dot-path API:
+
+```csharp
+existing.DeletePropertyPath("What.Chat");
+people.Add(existing);
+people.Save();
+```
+
+`DeletePropertyPath(...)` treats dots as traversal separators. `DeleteProperty(...)` continues to treat its argument as one literal top-level property name, so a property actually named `What.Chat` remains addressable without ambiguity. Projected reads and exports omit nested tombstones and recursively omit parent objects left empty by the deletion.
 
 ## Flexible Attributes and Schema Evolution
 

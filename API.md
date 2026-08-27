@@ -1,6 +1,6 @@
 # JsonPit API Reference
 
-This document provides a foldable overview of the public JsonPit 4.2 API.
+This document provides a foldable overview of the public JsonPit 4.2.3 API.
 
 ## Pit lifecycle and persistence
 
@@ -25,7 +25,7 @@ This document provides a foldable overview of the public JsonPit 4.2 API.
 - <details>
   <summary><code>PitItem</code>, <code>PitItems</code>, and <code>TimestampedValue</code></summary>
 
-  Represent canonical item identities, timestamped fragments, property-level history, merging, filtering, equality, validation, and tombstone projection.
+  Represent canonical item identities, timestamped fragments, property-level history, merging, filtering, equality, validation, and recursive tombstone projection. `PitItem.Merge(JObject)` retains null tombstones, `DeleteProperty(...)` addresses a literal top-level name, and `DeletePropertyPath(...)` explicitly traverses dot-delimited nested properties.
   </details>
 - <details>
   <summary><code>Item</code> and <code>Compare</code></summary>

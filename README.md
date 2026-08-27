@@ -6,7 +6,7 @@ JsonPit change requests and release notes are centralized in the RAIkeep [`doc/`
 
 ## Start Here
 
-If you want to use JsonPit 4.2.2 from NuGet in another service or agent workflow, start with [GettingStarted.md](https://github.com/Burkhardt/JsonPit/blob/main/GettingStarted.md).
+If you want to use JsonPit 4.2.3 from NuGet in another service or agent workflow, start with [GettingStarted.md](https://github.com/Burkhardt/JsonPit/blob/main/GettingStarted.md).
 
 That guide now covers:
 
@@ -17,9 +17,12 @@ That guide now covers:
 - persistence and synchronized-storage expectations
 - a practical `PersonPit` example for OTW / AfricaStage style backend work
 
-## 4.2.2
+## 4.2.3
 
-- Aligns on `OsLibCore 4.2.2` and `RaiUtils 4.2.2`.
+- Implements accepted CR015 nested property tombstones at arbitrary depth.
+- Adds `PitItem.DeletePropertyPath(...)` without changing literal dotted-name behavior in `DeleteProperty(...)`.
+- Projected reads and exports omit tombstoned nested properties and recursively prune newly empty parent containers while preserving append-only history.
+- Aligns on `OsLibCore 4.2.3` and `RaiUtils 4.2.3`.
 - Makes `UseLocalRAIkeepSources=false` an explicit package-only boundary so release validation cannot silently resolve sibling projects.
 - `FileSystemWatcher` callbacks and debounce work now use weak ownership so an abandoned `Pit` can be collected and its canonical path reopened.
 - The `Pit` finalizer still performs no recovery publication, watcher disposal, or filesystem I/O.
@@ -32,7 +35,7 @@ That guide now covers:
 - `PitItem.DeleteProperty(...)` now projects top-level null tombstones as absent attributes instead of leaking a permanent null shadow.
 - Remote-sync workflows continue to align with OsLib's configurable metadata propagation delay handling, including the `mkdir` polymorphism package line update in OsLib.
 - No JsonPit API changes were required beyond the `3.12.0` line; this release refreshes the aligned package baseline and packaged docs.
-- Live docs and release-note pointers were refreshed for the `4.2.2` release line, and this README is packaged with the NuGet release.
+- Live docs and release-note pointers were refreshed for the `4.2.3` release line, and this README is packaged with the NuGet release.
 
 ## namespace
 
@@ -65,7 +68,7 @@ JsonPit
 
 ### PitItem: JSON-backed item with metadata and change tracking.
 
-- PitItem: `Id`, `Modified`, `Deleted`, `Note`, `SetProperty`, `DeleteProperty`
+- PitItem: `Id`, `Modified`, `Deleted`, `Note`, `SetProperty`, `Merge`, `DeleteProperty`, `DeletePropertyPath`
 
 ### PitItemExtensions: Helpers for comparing items and aligning timestamps.
 
@@ -104,4 +107,4 @@ Foldable class and contract documentation is available in
 
 ## release notes
 
-- Latest release notes: [JsonPit_RELEASE_NOTES_4.2.2.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.2.2.md)
+- Latest release notes: [JsonPit_RELEASE_NOTES_4.2.3.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.2.3.md)

@@ -73,7 +73,7 @@ namespace JsonPit.Tests
 			Assert.Equal("IEX", meta["venue"]!.Value<string>());
 		}
 		[Fact]
-		public void SetProperty_NestedObject_DeepMerges_ReplacesArrays_And_IgnoresNulls()
+		public void SetProperty_NestedObject_DeepMerges_ReplacesArrays_And_RetainsNullTombstones()
 		{
 			var item = new PitItem("AAPL");
 			item.SetProperty(@"{
@@ -99,7 +99,7 @@ namespace JsonPit.Tests
 			Assert.True(item.Modified > modified1, "Expected Modified to advance when the deep merge changes nested content.");
 			Assert.Equal("Tiingo", meta["src"]!.Value<string>());
 			Assert.Equal("NASDAQ", meta["venue"]!.Value<string>());
-			Assert.Equal("US", meta["region"]!.Value<string>());
+			Assert.Equal(JTokenType.Null, meta["region"]!.Type);
 			Assert.Equal("USD", meta["currency"]!.Value<string>());
 			Assert.Single(tags);
 			Assert.Equal("bluechip", tags[0]!.Value<string>());

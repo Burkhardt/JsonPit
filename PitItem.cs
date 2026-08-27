@@ -47,6 +47,42 @@ public class PitItem : JObject, IEquatable<PitItem>
 		Invalidate();
 		this[propertyName] = null;
 	}
+	/// <summary>
+	/// Appends a property tombstone at a dot-delimited nested JSON path.
+	/// Unlike <see cref="DeleteProperty(string)"/>, dots are path separators here.
+	/// </summary>
+	public void DeletePropertyPath(string propertyPath)
+	{
+		var segments = ParsePropertyPath(propertyPath);
+		if (segments.Length == 1)
+		{
+			DeleteProperty(segments[0]);
+			return;
+		}
+
+		JObject container = this;
+		for (var index = 0; index < segments.Length - 1; index++)
+		{
+			var segment = segments[index];
+			if (container[segment] is JObject nested)
+			{
+				container = nested;
+				continue;
+			}
+			if (container[segment] is { Type: not JTokenType.Null })
+				throw new ArgumentException(
+					$"Property path '{propertyPath}' cannot traverse non-object property '{segment}'.",
+					nameof(propertyPath));
+
+			var created = new JObject();
+			container[segment] = created;
+			container = created;
+		}
+
+		container[segments[^1]] = JValue.CreateNull();
+		Deleted = false;
+		Invalidate();
+	}
 	public bool Delete(string by = null, bool backDate100 = true)
 	{
 		if (Deleted) return false;
@@ -102,7 +138,7 @@ public class PitItem : JObject, IEquatable<PitItem>
 		var mergeSettings = new JsonMergeSettings
 		{
 			MergeArrayHandling = MergeArrayHandling.Replace,
-			MergeNullValueHandling = MergeNullValueHandling.Ignore
+			MergeNullValueHandling = MergeNullValueHandling.Merge
 		};
 		Merge(obj.DeepClone(), mergeSettings);
 		var changed = !JToken.DeepEquals(originalClone, this);
@@ -112,6 +148,16 @@ public class PitItem : JObject, IEquatable<PitItem>
 			Invalidate();
 		}
 		return changed;
+	}
+	/// <summary>
+	/// Merges a partial JSON object using JsonPit tombstone semantics. Null values
+	/// are retained in the historic fragment and omitted when state is projected.
+	/// </summary>
+	public bool Merge(JObject patch)
+	{
+		if (patch is null)
+			throw new ArgumentNullException(nameof(patch));
+		return ExtendWith(patch);
 	}
 	public virtual bool ExtendWith(JArray arr)
 	{
@@ -143,6 +189,18 @@ public class PitItem : JObject, IEquatable<PitItem>
 		return changed;
 	}
 	#endregion
+	private static string[] ParsePropertyPath(string propertyPath)
+	{
+		if (string.IsNullOrWhiteSpace(propertyPath))
+			throw new ArgumentException("A property path is required.", nameof(propertyPath));
+
+		var segments = propertyPath.Split('.', StringSplitOptions.None);
+		if (segments.Any(string.IsNullOrWhiteSpace))
+			throw new ArgumentException(
+				"A property path must contain non-empty dot-delimited property names.",
+				nameof(propertyPath));
+		return segments;
+	}
 	#region Constructors
 	public PitItem(string id, bool invalidate = true, string comment = "")
 	{

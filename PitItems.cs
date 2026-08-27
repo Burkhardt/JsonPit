@@ -93,23 +93,48 @@ public class PitItems : ItemsBase, IEnumerable<PitItem>
 				[nameof(PitItem.Deleted)] = true
 			});
 		}
+		var endExclusive = startIndex;
+		while (endExclusive < History.Count && !History[endExclusive].Deleted)
+			endExclusive++;
+
 		var accumulator = new JObject();
-		var seen = new HashSet<string>(StringComparer.Ordinal);
-		for (int i = startIndex; i < History.Count; i++)
-		{
-			var fragment = History[i];
-			if (fragment.Deleted) break;
-			foreach (var property in fragment.Properties())
-			{
-				if (!seen.Add(property.Name)) continue;
-				if (property.Value is null || property.Value.Type == JTokenType.Null) continue;
-				accumulator[property.Name] = property.Value.DeepClone();
-			}
-		}
+		for (var index = endExclusive - 1; index >= startIndex; index--)
+			foreach (var property in History[index].Properties())
+				ApplyProjectedProperty(accumulator, property.Name, property.Value);
+
 		accumulator[nameof(PitItem.Id)] = newest.Id;
 		accumulator[nameof(PitItem.Modified)] = newest.Modified;
 		accumulator[nameof(PitItem.Deleted)] = false;
 		return new PitItem(accumulator);
+	}
+	private static bool ApplyProjectedProperty(JObject target, string name, JToken value)
+	{
+		if (value is null || value.Type == JTokenType.Null)
+		{
+			target.Remove(name);
+			return true;
+		}
+
+		if (value is not JObject patch)
+		{
+			target[name] = value.DeepClone();
+			return false;
+		}
+
+		var nested = target[name] is JObject existing
+			? (JObject)existing.DeepClone()
+			: new JObject();
+		var containsTombstone = false;
+		foreach (var property in patch.Properties())
+			containsTombstone |= ApplyProjectedProperty(nested, property.Name, property.Value);
+
+		if (nested.HasValues)
+			target[name] = nested;
+		else if (containsTombstone)
+			target.Remove(name);
+		else
+			target[name] = nested;
+		return containsTombstone;
 	}
 	public PitItem Peek(DateTimeOffset? timestamp = null) => ProjectState(timestamp);
 	public JObject Get(DateTimeOffset? timestamp = null) => ProjectState(timestamp);

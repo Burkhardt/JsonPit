@@ -147,6 +147,152 @@ namespace JsonPit.Tests
 		}
 
 		[Fact]
+		public void Merge_NestedNull_RemovesOnlyNestedProperty()
+		{
+			var pit = NewPit();
+			var id = NewId("DP_nested_merge_");
+			var item = new PitItem(id);
+			item.SetProperty(JObject.Parse(@"{
+				'What': {
+					'Instrument': 'Guitar',
+					'Chat': 'LegacyChatId'
+				}
+			}"));
+			pit.Add(item);
+			pit.Save(force: true);
+
+			var live = pit[id];
+			Assert.True(live.Merge(JObject.Parse(@"{ 'What': { 'Chat': null } }")));
+			Assert.Equal(JTokenType.Null, live["What"]!["Chat"]!.Type);
+			pit.Add(live);
+			pit.Save(force: true);
+
+			var projected = pit.Get(id);
+			var what = Assert.IsType<JObject>(projected!["What"]);
+			Assert.Equal("Guitar", what["Instrument"]?.Value<string>());
+			Assert.False(what.ContainsKey("Chat"));
+			Assert.Null(projected["What"]?["Chat"]);
+			Assert.Equal(
+				JTokenType.Null,
+				pit.HistoricItems[id].History[0]["What"]!["Chat"]!.Type);
+		}
+
+		[Fact]
+		public void PartialNestedNullFragment_PreservesOlderSibling()
+		{
+			var pit = NewPit();
+			var id = NewId("DP_nested_fragment_");
+			var original = new PitItem(id);
+			original["What"] = new JObject
+			{
+				["Instrument"] = "Guitar",
+				["Chat"] = "LegacyChatId"
+			};
+			pit.Add(original);
+			pit.Save(force: true);
+
+			var fragment = new PitItem(id);
+			fragment["What"] = new JObject { ["Chat"] = JValue.CreateNull() };
+			pit.Add(fragment);
+			pit.Save(force: true);
+
+			var what = Assert.IsType<JObject>(pit.Get(id)!["What"]);
+			Assert.Equal("Guitar", what["Instrument"]?.Value<string>());
+			Assert.False(what.ContainsKey("Chat"));
+		}
+
+		[Fact]
+		public void DeletePropertyPath_ArbitraryDepth_PrunesEmptyParents()
+		{
+			var pit = NewPit();
+			var id = NewId("DP_nested_empty_");
+			var item = new PitItem(id);
+			item.SetProperty(JObject.Parse(@"{ 'Action': { 'Conversation': { 'Chat': 'Legacy' } } }"));
+			pit.Add(item);
+			pit.Save(force: true);
+
+			var live = pit[id];
+			live.DeletePropertyPath("Action.Conversation.Chat");
+			pit.Add(live);
+			pit.Save(force: true);
+
+			var projected = pit.Get(id);
+			Assert.NotNull(projected);
+			Assert.False(projected.ContainsKey("Action"));
+		}
+
+		[Fact]
+		public void Projection_PreservesExplicitEmptyObject_WhenNoTombstoneCreatedIt()
+		{
+			var pit = NewPit();
+			var id = NewId("DP_empty_object_");
+			var item = new PitItem(id);
+			item["Presentation"] = new JObject();
+			pit.Add(item);
+			pit.Save(force: true);
+
+			var projected = pit.Get(id);
+			var presentation = Assert.IsType<JObject>(projected!["Presentation"]);
+			Assert.False(presentation.HasValues);
+		}
+
+		[Fact]
+		public void DeletePropertyPath_SurvivesReload_AndPreservesSibling()
+		{
+			var root = TestRoot();
+			var pit = NewPit(root);
+			var id = NewId("DP_nested_reload_");
+			var item = new PitItem(id);
+			item.SetProperty(JObject.Parse(@"{ 'What': { 'Instrument': 'Guitar', 'Chat': 'Legacy' } }"));
+			pit.Add(item);
+			pit.Save(force: true);
+
+			var live = pit[id];
+			live.DeletePropertyPath("What.Chat");
+			pit.Add(live);
+			pit.Save(force: true);
+			pit.Dispose();
+
+			using var reloaded = new Pit(root, readOnly: true, autoload: true, unflagged: true);
+			var projected = reloaded.Get(id);
+			var what = Assert.IsType<JObject>(projected!["What"]);
+			Assert.Equal("Guitar", what["Instrument"]?.Value<string>());
+			Assert.False(what.ContainsKey("Chat"));
+		}
+
+		[Fact]
+		public void DeleteProperty_RemainsLiteral_WhenNameContainsDot()
+		{
+			var pit = NewPit();
+			var id = NewId("DP_literal_dot_");
+			var item = new PitItem(id);
+			item["What.Chat"] = "literal";
+			item["What"] = new JObject { ["Chat"] = "nested" };
+			pit.Add(item);
+			pit.Save(force: true);
+
+			var live = pit[id];
+			live.DeleteProperty("What.Chat");
+			pit.Add(live);
+			pit.Save(force: true);
+
+			var projected = pit.Get(id);
+			Assert.False(projected!.ContainsKey("What.Chat"));
+			Assert.Equal("nested", projected["What"]?["Chat"]?.Value<string>());
+		}
+
+		[Theory]
+		[InlineData("")]
+		[InlineData("What..Chat")]
+		[InlineData(".What")]
+		[InlineData("What.")]
+		public void DeletePropertyPath_RejectsMalformedPaths(string path)
+		{
+			var item = new PitItem("MalformedPath");
+			Assert.Throws<ArgumentException>(() => item.DeletePropertyPath(path));
+		}
+
+		[Fact]
 		public void ProjectState_ReintroducedPropertyAboveTombstone_WinsAndOlderAttributesSurvive()
 		{
 			var id = "4711";
