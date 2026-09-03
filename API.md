@@ -1,6 +1,6 @@
 # JsonPit API Reference
 
-This document provides a foldable overview of the public JsonPit 4.2.5 API.
+This document provides a foldable overview of the public JsonPit 4.2.6 API. CR019 changes only the coordinated RaiUtils dependency line; the persistence API is unchanged.
 
 ## Pit lifecycle and persistence
 
