@@ -1,6 +1,6 @@
 # JsonPit API Reference
 
-This document provides a foldable overview of the public JsonPit 4.2.6 API. CR019 changes only the coordinated RaiUtils dependency line; the persistence API is unchanged.
+This document provides a foldable overview of the public JsonPit 4.2.7 API. CR020 changes only the coordinated OsLibCore/RaiUtils dependency line; the persistence API is unchanged.
 
 ## Pit lifecycle and persistence
 
