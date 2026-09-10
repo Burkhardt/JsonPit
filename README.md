@@ -17,6 +17,10 @@ That guide now covers:
 - persistence and synchronized-storage expectations
 - a practical `PersonPit` example for OTW / AfricaStage style backend work
 
+JsonPit's durable recovery events and the strictly read-only CLI inspection path
+are documented in the
+[`pits audit` operational manual](https://github.com/Burkhardt/RAIkeep/blob/main/doc/PITS-AUDIT.md).
+
 ## 4.2.9
 
 - Implements accepted incident corrective action CR022: report-only `Pit.Maintain(...)` checks the non-creating canonical parent and performs zero filesystem mutation when the pit is absent.
