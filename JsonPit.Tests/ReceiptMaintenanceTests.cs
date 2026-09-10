@@ -1,5 +1,7 @@
 using System;
 using System.Globalization;
+using System.IO;
+using System.Linq;
 using System.Threading;
 using Newtonsoft.Json.Linq;
 using OsLib;
@@ -18,6 +20,34 @@ public sealed class ReceiptMaintenanceTests : IDisposable
 	{
 		Pit.ChangeFileCleanupGrace = originalGrace;
 		try { root.rmdir(depth: 6, deleteFiles: true); } catch { }
+	}
+
+	[Theory]
+	[InlineData(false)]
+	[InlineData(true)]
+	public void Maintain_MissingPitDirectory_PerformsNoFilesystemMutation(bool apply)
+	{
+		var parent = (root / $"missing-parent-{apply}").mkdir();
+		var missing = parent / "Activity";
+		var parentWriteTime = Directory.GetLastWriteTimeUtc(parent.FullPath);
+		var before = parent.EnumerateFiles("*", SearchOption.AllDirectories)
+			.Select(file => file.FullName)
+			.Concat(parent.EnumerateDirectories("*", SearchOption.AllDirectories).Select(path => path.FullPath))
+			.OrderBy(path => path, StringComparer.Ordinal)
+			.ToArray();
+
+		using var pit = new Pit(missing, readOnly: !apply, unflagged: true, autoload: false);
+		var result = pit.Maintain(apply);
+
+		var after = parent.EnumerateFiles("*", SearchOption.AllDirectories)
+			.Select(file => file.FullName)
+			.Concat(parent.EnumerateDirectories("*", SearchOption.AllDirectories).Select(path => path.FullPath))
+			.OrderBy(path => path, StringComparer.Ordinal)
+			.ToArray();
+		Assert.False(missing.Exists());
+		Assert.Equal(before, after);
+		Assert.Equal(parentWriteTime, Directory.GetLastWriteTimeUtc(parent.FullPath));
+		Assert.Contains(result.Deferred, message => message.Contains("does not exist", StringComparison.Ordinal));
 	}
 
 	[Fact]

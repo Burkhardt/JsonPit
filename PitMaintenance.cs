@@ -19,6 +19,13 @@ public sealed record PitMaintenanceOptions
 /// <summary>Result of one explicit or operation-boundary CR021 maintenance pass.</summary>
 public sealed class PitMaintenanceResult
 {
+	/// <summary>Creates a maintenance result for an existing or skipped pit target.</summary>
+	public PitMaintenanceResult(string pitFile = "", bool applied = false)
+	{
+		PitFile = pitFile ?? string.Empty;
+		Applied = applied;
+	}
+
 	public string PitFile { get; internal set; } = string.Empty;
 	public bool Applied { get; internal set; }
 	public bool CurrentMaster { get; internal set; }

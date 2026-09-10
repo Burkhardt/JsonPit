@@ -657,12 +657,15 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 			throw new ArgumentOutOfRangeException(nameof(options), "OlderThan must be positive.");
 		if (options.RepairLegacyExtensions && !options.Apply)
 			throw new ArgumentException("Legacy-extension repair requires Apply.", nameof(options));
-		var result = new PitMaintenanceResult
+		var result = new PitMaintenanceResult(JsonFile?.FullName, options.Apply);
+		// CR022: PitDir is a creating property. Inspection and invalid-target handling
+		// must check the non-creating canonical parent before any PitDir access.
+		var directory = JsonFile?.Path;
+		if (directory is null || !directory.Exists())
 		{
-			PitFile = JsonFile?.FullName ?? string.Empty,
-			Applied = options.Apply
-		};
-		if (!PitDir.Exists()) return result;
+			result.Deferred.Add($"Pit directory does not exist: {directory?.FullPath ?? string.Empty}");
+			return result;
+		}
 		Monitor.Enter(_locker); // persistence/recovery gate
 		try
 		{

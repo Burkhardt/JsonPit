@@ -6,7 +6,7 @@ JsonPit change requests and release notes are centralized in the RAIkeep [`doc/`
 
 ## Start Here
 
-If you want to use JsonPit 4.2.8 from NuGet in another service or agent workflow, start with [GettingStarted.md](https://github.com/Burkhardt/JsonPit/blob/main/GettingStarted.md).
+If you want to use JsonPit 4.2.9 from NuGet in another service or agent workflow, start with [GettingStarted.md](https://github.com/Burkhardt/JsonPit/blob/main/GettingStarted.md).
 
 That guide now covers:
 
@@ -16,6 +16,15 @@ That guide now covers:
 - querying and enumeration patterns that are actually supported
 - persistence and synchronized-storage expectations
 - a practical `PersonPit` example for OTW / AfricaStage style backend work
+
+## 4.2.9
+
+- Implements accepted incident corrective action CR022: report-only `Pit.Maintain(...)` checks the non-creating canonical parent and performs zero filesystem mutation when the pit is absent.
+- Missing maintenance targets return an explicit deferred result without creating pit directories, flags, receipts, events, or canonical files.
+- Canonical and receipt persistence continues through the hardened OsLibCore in-place cloud pathname contract.
+- Aligns fallback dependencies on `OsLibCore 4.2.9` and `RaiUtils 4.2.9`.
+- Current release notes: [JsonPit_RELEASE_NOTES_4.2.9.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.2.9.md)
+- Mandatory storage contract: [Cloud-Storage-In-Place-Invariant.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/Cloud-Storage-In-Place-Invariant.md)
 
 ## 4.2.8
 
@@ -141,4 +150,4 @@ Foldable class and contract documentation is available in
 
 ## release notes
 
-- Latest release notes: [JsonPit_RELEASE_NOTES_4.2.8.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.2.8.md)
+- Latest release notes: [JsonPit_RELEASE_NOTES_4.2.9.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.2.9.md)

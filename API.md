@@ -1,6 +1,6 @@
 # JsonPit API Reference
 
-This document provides a foldable overview of the public JsonPit 4.2.8 API, including accepted CR021 durable cleanup receipts and explicit maintenance.
+This document provides a foldable overview of the public JsonPit 4.2.9 API, including accepted CR021 durable cleanup and CR022 non-creating maintenance inspection.
 
 ## Pit lifecycle and persistence
 
@@ -53,7 +53,7 @@ This document provides a foldable overview of the public JsonPit 4.2.8 API, incl
 - <details>
   <summary><code>Pit.Maintain(...)</code>, <code>PitMaintenanceOptions</code>, and <code>PitMaintenanceResult</code></summary>
 
-  `Maintain()` inventories pending change/receipt cleanup without mutation. `Maintain(true)` applies canonical reconciliation and eligible change-first/receipt-second retirement. The options form separately authorizes aged PID-window pruning or validated extensionless flag/event repair. Results expose observed, valid, merged, created, retained, malformed, orphaned, active, released, naturally expired, conflict, deferred, repaired, pruned, and removed counts plus failures and canonical persistence.
+  `Maintain()` inventories pending change/receipt cleanup without mutation. It checks the non-creating canonical parent first, so a missing target returns a deferred result without creating its directory. `Maintain(true)` applies canonical reconciliation and eligible change-first/receipt-second retirement only for an existing target. The options form separately authorizes aged PID-window pruning or validated extensionless flag/event repair. Results expose observed, valid, merged, created, retained, malformed, orphaned, active, released, naturally expired, conflict, deferred, repaired, pruned, and removed counts plus failures and canonical persistence. The public result constructor accepts the intended pit filename and applied state so typed callers can represent skipped missing targets without opening a `Pit`.
   </details>
 - <details>
   <summary><code>RecoveryStatus</code>, <code>RecoveryStage</code>, and <code>RecoveryRole</code></summary>
