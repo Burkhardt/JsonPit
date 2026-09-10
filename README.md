@@ -125,6 +125,40 @@ JsonPit
 
 - Pit: `Add`, `Get`, `GetAt`, `Delete`, `Save`, `MergeChanges`, `Keys`
 
+## Maintenance lifecycle
+
+Normal writable `Pit` construction with `autoload: true` preserves JsonPit's
+original **master opening performs cleanup** behavior. Construction loads the
+canonical pit and calls `MergeChanges()` (applying `Maintain(...)`): the exact
+current master merges valid change files, persists any newly accounted history,
+creates or reuses immutable cleanup receipts, and retires eligible change-file /
+receipt pairs.
+
+Cleanup is deliberately a later-pass protocol. A newly created receipt starts a
+ten-minute grace period, and deletion can occur only during a subsequent
+maintenance pass after that grace has elapsed. JsonPit does not install a
+background timer. Consequently, a service that opens a pit once and keeps it
+open may need to call `Pit.Maintain(new PitMaintenanceOptions { Apply = true })`
+periodically; otherwise the next normal master opening performs the later pass.
+
+Expired process-window flags are a separate diagnostic-retention concern. They
+are inventoried by maintenance but are never deleted implicitly when a master
+opens a pit. Their removal requires explicit apply, pruning, and age options.
+The `pits` CLI can combine ordinary WWWA maintenance and process-flag pruning in
+one invocation:
+
+```bash
+pits maintain --wwwa -c OneDrive -r AIA \
+  --apply \
+  --prune-process-flags \
+  --older-than 01:00:00 \
+  --json
+```
+
+The combined command already performs ordinary change/receipt maintenance; a
+second `pits maintain --apply` call is unnecessary. Recovery event files are a
+durable audit trail and are not pruned by this operation.
+
 ## cloud root convention
 
 JsonPit resolves cloud-backed storage locations through OsLib, but the current approach is to read an explicit configured root from `Os.Config.Cloud` rather than relying on a preferred-root helper.
