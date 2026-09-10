@@ -18,6 +18,7 @@
 
 	<ItemGroup>
 		<ProjectReference Include="..\JsonPit.csproj" />
+		<ProjectReference Include="..\..\OsLib\OsLib.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>

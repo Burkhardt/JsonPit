@@ -14,6 +14,8 @@ public sealed record PitMaintenanceOptions
 	public TimeSpan? OlderThan { get; init; }
 	/// <summary>Also repair recognizable extensionless flags and recovery events.</summary>
 	public bool RepairLegacyExtensions { get; init; }
+	/// <summary>Preview or create an immutable same-directory archive of loose recovery events.</summary>
+	public bool ArchiveEvents { get; init; }
 }
 
 /// <summary>Result of one explicit or operation-boundary CR021 maintenance pass.</summary>
@@ -52,6 +54,19 @@ public sealed class PitMaintenanceResult
 	public int ConflictFlagsObserved { get; internal set; }
 	public int LegacyArtifactsObserved { get; internal set; }
 	public int LegacyArtifactsRepaired { get; internal set; }
+	public int EventFilesObserved { get; internal set; }
+	public int EventFilesValid { get; internal set; }
+	public int EventFilesInvalid { get; internal set; }
+	public int EventFilesEligible { get; internal set; }
+	public int EventFilesAlreadyArchived { get; internal set; }
+	public int EventFilesArchived { get; internal set; }
+	public int EventFilesRemoved { get; internal set; }
+	public int EventArchivesObserved { get; internal set; }
+	public int EventArchivesCreated { get; internal set; }
+	public int EventArchivesReused { get; internal set; }
+	public string EventArchiveName { get; internal set; } = string.Empty;
+	public DateTimeOffset? EventArchiveStartUtc { get; internal set; }
+	public DateTimeOffset? EventArchiveEndUtc { get; internal set; }
 	public List<string> Deferred { get; } = [];
 	public List<string> Failures { get; } = [];
 	public bool Succeeded => Failures.Count == 0;

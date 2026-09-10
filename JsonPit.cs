@@ -673,6 +673,8 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 			else InspectMaintenanceUnderGate(result);
 			InspectProcessFlags(result, options);
 			InspectLegacyExtensions(result, options);
+			if (options.ArchiveEvents)
+				PitEventArchiver.Archive(directory, result, options.Apply);
 			return result;
 		}
 		finally { Monitor.Exit(_locker); }

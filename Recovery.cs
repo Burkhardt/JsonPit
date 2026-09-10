@@ -148,10 +148,45 @@ public static class PitAudit
 	/// <param name="minLevel">Inclusive minimum severity; defaults to <see cref="LogLevel.Trace"/>.</param>
 	/// <returns>Events ordered deterministically by machine, UTC time, and event identity.</returns>
 	public static IReadOnlyList<PitAuditEvent> Read(RaiPath pitDirectory, string machineFilter = "all", LogLevel minLevel = LogLevel.Trace)
+		=> Inspect(pitDirectory, machineFilter, minLevel).Events;
+
+	/// <summary>
+	/// Reads loose and archived events together and also returns physical archive/event
+	/// diagnostics. This remains strictly read-only.
+	/// </summary>
+	public static PitAuditReadResult Inspect(
+		RaiPath pitDirectory,
+		string machineFilter = "all",
+		LogLevel minLevel = LogLevel.Trace)
 	{
 		if (pitDirectory is null) throw new ArgumentNullException(nameof(pitDirectory));
-		var events = EventDirectory.Events(pitDirectory)
-			.Select(kvp => new PitAuditEvent(kvp.Key, kvp.Value));
+		var snapshot = EventDirectory.Inspect(pitDirectory);
+		var issues = snapshot.Issues.ToList();
+		var identities = new Dictionary<string, PitAuditEvent>(StringComparer.OrdinalIgnoreCase);
+		var distinct = new List<PitAuditEvent>();
+		foreach (var pair in snapshot.Events.OrderBy(pair => pair.Key, StringComparer.Ordinal))
+		{
+			var auditEvent = new PitAuditEvent(pair.Key, pair.Value);
+			if (string.IsNullOrWhiteSpace(auditEvent.EventId))
+			{
+				distinct.Add(auditEvent);
+				continue;
+			}
+
+			if (!identities.TryGetValue(auditEvent.EventId, out var existing))
+			{
+				identities.Add(auditEvent.EventId, auditEvent);
+				distinct.Add(auditEvent);
+				continue;
+			}
+
+			if (!JToken.DeepEquals(existing.Content, auditEvent.Content))
+				issues.Add(
+					$"Conflicting event content for EventId '{auditEvent.EventId}' in " +
+					$"'{existing.FileName}' and '{auditEvent.FileName}'.");
+		}
+
+		IEnumerable<PitAuditEvent> events = distinct;
 		var filter = string.IsNullOrWhiteSpace(machineFilter) ? "all" : machineFilter.Trim();
 		if (!filter.Equals("all", StringComparison.OrdinalIgnoreCase))
 		{
@@ -162,11 +197,12 @@ public static class PitAudit
 		}
 		if (minLevel > LogLevel.Trace)
 			events = events.Where(e => e.Level >= minLevel && e.Level != LogLevel.None);
-		return events
+		var ordered = events
 			.OrderBy(e => e.Machine, StringComparer.Ordinal)
 			.ThenBy(e => e.UtcTime)
 			.ThenBy(e => e.EventId, StringComparer.Ordinal)
 			.ToList();
+		return new PitAuditReadResult(ordered, issues);
 	}
 
 	/// <summary>
@@ -181,3 +217,8 @@ public static class PitAudit
 		return false;
 	}
 }
+
+/// <summary>Read-only logical audit events plus physical archive/event diagnostics.</summary>
+public sealed record PitAuditReadResult(
+	IReadOnlyList<PitAuditEvent> Events,
+	IReadOnlyList<string> Issues);

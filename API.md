@@ -1,6 +1,6 @@
 # JsonPit API Reference
 
-This document provides a foldable overview of the public JsonPit 4.2.9 API, including accepted CR021 durable cleanup and CR022 non-creating maintenance inspection.
+This document provides a foldable overview of the public JsonPit 4.2.10 API, including immutable recovery-event compaction, archive-transparent audit reads, accepted CR021 durable cleanup, and CR022 non-creating maintenance inspection.
 
 ## Pit lifecycle and persistence
 
@@ -53,7 +53,7 @@ This document provides a foldable overview of the public JsonPit 4.2.9 API, incl
 - <details>
   <summary><code>Pit.Maintain(...)</code>, <code>PitMaintenanceOptions</code>, and <code>PitMaintenanceResult</code></summary>
 
-  `Maintain()` inventories pending change/receipt cleanup without mutation. It checks the non-creating canonical parent first, so a missing target returns a deferred result without creating its directory. `Maintain(true)` applies canonical reconciliation and eligible change-first/receipt-second retirement only for an existing target. The options form separately authorizes aged PID-window pruning or validated extensionless flag/event repair. Results expose observed, valid, merged, created, retained, malformed, orphaned, active, released, naturally expired, conflict, deferred, repaired, pruned, and removed counts plus failures and canonical persistence. The public result constructor accepts the intended pit filename and applied state so typed callers can represent skipped missing targets without opening a `Pit`.
+  `Maintain()` inventories pending change/receipt cleanup without mutation. It checks the non-creating canonical parent first, so a missing target returns a deferred result without creating its directory. `Maintain(true)` applies canonical reconciliation and eligible change-first/receipt-second retirement only for an existing target. The options form separately authorizes aged PID-window pruning, validated extensionless flag/event repair, or immutable event archiving through `ArchiveEvents`. Archive preview/apply results expose loose/archive counts, exact name, UTC range, reused archives, removals, deferrals, and failures in addition to the established maintenance inventory. The public result constructor accepts the intended pit filename and applied state so typed callers can represent skipped missing targets without opening a `Pit`.
   </details>
 - <details>
   <summary><code>RecoveryStatus</code>, <code>RecoveryStage</code>, and <code>RecoveryRole</code></summary>
@@ -63,7 +63,7 @@ This document provides a foldable overview of the public JsonPit 4.2.9 API, incl
 - <details>
   <summary><code>PitAudit</code> and <code>PitAuditEvent</code></summary>
 
-  Read durable recovery events with optional machine and minimum-level filters for diagnostics and the PitSeeder audit command.
+  `PitAudit.Read(...)` reads loose and archived durable recovery events as one identity-deduplicated logical history with optional machine and minimum-level filters. `PitAudit.Inspect(...)` additionally returns physical invalid/archive/conflict diagnostics through `PitAuditReadResult`; both paths are strictly read-only and extract nothing.
   </details>
 
 ## Getting started

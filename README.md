@@ -6,7 +6,7 @@ JsonPit change requests and release notes are centralized in the RAIkeep [`doc/`
 
 ## Start Here
 
-If you want to use JsonPit 4.2.9 from NuGet in another service or agent workflow, start with [GettingStarted.md](https://github.com/Burkhardt/JsonPit/blob/main/GettingStarted.md).
+If you want to use JsonPit 4.2.10 from NuGet in another service or agent workflow, start with [GettingStarted.md](https://github.com/Burkhardt/JsonPit/blob/main/GettingStarted.md).
 
 That guide now covers:
 
@@ -20,6 +20,15 @@ That guide now covers:
 JsonPit's durable recovery events and the strictly read-only CLI inspection path
 are documented in the
 [`pits audit` operational manual](https://github.com/Burkhardt/RAIkeep/blob/main/doc/PITS-AUDIT.md).
+
+## 4.2.10
+
+- Adds opt-in recovery-event compaction through `PitMaintenanceOptions.ArchiveEvents`.
+- Preview reports the exact immutable `Events_yyyyMMdd-HHmm_to_yyyyMMdd-HHmm.zip` archive, UTC range, eligible count, and deferred evidence without mutation.
+- Apply creates the archive directly in the existing pit `Events` directory, validates every filename and byte payload, then removes only the validated loose copies one by one.
+- `PitAudit.Read(...)` transparently combines loose and archived events; `PitAudit.Inspect(...)` also exposes invalid/archive-conflict diagnostics and deduplicates by event identity.
+- Existing archives are never overwritten, replaced, appended to, or staged through `Os.TempDir`.
+- Current release notes: [JsonPit_RELEASE_NOTES_4.2.10.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.2.10.md)
 
 ## 4.2.9
 
@@ -163,6 +172,27 @@ The combined command already performs ordinary change/receipt maintenance; a
 second `pits maintain --apply` call is unnecessary. Recovery event files are a
 durable audit trail and are not pruned by this operation.
 
+Event-file compaction is a separate explicit operation. Setting
+`ArchiveEvents = true` previews the exact immutable archive; adding `Apply = true`
+creates it in the existing `Events` directory and retires only the loose copies
+whose exact bytes were validated in the archive:
+
+```csharp
+var preview = pit.Maintain(new PitMaintenanceOptions { ArchiveEvents = true });
+var applied = pit.Maintain(new PitMaintenanceOptions
+{
+    Apply = true,
+    ArchiveEvents = true
+});
+```
+
+The archive name is based on the oldest and newest validated event content times
+in UTC, for example `Events_20260804-0118_to_20260910-1643.zip`. Existing
+same-name archives are immutable: identical content is reusable, while corrupt
+or different content is reported and all loose evidence is retained. Audit reads
+remain logically unchanged because `PitAudit` combines validated loose and
+archived events without extracting files.
+
 ## cloud root convention
 
 JsonPit resolves cloud-backed storage locations through OsLib, but the current approach is to read an explicit configured root from `Os.Config.Cloud` rather than relying on a preferred-root helper.
@@ -188,4 +218,4 @@ Foldable class and contract documentation is available in
 
 ## release notes
 
-- Latest release notes: [JsonPit_RELEASE_NOTES_4.2.9.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.2.9.md)
+- Latest release notes: [JsonPit_RELEASE_NOTES_4.2.10.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.2.10.md)
