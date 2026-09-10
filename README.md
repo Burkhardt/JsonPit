@@ -6,7 +6,7 @@ JsonPit change requests and release notes are centralized in the RAIkeep [`doc/`
 
 ## Start Here
 
-If you want to use JsonPit 4.2.7 from NuGet in another service or agent workflow, start with [GettingStarted.md](https://github.com/Burkhardt/JsonPit/blob/main/GettingStarted.md).
+If you want to use JsonPit 4.2.8 from NuGet in another service or agent workflow, start with [GettingStarted.md](https://github.com/Burkhardt/JsonPit/blob/main/GettingStarted.md).
 
 That guide now covers:
 
@@ -16,6 +16,14 @@ That guide now covers:
 - querying and enumeration patterns that are actually supported
 - persistence and synchronized-storage expectations
 - a practical `PersonPit` example for OTW / AfricaStage style backend work
+
+## 4.2.8
+
+- Implements accepted CR021 durable `ReceiptFile` cleanup evidence so the ten-minute change-file grace survives restart and master transfer without refresh.
+- Adds explicit `Pit.Maintain(...)`, `PitMaintenanceOptions`, and `PitMaintenanceResult` APIs for report-only inventory and separately authorized cleanup, process-window pruning, and legacy-extension repair.
+- Retires eligible artifacts change-file first and receipt second after current-master and canonical-accounting revalidation; malformed or unverifiable evidence remains untouched.
+- Aligns fallback dependencies on `OsLibCore 4.2.8` and `RaiUtils 4.2.8`.
+- Current release notes: [JsonPit_RELEASE_NOTES_4.2.8.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.2.8.md)
 
 ## 4.2.7
 
@@ -133,4 +141,4 @@ Foldable class and contract documentation is available in
 
 ## release notes
 
-- Latest release notes: [JsonPit_RELEASE_NOTES_4.2.7.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.2.7.md)
+- Latest release notes: [JsonPit_RELEASE_NOTES_4.2.8.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.2.8.md)

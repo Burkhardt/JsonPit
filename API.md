@@ -1,6 +1,6 @@
 # JsonPit API Reference
 
-This document provides a foldable overview of the public JsonPit 4.2.7 API. CR020 changes only the coordinated OsLibCore/RaiUtils dependency line; the persistence API is unchanged.
+This document provides a foldable overview of the public JsonPit 4.2.8 API, including accepted CR021 durable cleanup receipts and explicit maintenance.
 
 ## Pit lifecycle and persistence
 
@@ -44,6 +44,16 @@ This document provides a foldable overview of the public JsonPit 4.2.7 API. CR02
   <summary><code>ChangeFile</code></summary>
 
   Produces canonical, hashed, collision-safe change artifacts and validates their payloads before replay.
+  </details>
+- <details>
+  <summary><code>ReceiptFile</code></summary>
+
+  Stores one immutable UTC round-trip timestamp beside its associated hashed change file. The receipt has the same complete logical stem and the `.receipt` extension; reopening it preserves its original content, `Time`, and write timestamp.
+  </details>
+- <details>
+  <summary><code>Pit.Maintain(...)</code>, <code>PitMaintenanceOptions</code>, and <code>PitMaintenanceResult</code></summary>
+
+  `Maintain()` inventories pending change/receipt cleanup without mutation. `Maintain(true)` applies canonical reconciliation and eligible change-first/receipt-second retirement. The options form separately authorizes aged PID-window pruning or validated extensionless flag/event repair. Results expose observed, valid, merged, created, retained, malformed, orphaned, active, released, naturally expired, conflict, deferred, repaired, pruned, and removed counts plus failures and canonical persistence.
   </details>
 - <details>
   <summary><code>RecoveryStatus</code>, <code>RecoveryStage</code>, and <code>RecoveryRole</code></summary>
