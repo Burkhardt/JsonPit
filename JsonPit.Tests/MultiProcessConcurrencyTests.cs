@@ -102,8 +102,8 @@ public sealed class MultiProcessConcurrencyTests : IDisposable
 
 		var otherPid = $"{pit.ParticipantIdentity}-999999";
 		pit.MasterFlag().Update(originator: otherPid);
-		// Explicitly released window: the tombstone convention writes the Unix epoch.
-		PlantProcessWindow(root, otherPid, DateTimeOffset.UnixEpoch);
+		// Explicitly released window: CR024 removes the owned PID-specific flag.
+		// No activity file is planted for the former process.
 
 		Assert.True(pit.TryAcquireMaster(), "The still-protected participant lease is inheritable after explicit release.");
 		Assert.Equal(pit.ExactProcessIdentity, pit.MasterFlag().Originator);

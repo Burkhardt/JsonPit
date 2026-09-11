@@ -161,6 +161,7 @@ public class MasterFlagFile : TextFile
 /// </summary>
 public class ProcessFlagFile : MasterFlagFile
 {
+	private readonly object releaseLocker = new();
 	/// <summary>
 	/// Machine names that are generic defaults — not unique and will cause flag file collisions.
 	/// If <see cref="Environment.MachineName"/> matches one of these, <see cref="ValidateMachineName()"/>
@@ -298,17 +299,18 @@ public class ProcessFlagFile : MasterFlagFile
 		}
 	}
 	/// <summary>
-	/// Expires this process activity window when, and only when, the flag content
-	/// still identifies the current OS process. The file is retained as a diagnostic
-	/// tombstone so cloud providers do not receive a delete/recreate cycle.
+	/// Deletes this process activity window when, and only when, the flag content
+	/// still identifies the current OS process. Removal uses <see cref="RaiFile.rm"/>,
+	/// including its cloud-path disappearance wait. It never modifies Master.flag.
 	/// </summary>
 	public bool TryReleaseCurrentProcess()
 	{
-		if (!IsOwnedByCurrentProcess) return false;
-		Update(
-			time: DateTimeOffset.UnixEpoch,
-			process: CurrentProcessId());
-		return true;
+		lock (releaseLocker)
+		{
+			if (!IsOwnedByCurrentProcess) return false;
+			rm();
+			return !Exists();
+		}
 	}
 	/// <param name="dir">PitDir where all flag files live</param>
 	/// <param name="subscriber">Application identity, e.g. "pits", "RAIkeep", "Nomsa".</param>

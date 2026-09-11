@@ -51,7 +51,7 @@ public class JsonPitBase
 	}
 	private ProcessFlagFile fileFlag;
 	/// <summary>
-	/// Expires the current process activity window when this instance created one
+	/// Deletes the current process activity window when this instance created one
 	/// and the flag is still owned by the current OS process.
 	/// This does not release or modify the master writer ticket.
 	/// </summary>

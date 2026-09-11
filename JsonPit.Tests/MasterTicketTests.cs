@@ -119,7 +119,7 @@ public sealed class MasterTicketTests : IDisposable
 		Assert.Contains("|", flag.Lines[0]);
 	}
 	[Fact]
-	public void TryReleaseCurrentProcess_ExpiresOwnedActivityWindow()
+	public void TryReleaseCurrentProcess_DeletesOwnedActivityWindow()
 	{
 		var dir = (root / "flag-release-owned").mkdir();
 		var flag = new ProcessFlagFile(dir, "pits");
@@ -128,7 +128,7 @@ public sealed class MasterTicketTests : IDisposable
 		Assert.False(flag.IsExpired);
 		Assert.True(flag.TryReleaseCurrentProcess());
 		Assert.True(flag.IsExpired);
-		Assert.True(flag.Exists());
+		Assert.False(flag.Exists());
 	}
 	[Fact]
 	public void TryReleaseCurrentProcess_DoesNotReleaseAnotherProcessWindow()
@@ -232,9 +232,27 @@ public sealed class MasterTicketTests : IDisposable
 		Assert.True(pit.TryAcquireMaster());
 
 		Assert.True(pit.TryReleaseProcessWindow());
-		Assert.True(pit.ProcessFlag().IsExpired);
+		Assert.False(pit.ProcessFlag().Exists());
 		// v3.13.2: master ownership records the exact process identity ({Machine}-{Subscriber}-{PID}).
 		Assert.True(pit.MasterFlag().IsOwnedBy(ProcessFlagFile.CurrentFlagName("pits")));
+	}
+	[Theory]
+	[InlineData(true)]
+	[InlineData(false)]
+	public void Dispose_DeletesOwnedProcessFlag_AndPreservesMasterFlag(bool readOnly)
+	{
+		var pitPath = (root / $"dispose-process-{readOnly}").mkdir();
+		var pit = new Pit(pitPath, readOnly: readOnly, autoload: false, subscriber: "pits");
+		var processFlag = pit.ProcessFlag();
+		processFlag.Update();
+		var master = pit.MasterFlag();
+		var owner = master.Originator;
+
+		pit.Dispose();
+
+		Assert.False(processFlag.Exists());
+		Assert.True(master.Exists());
+		Assert.Equal(owner, master.Originator);
 	}
 	[Fact]
 	public void TryAcquireMaster_SucceedsWhenNobodyElseActive()

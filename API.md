@@ -1,6 +1,6 @@
 # JsonPit API Reference
 
-This document provides a foldable overview of the public JsonPit 4.2.10 API, including immutable recovery-event compaction, archive-transparent audit reads, accepted CR021 durable cleanup, and CR022 non-creating maintenance inspection.
+This document provides a foldable overview of the public JsonPit 4.2.11 API, including CR024 deterministic process-flag cleanup, immutable recovery-event compaction, archive-transparent audit reads, accepted CR021 durable cleanup, and CR022 non-creating maintenance inspection.
 
 ## Pit lifecycle and persistence
 
@@ -38,7 +38,7 @@ This document provides a foldable overview of the public JsonPit 4.2.10 API, inc
 - <details>
   <summary><code>MasterFlagFile</code> and <code>ProcessFlagFile</code></summary>
 
-  Model the stable master lease and per-process activity windows using exact process identities, ownership validation, conflict discovery, and synchronized-storage materialization rules.
+  Model the stable master lease and per-process activity windows using exact process identities, ownership validation, conflict discovery, and synchronized-storage materialization rules. `TryReleaseCurrentProcess()` deletes only the exact owned PID flag through `RaiFile.rm()`; it never changes or removes `Master.flag`.
   </details>
 - <details>
   <summary><code>ChangeFile</code></summary>

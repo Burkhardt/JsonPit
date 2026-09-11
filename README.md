@@ -6,7 +6,7 @@ JsonPit change requests and release notes are centralized in the RAIkeep [`doc/`
 
 ## Start Here
 
-If you want to use JsonPit 4.2.10 from NuGet in another service or agent workflow, start with [GettingStarted.md](https://github.com/Burkhardt/JsonPit/blob/main/GettingStarted.md).
+If you want to use JsonPit 4.2.11 from NuGet in another service or agent workflow, start with [GettingStarted.md](https://github.com/Burkhardt/JsonPit/blob/main/GettingStarted.md).
 
 That guide now covers:
 
@@ -20,6 +20,14 @@ That guide now covers:
 JsonPit's durable recovery events and the strictly read-only CLI inspection path
 are documented in the
 [`pits audit` operational manual](https://github.com/Burkhardt/RAIkeep/blob/main/doc/PITS-AUDIT.md).
+
+## 4.2.11
+
+- Implements accepted CR024 deterministic cleanup of PID-specific process flags on explicit `Pit.Dispose()`.
+- Owned flags are removed through `RaiFile.rm()` after the existing durability boundary; foreign flags and `Master.flag` are untouched.
+- Read-only and writable pits share the same cleanup, while finalizers remain strictly free of filesystem and recovery-publication I/O.
+- Crashed processes still leave flags for TTL detection and explicit maintenance pruning.
+- Current release notes: [JsonPit_RELEASE_NOTES_4.2.11.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.2.11.md)
 
 ## 4.2.10
 
@@ -119,7 +127,7 @@ JsonPit
 
 - ProcessFlagFile: `Process`, `Update`, `CurrentProcessId`, `CurrentFlagName`, `IsOwnedByCurrentProcess`, `TryReleaseCurrentProcess`
 - Activity filename: `{MachineName}-{Subscriber}-{PID}.flag`; the PID makes ownership process-specific.
-- Explicit release verifies the current process identity and expires the flag in place without deleting the cloud-synced file.
+- Explicit release verifies the current process identity and removes the exact flag through `RaiFile.rm()`, including cloud disappearance waiting.
 - Process activity windows and master writer tickets are separate; releasing the former never releases the latter.
 
 ### PitItem: JSON-backed item with metadata and change tracking.
@@ -218,4 +226,4 @@ Foldable class and contract documentation is available in
 
 ## release notes
 
-- Latest release notes: [JsonPit_RELEASE_NOTES_4.2.10.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.2.10.md)
+- Latest release notes: [JsonPit_RELEASE_NOTES_4.2.11.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.2.11.md)

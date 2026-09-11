@@ -280,7 +280,7 @@ public sealed class SplitMasterRecoveryTests : IDisposable
 		foreach (var file in changeFiles)
 			Assert.NotNull(ChangeFile.ReadValidated(new RaiFile(file.FullName)));
 
-		// Authority was released only afterwards: the process window is tombstoned.
+		// Authority was released only afterwards: the PID-specific process window is gone.
 		var window = new MasterFlagFile(root, ProcessFlagFile.CurrentFlagName("cr003"));
 		Assert.True(window.IsExpired, "The process activity window must be released during graceful disposal.");
 	}

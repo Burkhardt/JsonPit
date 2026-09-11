@@ -132,6 +132,12 @@ public sealed class RemoteCloudConcurrencyTests : IDisposable
 			output.WriteLine($"Recovered fragment file: {file.NameWithExtension}");
 		}
 
+		// OneDrive can briefly rehydrate the locally cached pre-conflict Master.flag after
+		// the longer conflict copy arrives. Recovery never writes Master.flag, so wait for
+		// the provider's canonical remote winner to settle before asserting its content.
+		WaitForLocal(
+			() => new MasterFlagFile(pitDir, "Master").Originator == remoteWinner,
+			"canonical remote Master.flag winner to settle locally after recovery");
 		// Exact canonical Master.flag still names the remote winner — never altered here.
 		Assert.Equal(remoteWinner, new MasterFlagFile(pitDir, "Master").Originator);
 		Assert.False(conflictFlag.Exists());
