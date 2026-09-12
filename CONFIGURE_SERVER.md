@@ -6,7 +6,7 @@ Each active process gets its own activity flag file:
 
 The stable `{MachineName}-{Subscriber}` identity is still used for the master writer ticket. The PID suffix belongs only to the process activity flag, allowing one finite process to release its own window without modifying another process's flag.
 
-Activity flags use a 60-second timeout by default. Since v4.2.11, explicit graceful release ownership-checks and removes the exact PID-specific flag through `RaiFile.rm()`; cloud paths wait for disappearance. Crashed processes can still leave flags for TTL-based maintenance. Master tickets are separate and are not released by process-window cleanup.
+Activity flags use a 60-second timeout by default. Since v4.3.0, explicit graceful release ownership-checks and removes the exact PID-specific flag through `RaiFile.rm()`; cloud paths wait for disappearance. Crashed processes can still leave flags for TTL-based maintenance. Master tickets are separate and are not released by process-window cleanup.
 
 If your machine has a generic hostname like `ubuntu`, `localhost`, or `DESKTOP-A1B2C3D`,
 flag file collisions will occur when multiple machines access the same pit.

@@ -6,7 +6,7 @@ JsonPit change requests and release notes are centralized in the RAIkeep [`doc/`
 
 ## Start Here
 
-If you want to use JsonPit 4.2.11 from NuGet in another service or agent workflow, start with [GettingStarted.md](https://github.com/Burkhardt/JsonPit/blob/main/GettingStarted.md).
+If you want to use JsonPit 4.3.0 from NuGet in another service or agent workflow, start with [GettingStarted.md](https://github.com/Burkhardt/JsonPit/blob/main/GettingStarted.md).
 
 That guide now covers:
 
@@ -21,9 +21,15 @@ JsonPit's durable recovery events and the strictly read-only CLI inspection path
 are documented in the
 [`pits audit` operational manual](https://github.com/Burkhardt/RAIkeep/blob/main/doc/PITS-AUDIT.md).
 
-## 4.2.11
+## 4.3.0
 
-- Implements accepted CR024 deterministic cleanup of PID-specific process flags on explicit `Pit.Dispose()`.
+- Carries accepted CR024 deterministic cleanup of owned PID-specific process flags into the coordinated v4.3.0 line.
+- Finalizers remain strictly free of filesystem and recovery-publication I/O; crashed processes retain the established TTL and maintenance behavior.
+- Current release notes: [JsonPit_RELEASE_NOTES_4.3.0.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.3.0.md)
+
+## 4.2.11 (superseded before publication)
+
+- This prepared line was not published; its CR024 changes are carried by v4.3.0.
 - Owned flags are removed through `RaiFile.rm()` after the existing durability boundary; foreign flags and `Master.flag` are untouched.
 - Read-only and writable pits share the same cleanup, while finalizers remain strictly free of filesystem and recovery-publication I/O.
 - Crashed processes still leave flags for TTL detection and explicit maintenance pruning.
@@ -226,4 +232,4 @@ Foldable class and contract documentation is available in
 
 ## release notes
 
-- Latest release notes: [JsonPit_RELEASE_NOTES_4.2.11.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.2.11.md)
+- Latest release notes: [JsonPit_RELEASE_NOTES_4.3.0.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.3.0.md)
