@@ -6,7 +6,7 @@ JsonPit change requests and release notes are centralized in the RAIkeep [`doc/`
 
 ## Start Here
 
-If you want to use JsonPit 4.3.1 from NuGet in another service or agent workflow, start with [GettingStarted.md](https://github.com/Burkhardt/JsonPit/blob/main/GettingStarted.md).
+If you want to use JsonPit 4.3.2 from NuGet in another service or agent workflow, start with [GettingStarted.md](https://github.com/Burkhardt/JsonPit/blob/main/GettingStarted.md).
 
 That guide now covers:
 
@@ -20,6 +20,12 @@ That guide now covers:
 JsonPit's durable recovery events and the strictly read-only CLI inspection path
 are documented in the
 [`pits audit` operational manual](https://github.com/Burkhardt/RAIkeep/blob/main/doc/PITS-AUDIT.md).
+
+## 4.3.2
+
+- Participates unchanged in the coordinated seven-package RAIkeep v4.3.2 CR027 release.
+- Finalizer, persistence, and process-flag cleanup behavior is unchanged from 4.3.1.
+- Current release notes: [JsonPit_RELEASE_NOTES_4.3.2.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.3.2.md)
 
 ## 4.3.1
 
@@ -238,4 +244,4 @@ Foldable class and contract documentation is available in
 
 ## release notes
 
-- Latest release notes: [JsonPit_RELEASE_NOTES_4.3.1.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.3.1.md)
+- Latest release notes: [JsonPit_RELEASE_NOTES_4.3.2.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.3.2.md)
