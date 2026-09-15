@@ -13,8 +13,8 @@
 		<PackageTags>Json, cross-server synchronized</PackageTags>
 		<IsPackable>true</IsPackable>
 		<ProjectURL>https://github.com/Burkhardt/JsonPit</ProjectURL>
+		<Copyright>© Rainer Burkhardt</Copyright>
 		<PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
-		<Copyright>© Rainer Burkhardt. All rights reserved.</Copyright>
 		<RepositoryUrl>https://github.com/Burkhardt/JsonPit</RepositoryUrl>
 		<RepositoryType>github</RepositoryType>
 		<PackageReleaseNotes>4.3.2 coordinated RAIkeep release; JsonPit behavior is unchanged.</PackageReleaseNotes>
