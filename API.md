@@ -1,6 +1,6 @@
 # JsonPit API Reference
 
-This document provides a foldable overview of the public JsonPit 4.4.0 API. JsonPit participates unchanged in the synchronized CR036 line; CR024 deterministic process-flag cleanup, immutable recovery-event compaction, archive-transparent audit reads, accepted CR021 durable cleanup, and CR022 non-creating maintenance inspection remain intact.
+This document provides a foldable overview of the public JsonPit 4.4.1 API. JsonPit participates unchanged in the synchronized CR037 line; CR024 deterministic process-flag cleanup, immutable recovery-event compaction, archive-transparent audit reads, accepted CR021 durable cleanup, and CR022 non-creating maintenance inspection remain intact.
 
 ## Pit lifecycle and persistence
 
