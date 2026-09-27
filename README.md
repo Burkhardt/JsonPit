@@ -6,7 +6,7 @@ JsonPit change requests and release notes are centralized in the RAIkeep [`doc/`
 
 ## Start Here
 
-If you want to use JsonPit 4.4.1 from NuGet in another service or agent workflow, start with [GettingStarted.md](https://github.com/Burkhardt/JsonPit/blob/main/GettingStarted.md).
+If you want to use JsonPit 4.4.2 from NuGet in another service or agent workflow, start with [GettingStarted.md](https://github.com/Burkhardt/JsonPit/blob/main/GettingStarted.md).
 
 That guide now covers:
 
@@ -21,7 +21,7 @@ JsonPit's durable recovery events and the strictly read-only CLI inspection path
 are documented in the
 [`pits audit` operational manual](https://github.com/Burkhardt/RAIkeep/blob/main/doc/PITS-AUDIT.md).
 
-## 4.4.1
+## 4.4.2
 
 - Implements accepted CR040: `Id`, `Modified`, and `Deleted` are protected from
   property mutation/tombstoning; live `Pit.Add(...)` rejects projected
@@ -31,7 +31,12 @@ are documented in the
   `{UtcTicks}_{ExactProcessIdentity}` stem. Existing CR003 SHA-suffixed change
   files remain readable and hash-validated during rolling upgrades. Live engine
   timestamps are process-monotonic so concurrent writes retain distinct clean names.
-- Participates in the synchronized eight-package RAIkeep v4.4.1 CR037/CR037.1 release.
+- Participates in the synchronized eight-package RAIkeep v4.4.2 release.
+- Current release notes: [JsonPit_RELEASE_NOTES_4.4.2.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.4.2.md)
+
+## 4.4.1
+
+- Participates unchanged in the synchronized eight-package RAIkeep v4.4.1 CR037/CR037.1 release.
 - Current release notes: [JsonPit_RELEASE_NOTES_4.4.1.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.4.1.md)
 
 ## 4.3.2
@@ -263,4 +268,4 @@ Foldable class and contract documentation is available in
 
 ## release notes
 
-- Latest release notes: [JsonPit_RELEASE_NOTES_4.4.1.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.4.1.md)
+- Latest release notes: [JsonPit_RELEASE_NOTES_4.4.2.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.4.2.md)
