@@ -36,7 +36,7 @@ public sealed class InProcessConcurrencyTests : IDisposable
 	private static PitItem Fragment(string id, object payload)
 	{
 		var item = new PitItem(id);
-		item.SetProperty(payload);
+		item.Merge(JObject.FromObject(payload));
 		return item;
 	}
 
@@ -84,13 +84,7 @@ public sealed class InProcessConcurrencyTests : IDisposable
 			barrier.SignalAndWait();
 			// Identical content for one id: only the first accepted addition may win;
 			// every later identical add is a no-change duplicate.
-			var item = new PitItem(new JObject
-			{
-				[nameof(PitItem.Id)] = "Contended",
-				[nameof(PitItem.Modified)] = DateTimeOffset.UtcNow,
-				[nameof(PitItem.Deleted)] = false,
-				["Payload"] = "identical"
-			});
+			var item = Fragment("Contended", new { Payload = "identical" });
 			if (pit.Add(item))
 				Interlocked.Increment(ref acceptedCount);
 		})).ToArray();
@@ -141,7 +135,7 @@ public sealed class InProcessConcurrencyTests : IDisposable
 	}
 
 	[Fact]
-	public void LiveAdd_RefreshesModifiedAtInsertionBoundary_UniquenessIsNotPromised()
+	public void LiveAdd_RefreshesModifiedAtInsertionBoundary_AndUsesProcessMonotonicTicks()
 	{
 		var root = NewPitRoot("timestamps");
 		using var pit = new Pit(root, readOnly: false, autoload: false, subscriber: "cr003");
@@ -152,6 +146,9 @@ public sealed class InProcessConcurrencyTests : IDisposable
 		var after = DateTimeOffset.UtcNow;
 		var stored = pit["Staleness"].Modified;
 		Assert.InRange(stored, before, after); // fresh UTC at the live insertion boundary
+		var next = new PitItem("Next");
+		Assert.True(pit.Add(next));
+		Assert.True(pit["Next"].Modified.UtcTicks > stored.UtcTicks);
 
 		// AddHistorical preserves the supplied historical timestamp verbatim.
 		var historicalTime = DateTimeOffset.UtcNow.AddDays(-2);

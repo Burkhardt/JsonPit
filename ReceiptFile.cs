@@ -33,7 +33,7 @@ public sealed class ReceiptFile : TextFile
 	private ReceiptFile(RaiFile changeFile)
 		: base(changeFile.Path, changeFile.Name, Extension)
 	{
-		// Preserve the complete hash-bearing change stem even when a consumer is
+		// Preserve the complete change stem even when a consumer is
 		// temporarily built against an older OsLibCore package whose TextFile
 		// constructor interpreted dots in explicit logical names as extensions.
 		NameAndExt = (changeFile.Name, Extension);
@@ -74,7 +74,7 @@ public sealed class ReceiptFile : TextFile
 		if (!string.Equals(changeFile.Ext, "json", StringComparison.OrdinalIgnoreCase) ||
 			!ChangeFile.TryParseName(changeFile.Name, out _, out _, out _))
 			throw new ArgumentException(
-				$"'{changeFileFullName}' is not a hashed JsonPit change-file name.",
+				$"'{changeFileFullName}' is not a supported JsonPit change-file name.",
 				nameof(changeFileFullName));
 		return changeFile;
 	}

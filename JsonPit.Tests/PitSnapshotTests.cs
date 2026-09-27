@@ -134,16 +134,14 @@ namespace JsonPit.Tests
 				pit.Add(maxV1);
 				var at = maxV1.Modified.AddTicks(1);
 				System.Threading.Thread.Sleep(25);
-				var maxV2 = new PitItem(maxV1);
+				var maxV2 = new PitItem("Max");
 				maxV2.SetProperty(new { Email = "max-v2@example.org", Stage = "live" });
 				pit.Add(maxV2);
 				var obsolete = new PitItem("Obsolete");
 				obsolete.SetProperty(new { State = "active" });
 				pit.Add(obsolete);
 				System.Threading.Thread.Sleep(25);
-				var deletedObsolete = new PitItem(obsolete);
-				deletedObsolete.Delete();
-				pit.Add(deletedObsolete);
+				pit.Delete("Obsolete");
 				var exportFile = new RaiFile(root, "person-export", "json");
 				pit.ExportJson(exportFile, at: at, pretty: true);
 				var exported = JArray.Parse(File.ReadAllText(exportFile.FullName));

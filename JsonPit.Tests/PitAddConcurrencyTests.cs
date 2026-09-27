@@ -112,11 +112,10 @@ namespace JsonPit.Tests
 			var countStart = jsonPitTestsPit.HistoricItems.TryGetValue("AAPL", out var startHistory) ? startHistory.Count : 0;
 			var added1 = jsonPitTestsPit.Add(item1);
 			var countAfter1 = jsonPitTestsPit.HistoricItems["AAPL"].Count; // assumes Count exists (it’s used in Peek)
-			var added2 = jsonPitTestsPit.Add(item2);
+			Assert.Throws<ProtectedAttributeException>(() => jsonPitTestsPit.Add(item2));
 			var countAfter2 = jsonPitTestsPit.HistoricItems["AAPL"].Count;
 			// Assert
 			Assert.True(added1);
-			Assert.False(added2);
 			Assert.NotEqual(countStart, countAfter1);
 			Assert.Equal(countAfter1, countAfter2);
 			jsonPitTestsPit.Save();

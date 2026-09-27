@@ -16,9 +16,9 @@ namespace JsonPit.Tests
 			pit.Add(item);
 			pit.Save(force: true);
 
-			var live = pit[id];
-			live.DeleteProperty("Doomed");
-			pit.Add(live);
+			var deletion = new PitItem(id);
+			deletion.DeleteProperty("Doomed");
+			pit.Add(deletion);
 			pit.Save(force: true);
 
 			var projected = pit.Get(id);
@@ -40,9 +40,9 @@ namespace JsonPit.Tests
 			pit.Add(item);
 			pit.Save(force: true);
 
-			var live = pit[id];
-			live.DeleteProperty("A");
-			pit.Add(live);
+			var deletion = new PitItem(id);
+			deletion.DeleteProperty("A");
+			pit.Add(deletion);
 			pit.Save(force: true);
 			pit.Dispose(); // release canonical-path ownership before reopening (CR003 §4)
 
@@ -64,9 +64,9 @@ namespace JsonPit.Tests
 			pit.Add(item);
 			pit.Save(force: true);
 
-			var live = pit[id];
-			live.DeleteProperty("B");
-			pit.Add(live);
+			var deletion = new PitItem(id);
+			deletion.DeleteProperty("B");
+			pit.Add(deletion);
 			pit.Save(force: true);
 
 			var projected = pit.Get(id);
@@ -110,9 +110,9 @@ namespace JsonPit.Tests
 			pit.Add(item);
 			pit.Save(force: true);
 
-			var live = pit[id];
-			live.DeleteProperty("Status");
-			pit.Add(live);
+			var deletion = new PitItem(id);
+			deletion.DeleteProperty("Status");
+			pit.Add(deletion);
 			pit.Save(force: true);
 
 			var again = new PitItem(id);
@@ -135,9 +135,9 @@ namespace JsonPit.Tests
 			var beforeDelete = pit[id].Modified;
 
 			System.Threading.Thread.Sleep(20);
-			var live = pit[id];
-			live.DeleteProperty("A");
-			pit.Add(live);
+			var deletion = new PitItem(id);
+			deletion.DeleteProperty("A");
+			pit.Add(deletion);
 			pit.Save(force: true);
 
 			var past = pit.GetAt(id, beforeDelete);
@@ -161,10 +161,10 @@ namespace JsonPit.Tests
 			pit.Add(item);
 			pit.Save(force: true);
 
-			var live = pit[id];
-			Assert.True(live.Merge(JObject.Parse(@"{ 'What': { 'Chat': null } }")));
-			Assert.Equal(JTokenType.Null, live["What"]!["Chat"]!.Type);
-			pit.Add(live);
+			var mutation = new PitItem(id);
+			Assert.True(mutation.Merge(JObject.Parse(@"{ 'What': { 'Chat': null } }")));
+			Assert.Equal(JTokenType.Null, mutation["What"]!["Chat"]!.Type);
+			pit.Add(mutation);
 			pit.Save(force: true);
 
 			var projected = pit.Get(id);
@@ -211,9 +211,9 @@ namespace JsonPit.Tests
 			pit.Add(item);
 			pit.Save(force: true);
 
-			var live = pit[id];
-			live.DeletePropertyPath("Action.Conversation.Chat");
-			pit.Add(live);
+			var deletion = new PitItem(id);
+			deletion.DeletePropertyPath("Action.Conversation.Chat");
+			pit.Add(deletion);
 			pit.Save(force: true);
 
 			var projected = pit.Get(id);
@@ -247,9 +247,9 @@ namespace JsonPit.Tests
 			pit.Add(item);
 			pit.Save(force: true);
 
-			var live = pit[id];
-			live.DeletePropertyPath("What.Chat");
-			pit.Add(live);
+			var deletion = new PitItem(id);
+			deletion.DeletePropertyPath("What.Chat");
+			pit.Add(deletion);
 			pit.Save(force: true);
 			pit.Dispose();
 
@@ -271,9 +271,9 @@ namespace JsonPit.Tests
 			pit.Add(item);
 			pit.Save(force: true);
 
-			var live = pit[id];
-			live.DeleteProperty("What.Chat");
-			pit.Add(live);
+			var deletion = new PitItem(id);
+			deletion.DeleteProperty("What.Chat");
+			pit.Add(deletion);
 			pit.Save(force: true);
 
 			var projected = pit.Get(id);

@@ -398,7 +398,7 @@ public sealed class MasterTicketTests : IDisposable
 		masterPit.Save(force: true);
 		var clientItem = new PitItem("ClientItem");
 		clientItem.SetProperty(new { Value = 42 });
-		masterPit.CreateChangeFile(clientItem, "ClientMachine");
+		masterPit.CreateChangeFile(clientItem, "ClientMachine-client-4242");
 		masterPit.Dispose(); // release canonical-path ownership before reopening (CR003 §4)
 		using var reloaded = new Pit(pitPath, readOnly: false, autoload: true, subscriber: "RAIkeep");
 		Assert.NotNull(reloaded.Get("MasterItem"));
@@ -413,7 +413,7 @@ public sealed class MasterTicketTests : IDisposable
 		var setupPit = new Pit(pitPath, readOnly: false, autoload: false, unflagged: true);
 		setupPit.Add(new PitItem("BaseItem"));
 		setupPit.Save(force: true);
-		setupPit.CreateChangeFile(new PitItem("PeerItem"), "PeerMachine");
+		setupPit.CreateChangeFile(new PitItem("PeerItem"), "PeerMachine-client-4242");
 		setupPit.Dispose(); // release canonical-path ownership before reopening (CR003 §4)
 		// Re-plant master flag (setupPit may have overwritten it)
 		var masterFlagAgain = new MasterFlagFile(pitPath, "Master", server: "TheMaster");

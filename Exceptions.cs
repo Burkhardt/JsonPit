@@ -2,6 +2,40 @@ using System;
 
 namespace JsonPit;
 
+/// <summary>Base exception for JsonPit domain-contract violations.</summary>
+public class JsonPitException : InvalidOperationException
+{
+	public JsonPitException(string message) : base(message) { }
+	public JsonPitException(string message, Exception innerException) : base(message, innerException) { }
+}
+
+/// <summary>
+/// Thrown when client mutation data attempts to set an engine-managed attribute such
+/// as <c>Id</c>, <c>Modified</c>, or <c>Deleted</c>.
+/// </summary>
+public sealed class ProtectedAttributeException : JsonPitException
+{
+	public string AttributeName { get; }
+
+	public ProtectedAttributeException(string attributeName)
+		: base($"Cannot manually update protected attribute '{attributeName}'. Use sparse properties only and use the dedicated item-deletion operation for deletion.")
+	{
+		AttributeName = attributeName;
+	}
+}
+
+/// <summary>Thrown when a property tombstone targets an engine-managed attribute.</summary>
+public sealed class TombstoneException : JsonPitException
+{
+	public string AttributeName { get; }
+
+	public TombstoneException(string attributeName)
+		: base($"Cannot tombstone protected attribute '{attributeName}'. Use the dedicated item-deletion operation for deletion.")
+	{
+		AttributeName = attributeName;
+	}
+}
+
 /// <summary>
 /// Thrown when JsonPit's bounded persistence/durability contract cannot be fulfilled
 /// (CR003, coordinated v3.13.2): a canonical read during a known rewrite exhausted its

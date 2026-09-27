@@ -340,7 +340,7 @@ public sealed class SplitMasterRecoveryTests : IDisposable
 	}
 
 	[Fact]
-	public void DistinctEqualTimestampFragments_ProduceDistinctChangeFiles_BothSurviveMerge()
+	public void DistinctEqualTimestampFragments_WithSameIdentity_FailFastInsteadOfOverwriting()
 	{
 		var root = NewPitRoot("equal-ts-files");
 		using var pit = new Pit(root, readOnly: false, autoload: false, subscriber: "cr003");
@@ -352,11 +352,11 @@ public sealed class SplitMasterRecoveryTests : IDisposable
 		var two = new PitItem("EqualTs", invalidate: false, timestamp: timestamp); two["Payload"] = "two";
 
 		var fileOne = pit.CreateChangeFile(one, "RemotePeer-app-4242");
-		var fileTwo = pit.CreateChangeFile(two, "RemotePeer-app-4242");
-		Assert.NotEqual(fileOne.FullName, fileTwo.FullName); // the hash distinguishes equal-time fragments
-
-		pit.MergeChanges();
-		Assert.Equal(2, pit.HistoricItems["EqualTs"].History.Count(f => f.Modified == timestamp));
+		var error = Assert.Throws<JsonPitPersistenceException>(() =>
+			pit.CreateChangeFile(two, "RemotePeer-app-4242"));
+		Assert.Contains("collision", error.Message, StringComparison.OrdinalIgnoreCase);
+		Assert.True(fileOne.Exists());
+		Assert.Equal(ChangeFile.ComposeName(timestamp, "RemotePeer-app-4242"), fileOne.Name);
 	}
 
 	[Fact]

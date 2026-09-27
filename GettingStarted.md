@@ -251,22 +251,22 @@ The usual application pattern is simpler:
 
 The normal update pattern is:
 
-1. fetch the existing item
-2. add or change one or more properties
-3. add the item back to the pit
+1. confirm the item exists when the operation requires it
+2. create a new sparse fragment carrying only the item id and changed properties
+3. add the sparse fragment to the pit
 4. save
 
 Example:
 
 ```csharp
-var existing = people["Max"];
-if (existing == null)
+if (people["Max"] == null)
    throw new InvalidOperationException("Max does not exist.");
 
-existing.SetProperty(new { Phone = "+27-82-111-2222" });
-existing.SetProperty(new { Instagram = "max.africastage" });
+var update = new PitItem("Max");
+update.SetProperty(new { Phone = "+27-82-111-2222" });
+update.SetProperty(new { Instagram = "max.africastage" });
 
-people.Add(existing);
+people.Add(update);
 people.Save();
 ```
 
@@ -274,29 +274,24 @@ Notes:
 
 - `PitItem.SetProperty(...)` updates only the provided properties.
 - If the new value is identical to the old value, JsonPit does not treat it as a change.
-- `Pit.Add(...)` stores a new historical version for that item key when the item actually changed.
+- `Pit.Add(...)` stores a new sparse historical fragment for that item key when the item actually changed.
 - `PitItem.DeleteProperty(...)` removes a top-level property by appending a null tombstone; projected reads omit that property entirely while preserving older history for time travel.
-
-There is also a convenience setter:
-
-```csharp
-people.PitItem = existing;
-```
-
-But for onboarding, `people.Add(existing)` is clearer.
+- Never re-add the projected object returned by `people["Max"]` or `Get(...)`.
+  It contains engine-managed `Modified` and `Deleted` fields and is rejected as
+  a read-modify-write payload. Historical loaders use `AddHistorical(...)`.
 
 ## Removing Properties
 
-JsonPit keeps item history append-only. To remove a top-level property, fetch the current projected item, call `DeleteProperty(...)`, add it back, and save:
+JsonPit keeps item history append-only. To remove a top-level property, append a sparse tombstone fragment and save:
 
 ```csharp
-var existing = people["Max"];
-if (existing == null)
+if (people["Max"] == null)
    throw new InvalidOperationException("Max does not exist.");
 
-existing.DeleteProperty("Instagram");
+var deletion = new PitItem("Max");
+deletion.DeleteProperty("Instagram");
 
-people.Add(existing);
+people.Add(deletion);
 people.Save();
 ```
 
@@ -312,8 +307,9 @@ The deletion is represented in history as a top-level `null` marker. During proj
 For nested properties, use the explicit dot-path API:
 
 ```csharp
-existing.DeletePropertyPath("What.Chat");
-people.Add(existing);
+var nestedDeletion = new PitItem("Max");
+nestedDeletion.DeletePropertyPath("What.Chat");
+people.Add(nestedDeletion);
 people.Save();
 ```
 
@@ -326,7 +322,7 @@ JsonPit works well when your item shape evolves over time.
 Example:
 
 ```csharp
-var person = people["Max"] ?? new PitItem("Max");
+var person = new PitItem("Max");
 
 person.SetProperty(new { Email = "max@example.org" });
 person.SetProperty(new { Phone = "+27-82-000-0000" });
@@ -338,8 +334,9 @@ people.Save();
 Later you can add more attributes without a migration step:
 
 ```csharp
-person.SetProperty(new { Instagram = "max.africastage" });
-person.SetProperty(new
+var laterUpdate = new PitItem("Max");
+laterUpdate.SetProperty(new { Instagram = "max.africastage" });
+laterUpdate.SetProperty(new
 {
    Address = new
    {
@@ -349,14 +346,16 @@ person.SetProperty(new
    }
 });
 
-people.Add(person);
+people.Add(laterUpdate);
 people.Save();
 ```
 
 You can also extend an item with raw JSON or `JObject` / `JArray` when needed:
 
 ```csharp
-person.ExtendWith(new JObject { { "Facebook", "max.africastage.fb" } });
+var dynamicUpdate = new PitItem("Max");
+dynamicUpdate.ExtendWith(new JObject { { "Facebook", "max.africastage.fb" } });
+people.Add(dynamicUpdate);
 ```
 
 Recommended default:
@@ -656,7 +655,7 @@ If you are implementing a small JsonPit-backed feature from NuGet packages, star
 1. Resolve a stable shared root with OsLib.
 2. Build the pit path with `RaiPath`.
 3. Open the pit once and keep it in a long-lived singleton/static server component.
-4. Use `PitItem.SetProperty(new { ... })` for normal updates.
+4. Create a new `PitItem(existingId)` sparse fragment and use `SetProperty(new { ... })` for normal updates; never write a projected item back.
 5. Read current items from memory with `pit["Id"]` or `pit.AllUndeleted()`.
 6. Call `Save()` at useful persistence boundaries.
 7. Treat cross-server behavior as asynchronous persistence with eventual durability, not real-time synchronization.

@@ -1,6 +1,6 @@
 # JsonPit API Reference
 
-This document provides a foldable overview of the public JsonPit 4.4.1 API. JsonPit participates unchanged in the synchronized CR037 line; CR024 deterministic process-flag cleanup, immutable recovery-event compaction, archive-transparent audit reads, accepted CR021 durable cleanup, and CR022 non-creating maintenance inspection remain intact.
+This document provides a foldable overview of the public JsonPit 4.4.1 API. JsonPit implements CR040 protected sparse-mutation boundaries and CR041 clean change filenames while participating in the synchronized CR037/CR037.1 line. CR024 deterministic process-flag cleanup, immutable recovery-event compaction, archive-transparent audit reads, accepted CR021 durable cleanup, and CR022 non-creating maintenance inspection remain intact.
 
 ## Pit lifecycle and persistence
 
@@ -15,9 +15,9 @@ This document provides a foldable overview of the public JsonPit 4.4.1 API. Json
   Carries the pit path/file boundary, serialization configuration, version information, and file-versus-memory change-time behavior used by concrete pits.
   </details>
 - <details>
-  <summary><code>JsonPitPersistenceException</code> and <code>PitInstanceConflictException</code></summary>
+  <summary><code>JsonPitException</code>, mutation exceptions, persistence exceptions, and instance conflicts</summary>
 
-  Report validated persistence failures and attempts to open a second live public pit for the same canonical path.
+  `ProtectedAttributeException` reports client attempts to mutate `Id`, `Modified`, or `Deleted`; `TombstoneException` reports property tombstones aimed at those engine-managed attributes. `JsonPitPersistenceException` reports validated durability failures, and `PitInstanceConflictException` reports attempts to open a second live public pit for the same canonical path.
   </details>
 
 ## Items and history
@@ -25,7 +25,7 @@ This document provides a foldable overview of the public JsonPit 4.4.1 API. Json
 - <details>
   <summary><code>PitItem</code>, <code>PitItems</code>, and <code>TimestampedValue</code></summary>
 
-  Represent canonical item identities, timestamped fragments, property-level history, merging, filtering, equality, validation, and recursive tombstone projection. `PitItem.Merge(JObject)` retains null tombstones, `DeleteProperty(...)` addresses a literal top-level name, and `DeletePropertyPath(...)` explicitly traverses dot-delimited nested properties.
+  Represent canonical item identities, timestamped fragments, property-level history, merging, filtering, equality, validation, and recursive tombstone projection. `SetProperty(...)`, `ExtendWith(...)`, and `Merge(...)` accept sparse domain properties and atomically reject top-level `Id`, `Modified`, or `Deleted`. `ValidateClientPayload(...)` validates entity-shaped ingestion while allowing `Id` and rejecting client lifecycle fields. `DeleteProperty(...)` addresses a literal top-level name, and `DeletePropertyPath(...)` explicitly traverses dot-delimited nested properties; both reject engine-attribute tombstones.
   </details>
 - <details>
   <summary><code>Item</code> and <code>Compare</code></summary>
@@ -43,12 +43,12 @@ This document provides a foldable overview of the public JsonPit 4.4.1 API. Json
 - <details>
   <summary><code>ChangeFile</code></summary>
 
-  Produces canonical, hashed, collision-safe change artifacts and validates their payloads before replay.
+  `ComposeName(fragment, identity)` emits the clean CR041 `{UtcTicks}_{ExactProcessIdentity}` stem. Live `Pit.Add(...)` stamps accepted fragments with process-monotonic UTC ticks so concurrent writes keep distinct clean names. `TryParseName(...)` discovers both clean names and legacy CR003 SHA-suffixed names. Clean files are strict-JSON validated; legacy hashed files additionally retain content-hash validation.
   </details>
 - <details>
   <summary><code>ReceiptFile</code></summary>
 
-  Stores one immutable UTC round-trip timestamp beside its associated hashed change file. The receipt has the same complete logical stem and the `.receipt` extension; reopening it preserves its original content, `Time`, and write timestamp.
+  Stores one immutable UTC round-trip timestamp beside its associated clean or legacy hashed change file. The receipt has the same complete logical stem and the `.receipt` extension; reopening it preserves its original content, `Time`, and write timestamp.
   </details>
 - <details>
   <summary><code>Pit.Maintain(...)</code>, <code>PitMaintenanceOptions</code>, and <code>PitMaintenanceResult</code></summary>

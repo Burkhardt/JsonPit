@@ -20,6 +20,7 @@ namespace JsonPit;
 /// </summary>
 public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 {
+	private static long lastLiveMutationUtcTicks;
 	private Func<PitItem, string> orderBy;
 	public int DefaultMaxCount { get; }
 	private bool disposed;
@@ -127,6 +128,8 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 	public bool AddHistorical(PitItem item) => AddCore(item, refreshModified: false);
 	private bool AddCore(PitItem item, bool refreshModified)
 	{
+		if (item is null) throw new ArgumentNullException(nameof(item));
+		if (refreshModified) item.EnsureValidForLiveAdd();
 		// Shared entry into the state/snapshot gate: many additions may run concurrently;
 		// only Save's brief snapshot capture excludes them. Additions are never serialized
 		// behind cloud-file I/O.
@@ -141,7 +144,7 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 				if (top is not null && EqualsIgnoringModified(top, item)) return false;
 				if (refreshModified && !stamped)
 				{
-					item.Invalidate(); // one real UTC boundary per accepted insertion — not restamped on CAS retries
+					item.Invalidate(NextLiveMutationTimestamp()); // one process-monotonic UTC boundary per accepted insertion
 					stamped = true;
 				}
 				var newStore = currentStore.Push(item);
@@ -152,6 +155,17 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 		finally
 		{
 			stateGate.ExitReadLock();
+		}
+	}
+	private static DateTimeOffset NextLiveMutationTimestamp()
+	{
+		while (true)
+		{
+			var observed = Volatile.Read(ref lastLiveMutationUtcTicks);
+			var now = DateTimeOffset.UtcNow.UtcTicks;
+			var candidate = Math.Max(now, observed + 1);
+			if (Interlocked.CompareExchange(ref lastLiveMutationUtcTicks, candidate, observed) == observed)
+				return new DateTimeOffset(candidate, TimeSpan.Zero);
 		}
 	}
 	public bool Add(string jsonObject) => Add(new PitItem(JObject.Parse(jsonObject)));
@@ -203,8 +217,7 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 		if (!Contains(oldKey) || Contains(newKey, withDeleted: true)) return false;
 		var oldItem = this[oldKey];
 		if (oldItem is null) return false;
-		var newItem = new PitItem(oldItem);
-		newItem.SetProperty(new { Id = newKey });
+		var newItem = PitItem.CreateEngineMutationCopy(oldItem, newKey);
 		return Delete(oldKey) && Add(newItem);
 	}
 	public JObject Get(string key, bool withDeleted = false)
@@ -566,25 +579,27 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 				CreateChangeFile(fragment);
 	}
 	/// <summary>
-	/// Writes a single fragment as an ordinary collision-safe change file alongside the
-	/// pit file (CR003, coordinated v3.13.2).
-	/// Filename: {Modified.UtcTicks}_{ExactProcessIdentity}_{Sha256}.json where Sha256 is
-	/// the full lowercase SHA-256 of the exact canonical UTF-8 JSON payload. Repeating the
-	/// same fragment produces the same filename and is idempotent; distinct equal-timestamp
-	/// fragments produce distinct filenames and cannot suppress one another.
+	/// Writes one fragment as an ordinary clean CR041 change file beside the pit file.
+	/// Filename: {Modified.UtcTicks}_{ExactProcessIdentity}.json. Existing legacy hashed
+	/// files remain readable, but newly emitted names do not carry a redundant content hash.
 	/// </summary>
 	/// <returns>The change file that now durably carries this fragment.</returns>
 	public RaiFile CreateChangeFile(PitItem item, string server = null)
 	{
 		if (item is null) return null;
-		var (canonicalPayload, sha) = ChangeFile.CanonicalPayloadFor(item);
+		var (canonicalPayload, _) = ChangeFile.CanonicalPayloadFor(item);
 		var identity = server ?? ExactProcessIdentity;
-		var fileName = ChangeFile.ComposeName(item.Modified, identity, sha);
+		var fileName = ChangeFile.ComposeName(item.Modified, identity);
 		var changeFile = new RaiFile(PitDir, fileName, "json");
-		if (changeFile.Exists()) return changeFile; // idempotent republication
+		if (changeFile.Exists())
+		{
+			if (new TextFile(changeFile.FullName).ReadAllText() == canonicalPayload)
+				return changeFile; // idempotent republication
+			throw new JsonPitPersistenceException(
+				$"Change-file identity collision at '{changeFile.FullName}'; existing content differs.");
+		}
 		changeFile.mkdir();
-		// Exact-byte contract: the filename hash covers the exact canonical UTF-8 content,
-		// so no line terminator is appended (Details of CR003 §12).
+		// Keep canonical UTF-8 bytes and no trailing line terminator for cross-engine parity.
 		System.IO.File.WriteAllText(changeFile.FullName, canonicalPayload, new System.Text.UTF8Encoding(false));
 		changeFile.AwaitMaterializing();
 		return changeFile;
@@ -869,11 +884,6 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 				continue;
 			}
 			result.ChangeFilesValid++;
-			if (!ChangeFile.TryParseName(file.Name, out _, out _, out _))
-			{
-				result.Deferred.Add($"Legacy unhashed change file has no CR021 receipt identity: {file.NameWithExtension}");
-				continue;
-			}
 			var receiptPath = ReceiptFile.PathFor(file.FullName);
 			if (!receiptPath.Exists()) continue;
 			result.ReceiptsObserved++;
@@ -947,11 +957,6 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 			var newlyEligible = 0;
 			foreach (var entry in mergedFiles)
 			{
-				if (!ChangeFile.TryParseName(entry.File.Name, out _, out _, out _))
-				{
-					result.Deferred.Add($"Legacy unhashed change file is retained: {entry.File.NameWithExtension}");
-					continue;
-				}
 				if (!CanonicalAccountsFor(entry.Payload, canonicalSnapshot))
 				{
 					result.Deferred.Add($"Canonical pit does not yet account for {entry.File.NameWithExtension}");
@@ -1311,10 +1316,10 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 	public static TimeSpan OrphanedConflictFlagGrace { get; set; } = TimeSpan.FromMinutes(10);
 	/// <summary>
 	/// In-memory recovery write set for the current exact-process master tenure
-	/// (concept §5). Keyed by the fragment's collision-safe change-file name, which
-	/// deduplicates exact replays by fragment identity and canonical content. Entries are
+	/// (concept §5). Keyed internally by clean change-file identity plus canonical-content
+	/// hash, which deduplicates exact replays without lengthening public filenames. Entries are
 	/// removed per fragment once an ordinary change file is locally written, materialized,
-	/// hash-verified, and parsed — no cloud or master acknowledgement is required.
+	/// and parsed (with hash verification for legacy names) — no cloud or master acknowledgement is required.
 	/// </summary>
 	private readonly ConcurrentDictionary<string, PitItem> recoveryWriteSet = new(StringComparer.Ordinal);
 	private bool hasMasterTenure;
@@ -1332,7 +1337,12 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 	private void RecordInRecoveryWriteSet(PitItem fragment)
 	{
 		if (fragment is null) return;
-		recoveryWriteSet.TryAdd(ChangeFile.ComposeName(fragment, ExactProcessIdentity), fragment);
+		recoveryWriteSet.TryAdd(RecoveryWriteSetKey(fragment), fragment);
+	}
+	private string RecoveryWriteSetKey(PitItem fragment)
+	{
+		var (_, sha) = ChangeFile.CanonicalPayloadFor(fragment);
+		return $"{ChangeFile.ComposeName(fragment, ExactProcessIdentity)}_{sha}";
 	}
 	/// <summary>
 	/// Tracks exact-process master tenures (concept §5): acquisition after not owning
@@ -1361,7 +1371,7 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 	/// <summary>
 	/// Captures the union of the tenure recovery write set and all currently dirty live
 	/// fragments through the brief exclusive snapshot barrier, deduplicated by
-	/// collision-safe change-file identity.
+	/// internal fragment identity.
 	/// </summary>
 	private Dictionary<string, PitItem> SnapshotRecoveryUnion()
 	{
@@ -1374,15 +1384,15 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 			foreach (var kvp in HistoricItems)
 				foreach (var fragment in kvp.Value.History)
 					if (!fragment.Valid())
-						union[ChangeFile.ComposeName(fragment, ExactProcessIdentity)] = fragment;
+						union[RecoveryWriteSetKey(fragment)] = fragment;
 		}
 		finally { stateGate.ExitWriteLock(); }
 		return union;
 	}
 	/// <summary>
-	/// Publishes fragments as ordinary collision-safe change files and transfers recovery
+	/// Publishes fragments as ordinary clean change files and transfers recovery
 	/// responsibility per fragment: an entry leaves the write set only after its file is
-	/// locally written, materialized, hash-verified, and parsed. Failed fragments retain
+	/// locally written, materialized, and parsed. Failed fragments retain
 	/// their entries for idempotent retry; successful siblings are released independently.
 	/// </summary>
 	/// <returns>(published, failed) fragment counts.</returns>
@@ -1776,7 +1786,7 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 	/// <summary>
 	/// Explicit disposal of a writable pit is a durability boundary (CR003 / concept §8):
 	/// under the persistence/recovery gate it publishes the tenure recovery write set plus
-	/// currently dirty fragments as ordinary collision-safe change files, optionally
+	/// currently dirty fragments as ordinary clean change files, optionally
 	/// completes a canonical save while it still owns exact master authority, and only
 	/// then releases process authority, the watcher, and the path registration. Failure to
 	/// make accepted fragments durable during explicit shutdown is Critical and throws a

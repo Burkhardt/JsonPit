@@ -17,11 +17,10 @@ namespace JsonPit.Tests
 
         private static PitItem CreateSnapshot(string id, object payload = null)
         {
-            var json = payload is null ? new JObject() : JObject.FromObject(payload);
-            json[nameof(PitItem.Id)] = id;
-            json[nameof(PitItem.Modified)] = DateTimeOffset.UtcNow;
-            json[nameof(PitItem.Deleted)] = false;
-            return new PitItem(json);
+			var item = new PitItem(id);
+			if (payload is not null)
+				item.Merge(JObject.FromObject(payload));
+			return item;
         }
 
         private static PitItem CreateHistoricalSnapshot(string id, DateTimeOffset modified, object payload = null)
@@ -286,7 +285,7 @@ namespace JsonPit.Tests
                         var id = $"External-{i}";
                         var item = CreateHistoricalSnapshot(id, baseTime.AddTicks(i), new { Source = "external", Seq = i });
 
-                        pit.CreateChangeFile(item, $"ExternalServer-{i}");
+						pit.CreateChangeFile(item, $"ExternalServer-tests-{i}");
                         externalIds.Add(id);
                     }
                 }, cancellationToken);

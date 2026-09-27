@@ -23,7 +23,15 @@ are documented in the
 
 ## 4.4.1
 
-- Participates unchanged in the synchronized eight-package RAIkeep v4.4.1 CR037 release.
+- Implements accepted CR040: `Id`, `Modified`, and `Deleted` are protected from
+  property mutation/tombstoning; live `Pit.Add(...)` rejects projected
+  read-modify-write payloads, while `AddHistorical(...)` remains the explicit
+  replay boundary.
+- Implements accepted CR041: new change and receipt artifacts use the clean
+  `{UtcTicks}_{ExactProcessIdentity}` stem. Existing CR003 SHA-suffixed change
+  files remain readable and hash-validated during rolling upgrades. Live engine
+  timestamps are process-monotonic so concurrent writes retain distinct clean names.
+- Participates in the synchronized eight-package RAIkeep v4.4.1 CR037/CR037.1 release.
 - Current release notes: [JsonPit_RELEASE_NOTES_4.4.1.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.4.1.md)
 
 ## 4.3.2
@@ -156,6 +164,12 @@ JsonPit
 ### PitItem: JSON-backed item with metadata and change tracking.
 
 - PitItem: `Id`, `Modified`, `Deleted`, `Note`, `SetProperty`, `Merge`, `DeleteProperty`, `DeletePropertyPath`
+- Live updates must be sparse new fragments (`new PitItem(existingId)`); do not
+  re-add a projected item returned by `Pit.Get(...)` or the indexer.
+- `SetProperty(...)`/`Merge(...)` reject top-level `Id`, `Modified`, and
+  `Deleted`. Property tombstones reject the same engine-managed names.
+- `AddHistorical(...)` is reserved for trusted canonical/change replay where
+  historic `Modified` and `Deleted` values must be retained.
 
 ### PitItemExtensions: Helpers for comparing items and aligning timestamps.
 

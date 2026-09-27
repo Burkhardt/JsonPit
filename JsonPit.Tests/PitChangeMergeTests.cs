@@ -45,11 +45,11 @@ namespace JsonPit.Tests
 				var pit = new Pit(root / "pit-store", readOnly: false, autoload: false, backup: false);
 				var peerItem = new PitItem("PeerItem");
 				peerItem.SetProperty(new { Value = 126, CreatedBy = "Mzansi", Marker = "peer-marker" });
-				pit.CreateChangeFile(peerItem, "ubuntu");
+				pit.CreateChangeFile(peerItem, "ubuntu-tests-4242");
 					var changePits = Directory.GetFiles(pit.PitDir.ToString(), "*.json", SearchOption.AllDirectories).OrderBy(x => x).ToArray();
 					Assert.NotEmpty(changePits);
-					// v3.13.2 collision-safe naming: {ticks}_{identity}_{sha256}.json
-					Assert.Contains(changePits, file => file.Contains("_ubuntu_", StringComparison.OrdinalIgnoreCase) && file.EndsWith(".json", StringComparison.OrdinalIgnoreCase));
+					// CR041 clean naming: {ticks}_{exact-process-identity}.json
+					Assert.Contains(changePits, file => file.Contains("_ubuntu-tests-4242.json", StringComparison.OrdinalIgnoreCase));
 			}
 			finally
 			{
@@ -71,7 +71,7 @@ namespace JsonPit.Tests
 				masterPit.Save(force: true);
 				var peerItem = new PitItem("PeerItem");
 				peerItem.SetProperty(new { Value = 126, CreatedBy = "Mzansi", Marker = "peer-marker" });
-				masterPit.CreateChangeFile(peerItem, "ubuntu");
+				masterPit.CreateChangeFile(peerItem, "ubuntu-tests-4242");
 				masterPit.Dispose(); // release canonical-path ownership before reopening (CR003 §4)
 				var reloaded = new Pit(pitPath, readOnly: false, autoload: false, backup: false);
 				reloaded.Load(undercover: true);

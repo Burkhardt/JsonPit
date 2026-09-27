@@ -131,7 +131,7 @@ public class PitAddTimestampStalenessTests
 	//    Modified — independent of the snapshot's own Modified value.
 	// =====================================================================
 	[Fact]
-	public void Pit_Add_HistoryCompiledFromJsonSnapshots_GetsFreshModifiedPerFragment()
+	public void Pit_AddHistorical_HistoryCompiledFromJsonSnapshots_PreservesSourceTime()
 	{
 		var pit = NewPit("compiled-history");
 
@@ -148,25 +148,13 @@ public class PitAddTimestampStalenessTests
 			JObject.Parse($"{{ \"Id\": \"{ItemId}\", \"Modified\": \"{t2:O}\", \"Deleted\": false, \"Payload\": 2 }}"),
 		};
 
-		var beforeAdds = DateTimeOffset.UtcNow;
 		foreach (var snap in snapshots)
-			Assert.True(pit.Add(new PitItem(snap)), "Pit.Add returned false during history compilation.");
+			Assert.True(pit.AddHistorical(new PitItem(snap)), "Pit.AddHistorical returned false during history compilation.");
 
 		var stamps = HistoryTimestamps(pit, ItemId);
 		Assert.Equal(3, stamps.Count);
 
-		// None of the fragments may carry any of the old upstream timestamps.
-		foreach (var old in new[] { t0, t1, t2 })
-			Assert.DoesNotContain(stamps, t => t == old);
-
-		// Every fragment's Modified must be fresh (>= start of the Add loop).
-		Assert.All(stamps, t => Assert.True(
-			t >= beforeAdds,
-			$"BUG REPRODUCED: compiled history contains stale Modified {t:O} " +
-			$"(older than the Add loop instant {beforeAdds:O})."));
-
-		// And distinct payloads must end up with distinct timestamps.
-		Assert.Equal(3, stamps.Select(t => t.UtcTicks).Distinct().Count());
+		Assert.Equal(new[] { t1, t2, t0 }.Select(value => value.UtcTicks), stamps.Select(value => value.UtcTicks));
 	}
 
 	// =====================================================================
@@ -176,7 +164,7 @@ public class PitAddTimestampStalenessTests
 	//    not silently inherit `other.Modified`.
 	// =====================================================================
 	[Fact]
-	public void Pit_Add_CopiedItem_DoesNotInheritSourceModified()
+	public void Pit_Add_CopiedProjectedItem_IsRejectedAsReadModifyWrite()
 	{
 		var pit = NewPit("copy-ctor-leak");
 
@@ -189,17 +177,10 @@ public class PitAddTimestampStalenessTests
 		var copy = new PitItem(seed);
 		copy["Payload"] = "mutated";
 
-		var beforeAdd = DateTimeOffset.UtcNow;
-		Assert.True(pit.Add(copy), "Pit.Add of mutated copy returned false.");
-
+		Assert.Throws<ProtectedAttributeException>(() => pit.Add(copy));
 		var stored = pit[ItemId];
-		Assert.True(
-			stored.Modified >= beforeAdd,
-			$"BUG REPRODUCED: copied/mutated item kept the source's Modified " +
-			$"({stored.Modified:O}); expected refresh to >= {beforeAdd:O}.");
-
-		// And the new fragment must not equal the seed's stored Modified.
-		Assert.NotEqual(seedStored, stored.Modified);
+		Assert.Equal("seed", stored["Payload"]?.Value<string>());
+		Assert.Equal(seedStored, stored.Modified);
 	}
 
 	// =====================================================================

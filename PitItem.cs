@@ -12,6 +12,9 @@ public enum Compare { JSON, ByProperty }
 /// </summary>
 public class PitItem : JObject, IEquatable<PitItem>
 {
+	private static readonly string[] ProtectedMutationAttributes = [nameof(Id), nameof(Modified), nameof(Deleted)];
+	private string ClientSuppliedLifecycleAttribute { get; set; }
+
 	public string Id
 	{
 		get => (string)this[nameof(Id)];
@@ -43,6 +46,7 @@ public class PitItem : JObject, IEquatable<PitItem>
 	public void SetProperty(object obj) => SetProperty(JSON.SerializeDynamic(obj));
 	public void DeleteProperty(string propertyName)
 	{
+		ThrowIfProtectedTombstone(propertyName);
 		Deleted = false;
 		Invalidate();
 		this[propertyName] = null;
@@ -54,6 +58,7 @@ public class PitItem : JObject, IEquatable<PitItem>
 	public void DeletePropertyPath(string propertyPath)
 	{
 		var segments = ParsePropertyPath(propertyPath);
+		ThrowIfProtectedTombstone(segments[0]);
 		if (segments.Length == 1)
 		{
 			DeleteProperty(segments[0]);
@@ -101,9 +106,11 @@ public class PitItem : JObject, IEquatable<PitItem>
 	public virtual bool Valid() => !Dirty;
 	public virtual void Validate() => Dirty = false;
 	public virtual void Invalidate()
+		=> Invalidate(DateTimeOffset.UtcNow);
+	internal void Invalidate(DateTimeOffset modified)
 	{
 		Dirty = true;
-		Modified = DateTimeOffset.UtcNow;
+		Modified = modified;
 	}
 	#endregion
 	public override string ToString()
@@ -134,6 +141,7 @@ public class PitItem : JObject, IEquatable<PitItem>
 	}
 	public virtual bool ExtendWith(JObject obj)
 	{
+		ValidatePropertyMutationPayload(obj);
 		var originalClone = (JObject)DeepClone();
 		var mergeSettings = new JsonMergeSettings
 		{
@@ -161,6 +169,8 @@ public class PitItem : JObject, IEquatable<PitItem>
 	}
 	public virtual bool ExtendWith(JArray arr)
 	{
+		foreach (var row in arr.OfType<JObject>())
+			ValidatePropertyMutationPayload(row);
 		bool changed = false;
 		foreach (var el in arr)
 		{
@@ -189,6 +199,44 @@ public class PitItem : JObject, IEquatable<PitItem>
 		return changed;
 	}
 	#endregion
+	/// <summary>
+	/// Validates a client entity payload before live ingestion. <c>Id</c> remains the
+	/// required entity key, but lifecycle attributes are reserved for historical replay.
+	/// </summary>
+	public static void ValidateClientPayload(JObject payload)
+	{
+		if (payload is null) throw new ArgumentNullException(nameof(payload));
+		var protectedProperty = payload.Properties().FirstOrDefault(property =>
+			string.Equals(property.Name, nameof(Modified), StringComparison.OrdinalIgnoreCase) ||
+			string.Equals(property.Name, nameof(Deleted), StringComparison.OrdinalIgnoreCase));
+		if (protectedProperty is not null)
+			throw new ProtectedAttributeException(protectedProperty.Name);
+	}
+
+	internal void EnsureValidForLiveAdd()
+	{
+		if (!string.IsNullOrWhiteSpace(ClientSuppliedLifecycleAttribute))
+			throw new ProtectedAttributeException(ClientSuppliedLifecycleAttribute);
+	}
+
+	private static void ValidatePropertyMutationPayload(JObject payload)
+	{
+		if (payload is null) throw new ArgumentNullException(nameof(payload));
+		var protectedProperty = payload.Properties().FirstOrDefault(property =>
+			ProtectedMutationAttributes.Any(attribute =>
+				string.Equals(attribute, property.Name, StringComparison.OrdinalIgnoreCase)));
+		if (protectedProperty is not null)
+			throw new ProtectedAttributeException(protectedProperty.Name);
+	}
+
+	private static void ThrowIfProtectedTombstone(string propertyName)
+	{
+		var protectedAttribute = ProtectedMutationAttributes.FirstOrDefault(attribute =>
+			string.Equals(attribute, propertyName, StringComparison.OrdinalIgnoreCase));
+		if (protectedAttribute is not null)
+			throw new TombstoneException(protectedAttribute);
+	}
+
 	private static string[] ParsePropertyPath(string propertyPath)
 	{
 		if (string.IsNullOrWhiteSpace(propertyPath))
@@ -229,9 +277,20 @@ public class PitItem : JObject, IEquatable<PitItem>
 	{
 		Id = other.Id;
 		Modified = timestamp ?? (DateTimeOffset)other[nameof(Modified)];
+		ClientSuppliedLifecycleAttribute = nameof(Modified);
 	}
-	public PitItem(JObject from) : base((JObject)from.DeepClone())
+	public PitItem(JObject from) : this(from, captureClientLifecycleAttributes: true) { }
+
+	private PitItem(JObject from, bool captureClientLifecycleAttributes) : base((JObject)from.DeepClone())
 	{
+		if (captureClientLifecycleAttributes)
+		{
+			ClientSuppliedLifecycleAttribute = from.Properties()
+				.FirstOrDefault(property =>
+					string.Equals(property.Name, nameof(Modified), StringComparison.OrdinalIgnoreCase) ||
+					string.Equals(property.Name, nameof(Deleted), StringComparison.OrdinalIgnoreCase))
+				?.Name;
+		}
 		if (this[nameof(Id)] is null && this["Name"] is JValue nameToken && nameToken.Type == JTokenType.String)
 		{
 			Id = nameToken.Value<string>();
@@ -248,6 +307,16 @@ public class PitItem : JObject, IEquatable<PitItem>
 		Id = (string)this[nameof(Id)];
 		if (Property(nameof(Note)) is not null)
 			Note = (string)this[nameof(Note)];
+	}
+
+	internal static PitItem CreateEngineMutationCopy(PitItem source, string id)
+	{
+		if (source is null) throw new ArgumentNullException(nameof(source));
+		var result = new PitItem((JObject)source.DeepClone(), captureClientLifecycleAttributes: false)
+		{
+			Id = id
+		};
+		return result;
 	}
 	public PitItem() { }
 	#endregion
