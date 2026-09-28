@@ -1,6 +1,6 @@
 # JsonPit API Reference
 
-This document provides a foldable overview of the public JsonPit 4.4.2 API. JsonPit implements CR040 protected sparse-mutation boundaries and CR041 clean change filenames while carrying forward the synchronized CR037/CR037.1 line. CR024 deterministic process-flag cleanup, immutable recovery-event compaction, archive-transparent audit reads, accepted CR021 durable cleanup, and CR022 non-creating maintenance inspection remain intact.
+This document provides a foldable overview of the public JsonPit 4.4.3 API. JsonPit participates unchanged in the synchronized CR043 line and carries forward CR040 protected sparse-mutation boundaries, CR041 clean change filenames, CR024 deterministic process-flag cleanup, immutable recovery-event compaction, archive-transparent audit reads, accepted CR021 durable cleanup, and CR022 non-creating maintenance inspection.
 
 ## Pit lifecycle and persistence
 
