@@ -216,11 +216,11 @@ The main benefit of using the JsonPit API rather than manipulating JSON files di
 
 That means most feature code should not think in terms of “how do I rewrite the underlying JSON file safely?” It should think in terms of “how do I update the in-memory pit item correctly?”
 
-## Persistence Model: Asynchronous Persistence With Eventual Durability
+## Persistence Model: [Asynchronous Persistence With Eventual Durability](https://github.com/Burkhardt/RAIkeep/blob/main/MANIFESTO.md#asynchronous-persistence-with-eventual-durability)
 
 The better phrase for JsonPit is:
 
-- `asynchronous persistence with eventual durability`
+- [asynchronous persistence with eventual durability](https://github.com/Burkhardt/RAIkeep/blob/main/MANIFESTO.md#asynchronous-persistence-with-eventual-durability)
 
 This is more accurate than loosely calling it a transactional system or pretending it offers immediate cross-machine consistency.
 
@@ -533,7 +533,7 @@ JsonPit is designed for synchronized multi-process and multi-machine scenarios, 
 
 Think in terms of:
 
-- asynchronous persistence with eventual durability
+- [asynchronous persistence with eventual durability](https://github.com/Burkhardt/RAIkeep/blob/main/MANIFESTO.md#asynchronous-persistence-with-eventual-durability)
 - item version history
 - merge/reload cycles
 - explicit save boundaries
@@ -658,7 +658,9 @@ If you are implementing a small JsonPit-backed feature from NuGet packages, star
 4. Create a new `PitItem(existingId)` sparse fragment and use `SetProperty(new { ... })` for normal updates; never write a projected item back.
 5. Read current items from memory with `pit["Id"]` or `pit.AllUndeleted()`.
 6. Call `Save()` at useful persistence boundaries.
-7. Treat cross-server behavior as asynchronous persistence with eventual durability, not real-time synchronization.
+7. Treat cross-server behavior as
+   [asynchronous persistence with eventual durability](https://github.com/Burkhardt/RAIkeep/blob/main/MANIFESTO.md#asynchronous-persistence-with-eventual-durability),
+   not real-time synchronization.
 
 ## See Also
 

@@ -2,9 +2,15 @@
 
 JsonPit change requests and release notes are centralized in the RAIkeep [`doc/`](https://github.com/Burkhardt/RAIkeep/tree/main/doc) directory under `JsonPit_...` filenames; they are not stored separately in this child repository.
 
-`Stores JsonPits, json files with a value history, across machines/servers, called asynchronously persisted with eventual durability.`  
+JsonPit stores JSON documents with value history across processes, machines,
+and servers using
+[asynchronous persistence with eventual durability](https://github.com/Burkhardt/RAIkeep/blob/main/MANIFESTO.md#asynchronous-persistence-with-eventual-durability).
 
-<i>cli tools</i>: for seeding/initializing/maintaining JsonPits from cli you can use `pits`(see [PitSeeder](https://github.com/Burkhardt/RAIkeep/blob/main/doc/PitSeeder.md)), `jpit` (see  [jsonpit](https://pypi.org/project/jsonpit/)), and for initializing cloud drives on your machine, you can use `amafu` (see [Amafu](https://github.com/Burkhardt/Amafu))
+**CLI tools:** use `pits` (see
+[PitSeeder](https://github.com/Burkhardt/PitSeeder))
+or [`jpit`](https://pypi.org/project/jsonpit/) to seed, export, inspect, and
+maintain JsonPits. Use [`amafu init`](https://github.com/Burkhardt/Amafu) to
+detect cloud drives and create the shared RAIkeep configuration.
 
 ## Start Here
 
