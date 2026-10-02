@@ -1,8 +1,8 @@
-# Getting Started with JsonPit 4.4.6
+# Getting Started with JsonPit 4.4.8
 
 This guide is written for practical implementation work, especially when you want to use JsonPit from NuGet packages in another service such as OTW / AfricaStage.
 
-It is based on the current JsonPit 4.4.6 code and tests in this repository.
+It is based on the current JsonPit 4.4.8 code and tests in this repository.
 
 ## 4.x key decisions
 
@@ -43,7 +43,7 @@ It is not trying to replace a transactional database.
 
 ## Package Setup
 
-Use the coordinated NuGet package ids at version `4.4.6`:
+Use the coordinated NuGet package ids at version `4.4.8`:
 
 - `JsonPit`
 - `RaiUtils`
@@ -52,9 +52,9 @@ Use the coordinated NuGet package ids at version `4.4.6`:
 Typical install commands:
 
 ```bash
-dotnet add package JsonPit --version 4.4.6
-dotnet add package RaiUtils --version 4.4.6
-dotnet add package OsLibCore --version 4.4.6
+dotnet add package JsonPit --version 4.4.8
+dotnet add package RaiUtils --version 4.4.8
+dotnet add package OsLibCore --version 4.4.8
 ```
 
 Typical namespaces in code:
@@ -249,7 +249,7 @@ The usual application pattern is simpler:
 
 ## Updating an Existing Item
 
-Current item lookups return live references. For a new ID, `Add(item)` adopts that exact item and its existing nested objects. Edits through those references append sparse fragments internally; Save persists accepted history. This behavior is introduced for the next coordinated release, 4.4.8.
+Current item lookups return live references. For a new ID, `Add(item)` adopts that exact item and its existing nested objects. Edits through those references append sparse fragments internally; Save persists accepted history. This behavior is introduced in 4.4.8.
 
 Example:
 
@@ -673,7 +673,7 @@ If you are implementing a small JsonPit-backed feature from NuGet packages, star
 1. Resolve a stable shared root with OsLib.
 2. Build the pit path with `RaiPath`.
 3. Open the pit once and keep it in a long-lived singleton/static server component.
-4. Create a new `PitItem(existingId)` sparse fragment and use `SetProperty(new { ... })` for normal updates; never write a projected item back.
+4. Edit the live item with `SetProperty(new { ... })` or indexers, or append an explicit sparse fragment with `Pit.Add` / `Pit.ItemProperty`; do not submit a historical projection as a client update.
 5. Read current items from memory with `pit["Id"]` or `pit.AllUndeleted()`.
 6. Call `Save()` at useful persistence boundaries.
 7. Treat cross-server behavior as

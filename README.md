@@ -1,5 +1,12 @@
 # JsonPit
 
+## 4.4.8
+
+4.4.8 adds original live object references, sparse tracked mutations, and per-instance in-memory tracking modes.
+
+Release notes: [JsonPit_RELEASE_NOTES_4.4.8.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.4.8.md).
+
+
 JsonPit change requests and release notes are centralized in the RAIkeep [`doc/`](https://github.com/Burkhardt/RAIkeep/tree/main/doc) directory under `JsonPit_...` filenames; they are not stored separately in this child repository.
 
 JsonPit stores JSON documents with value history across processes, machines,
@@ -14,9 +21,9 @@ detect cloud drives and create the shared RAIkeep configuration.
 
 ## Start Here
 
-For the upcoming 4.4.8 live-reference behavior, read [MUTATION_TRACKING.md](MUTATION_TRACKING.md). It defines the supported mutation API, per-instance tracking modes, and detection-time timestamps for fallback edits. Agents and contributors should also read [AGENTS.md](AGENTS.md).
+For the 4.4.8 live-reference behavior, read [MUTATION_TRACKING.md](MUTATION_TRACKING.md). It defines the supported mutation API, per-instance tracking modes, and detection-time timestamps for fallback edits. Agents and contributors should also read [AGENTS.md](AGENTS.md).
 
-If you want to use JsonPit 4.4.6 from NuGet in another service or agent workflow, start with [GettingStarted.md](https://github.com/Burkhardt/JsonPit/blob/main/GettingStarted.md).
+If you want to use JsonPit 4.4.8 from NuGet in another service or agent workflow, start with [GettingStarted.md](https://github.com/Burkhardt/JsonPit/blob/main/GettingStarted.md).
 
 That guide now covers:
 
@@ -295,4 +302,4 @@ Foldable class and contract documentation is available in
 
 ## release notes
 
-- Latest release notes: [JsonPit_RELEASE_NOTES_4.4.6.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.4.6.md)
+- Latest release notes: [JsonPit_RELEASE_NOTES_4.4.8.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.4.8.md)
