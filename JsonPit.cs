@@ -91,6 +91,7 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 		set
 		{
 			var payload = NormalizeIdentityPayload((object)value);
+			PitItem.ValidateClientPayload(payload);
 			Add(new PitItem(payload));
 		}
 	}
@@ -126,10 +127,10 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 	/// </para>
 	/// </summary>
 	public bool AddHistorical(PitItem item) => AddCore(item, refreshModified: false);
-	private bool AddCore(PitItem item, bool refreshModified)
+	private bool AddCore(PitItem item, bool refreshModified, bool legacyTombstone = false)
 	{
 		if (item is null) throw new ArgumentNullException(nameof(item));
-		if (refreshModified) item.EnsureValidForLiveAdd();
+		if (refreshModified && !legacyTombstone) item.EnsureValidForLiveAdd();
 		// Shared entry into the state/snapshot gate: many additions may run concurrently;
 		// only Save's brief snapshot capture excludes them. Additions are never serialized
 		// behind cloud-file I/O.
@@ -168,16 +169,33 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 				return new DateTimeOffset(candidate, TimeSpan.Zero);
 		}
 	}
-	public bool Add(string jsonObject) => Add(new PitItem(JObject.Parse(jsonObject)));
+	public bool Add(string jsonObject)
+	{
+		var payload = JObject.Parse(jsonObject);
+		PitItem.ValidateClientPayload(payload);
+		return Add(new PitItem(payload));
+	}
 	public bool AddItems(IEnumerable<PitItem> items)
 	{
+		if (items is null) throw new ArgumentNullException(nameof(items));
+		var batch = items.ToList();
+		foreach (var item in batch)
+		{
+			if (item is null) throw new ArgumentException("Batch entities cannot be null.", nameof(items));
+			item.EnsureValidForLiveAdd();
+		}
 		var result = true;
-		foreach (var item in items) result &= Add(item);
+		foreach (var item in batch) result &= Add(item);
 		return result;
 	}
 	public bool AddItems(string jsonArray)
 	{
 		var jArray = JArray.Parse(jsonArray);
+		foreach (var token in jArray)
+		{
+			if (token is not JObject payload) throw new ArgumentException("Batch entities must be JSON objects.");
+			PitItem.ValidateClientPayload(payload);
+		}
 		return AddItems(jArray.Select(jObj => new PitItem((JObject)jObj)).ToList());
 	}
 	private static JObject NormalizeIdentityPayload(object value) =>
@@ -202,9 +220,12 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 		if (string.IsNullOrEmpty(itemId)) return true;
 		try
 		{
+			// Only the engine-owned tombstone of an existing record may bypass live ID validation.
+			var existing = Contains(itemId, withDeleted: true);
+			if (!existing) PitItem.ValidateLiveId(itemId);
 			var tombstone = new PitItem(itemId);
 			if (tombstone.Delete(by, backDate))
-				PitItem = tombstone;
+				AddCore(tombstone, refreshModified: true, legacyTombstone: existing);
 		}
 		catch (KeyNotFoundException) { }
 		catch (Exception) { return false; }
@@ -212,6 +233,7 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 	}
 	public bool RenameId(string oldKey, string newKey)
 	{
+		PitItem.ValidateLiveId(newKey);
 		if (string.IsNullOrWhiteSpace(oldKey) || string.IsNullOrWhiteSpace(newKey)) return false;
 		if (string.Equals(oldKey, newKey, Comparison)) return false;
 		if (!Contains(oldKey) || Contains(newKey, withDeleted: true)) return false;

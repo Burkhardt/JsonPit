@@ -14,6 +14,7 @@ public class PitItem : JObject, IEquatable<PitItem>
 {
 	private static readonly string[] ProtectedMutationAttributes = [nameof(Id), nameof(Modified), nameof(Deleted)];
 	private string ClientSuppliedLifecycleAttribute { get; set; }
+	private bool inferredLegacyId;
 
 	public string Id
 	{
@@ -206,6 +207,7 @@ public class PitItem : JObject, IEquatable<PitItem>
 	public static void ValidateClientPayload(JObject payload)
 	{
 		if (payload is null) throw new ArgumentNullException(nameof(payload));
+		ValidateLiveId(payload[nameof(Id)]);
 		var protectedProperty = payload.Properties().FirstOrDefault(property =>
 			string.Equals(property.Name, nameof(Modified), StringComparison.OrdinalIgnoreCase) ||
 			string.Equals(property.Name, nameof(Deleted), StringComparison.OrdinalIgnoreCase));
@@ -215,8 +217,21 @@ public class PitItem : JObject, IEquatable<PitItem>
 
 	internal void EnsureValidForLiveAdd()
 	{
+		if (inferredLegacyId) throw new ArgumentException("Entity Id must be a non-empty string.");
+		ValidateLiveId(this[nameof(Id)]);
 		if (!string.IsNullOrWhiteSpace(ClientSuppliedLifecycleAttribute))
 			throw new ProtectedAttributeException(ClientSuppliedLifecycleAttribute);
+	}
+
+	/// <summary>Validates an entity identity at a live write boundary (CR049).</summary>
+	public static void ValidateLiveId(string id) => ValidateLiveId(id is null ? null : new JValue(id));
+	private static void ValidateLiveId(JToken id)
+	{
+		if (id?.Type != JTokenType.String || string.IsNullOrWhiteSpace(id.Value<string>()))
+			throw new ArgumentException("Entity Id must be a non-empty string.");
+		var value = id.Value<string>();
+		if (value.Contains('{') || value.Contains('<'))
+			throw new ArgumentException($"Entity Id '{value}' contains a prohibited template marker ('{{' or '<'). Resolve template placeholders before writing to a Pit.");
 	}
 
 	private static void ValidatePropertyMutationPayload(JObject payload)
@@ -278,6 +293,7 @@ public class PitItem : JObject, IEquatable<PitItem>
 		Id = other.Id;
 		Modified = timestamp ?? (DateTimeOffset)other[nameof(Modified)];
 		ClientSuppliedLifecycleAttribute = nameof(Modified);
+		inferredLegacyId = other.inferredLegacyId;
 	}
 	public PitItem(JObject from) : this(from, captureClientLifecycleAttributes: true) { }
 
@@ -291,9 +307,11 @@ public class PitItem : JObject, IEquatable<PitItem>
 					string.Equals(property.Name, nameof(Deleted), StringComparison.OrdinalIgnoreCase))
 				?.Name;
 		}
-		if (this[nameof(Id)] is null && this["Name"] is JValue nameToken && nameToken.Type == JTokenType.String)
+		// Historical Name-only payloads remain readable, but cannot enter live writes.
+		if (this[nameof(Id)] is null && this["Name"] is JValue { Type: JTokenType.String } nameToken)
 		{
 			Id = nameToken.Value<string>();
+			inferredLegacyId = true;
 		}
 		try { Deleted = (bool)this[nameof(Deleted)]; }
 		catch (Exception ex)
@@ -304,7 +322,6 @@ public class PitItem : JObject, IEquatable<PitItem>
 		Dirty = true;
 		try { Modified = (DateTimeOffset)this[nameof(Modified)]; }
 		catch (Exception) { Modified = DateTimeOffset.UtcNow; }
-		Id = (string)this[nameof(Id)];
 		if (Property(nameof(Note)) is not null)
 			Note = (string)this[nameof(Note)];
 	}
