@@ -9,8 +9,8 @@ namespace JsonPit;
 /// <summary>
 /// Clean change-file identity and validated payload access (CR041).
 /// <para>
-/// New ordinary change files use <c>{Modified.UtcTicks}_{ExactProcessIdentity}.json</c>.
-/// Existing CR003 names with a trailing SHA-256 remain readable during rolling upgrades.
+	/// New ordinary change files use <c>{Modified.UtcTicks}_{ExactProcessIdentity}_{sha256-prefix4}.json</c>.
+	/// Clean CR041 names and CR003 names with a full SHA-256 remain readable during rolling upgrades.
 /// </para>
 /// <para>
 /// The exact identity is the process-flag stem containing machine, subscriber/application,
@@ -28,7 +28,7 @@ public static class ChangeFile
 
 	/// <summary>
 	/// Canonicalizes the persisted change-file payload for one fragment:
-	/// an array of history arrays containing exactly this fragment.
+	/// a JSON array containing exactly this fragment.
 	/// </summary>
 	public static (string CanonicalPayload, string Sha256) CanonicalPayloadFor(PitItem fragment)
 	{

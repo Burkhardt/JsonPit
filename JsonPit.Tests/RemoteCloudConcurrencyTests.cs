@@ -144,8 +144,10 @@ public sealed class RemoteCloudConcurrencyTests : IDisposable
 
 		// Durable audit stages exist for the recorded release evidence.
 		var events = EventDirectory.Events(pitDir);
-		Assert.Contains(events.Keys, k => k.Contains("_ConflictDetected_"));
-		Assert.Contains(events.Keys, k => k.Contains("_Completed_"));
+		Assert.Contains(events, entry => entry.Key.EndsWith("_ConflictDetected.event", StringComparison.Ordinal)
+			&& (string)entry.Value["Stage"] == nameof(RecoveryStage.ConflictDetected));
+		Assert.Contains(events, entry => entry.Key.EndsWith("_Completed.event", StringComparison.Ordinal)
+			&& (string)entry.Value["Stage"] == nameof(RecoveryStage.Completed));
 		output.WriteLine($"Durable audit events: {events.Count} under {pitDir.FullPath}Events");
 		output.WriteLine($"Total scenario time: {stopwatch.Elapsed.TotalSeconds:F1}s");
 	}

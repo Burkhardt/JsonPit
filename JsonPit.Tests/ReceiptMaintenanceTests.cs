@@ -294,9 +294,13 @@ public sealed class ReceiptMaintenanceTests : IDisposable
 			"Fixture",
 			"Legacy dotted event fixture",
 			string.Empty).ToJObject();
-		var typed = new EventFile(pitPath, "639245160038875300_Nkosikazi-AIA.Api-93455", content);
-		var legacy = new RaiFile(typed.Path, typed.Name);
-		legacy.mv(typed);
+		// Construct actual old bytes/names: today's EventFile deliberately emits no hash.
+		var (canonical, sha) = CanonicalJson.CanonicalizeWithHash(content);
+		var stem = $"639245160038875300_Nkosikazi-AIA.Api-93455_{sha}";
+		var eventPath = (pitPath / EventDirectory.Name).mkdir();
+		var typed = new RaiFile(eventPath, stem, EventFile.Extension);
+		var legacy = new RaiFile(eventPath, stem);
+		File.WriteAllText(legacy.FullName, canonical, new System.Text.UTF8Encoding(false));
 		Assert.True(legacy.Exists());
 		Assert.False(typed.Exists());
 		var legacyContent = new TextFile(legacy.FullName).ReadAllText();

@@ -14,6 +14,8 @@ detect cloud drives and create the shared RAIkeep configuration.
 
 ## Start Here
 
+For the upcoming 4.4.8 live-reference behavior, read [MUTATION_TRACKING.md](MUTATION_TRACKING.md). It defines the supported mutation API, per-instance tracking modes, and detection-time timestamps for fallback edits. Agents and contributors should also read [AGENTS.md](AGENTS.md).
+
 If you want to use JsonPit 4.4.6 from NuGet in another service or agent workflow, start with [GettingStarted.md](https://github.com/Burkhardt/JsonPit/blob/main/GettingStarted.md).
 
 That guide now covers:

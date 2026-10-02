@@ -36,20 +36,23 @@ namespace JsonPit.Tests
 			return string.IsNullOrWhiteSpace(cleaned) ? "test" : cleaned;
 		}
 		[Fact]
-		public void CreateChangeFile_WritesCanonicalPitUnderChangesDirectory()
+		public void CreateChangeFile_WritesValidatedFragmentBesideCanonicalPit()
 		{
-			var root = NewTestRoot(nameof(CreateChangeFile_WritesCanonicalPitUnderChangesDirectory));
+			var root = NewTestRoot(nameof(CreateChangeFile_WritesValidatedFragmentBesideCanonicalPit));
 			root.mkdir();
 			try
 			{
-				var pit = new Pit(root / "pit-store", readOnly: false, autoload: false, backup: false);
+				using var pit = new Pit(root / "pit-store", readOnly: false, autoload: false, backup: false);
 				var peerItem = new PitItem("PeerItem");
 				peerItem.SetProperty(new { Value = 126, CreatedBy = "Mzansi", Marker = "peer-marker" });
-				pit.CreateChangeFile(peerItem, "ubuntu-tests-4242");
-					var changePits = Directory.GetFiles(pit.PitDir.ToString(), "*.json", SearchOption.AllDirectories).OrderBy(x => x).ToArray();
-					Assert.NotEmpty(changePits);
-					// CR041 clean naming: {ticks}_{exact-process-identity}.json
-					Assert.Contains(changePits, file => file.Contains("_ubuntu-tests-4242.json", StringComparison.OrdinalIgnoreCase));
+				var file = pit.CreateChangeFile(peerItem, "ubuntu-tests-4242");
+				var (payload, sha) = ChangeFile.CanonicalPayloadFor(peerItem);
+				Assert.Equal($"{peerItem.Modified.UtcTicks}_ubuntu-tests-4242_{sha[..4]}.json", file.NameWithExtension);
+				Assert.Equal(pit.JsonFile.Path.ToString(), file.Path.ToString());
+				Assert.Equal(payload, File.ReadAllText(file.FullName));
+				var stored = Assert.Single(ChangeFile.ReadValidated(file));
+				Assert.Equal("PeerItem", (string)stored["Id"]);
+				Assert.Equal(126, (int)stored["Value"]);
 			}
 			finally
 			{

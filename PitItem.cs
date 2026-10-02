@@ -3,6 +3,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Linq;
 namespace JsonPit;
 public enum Compare { JSON, ByProperty }
@@ -15,6 +16,16 @@ public class PitItem : JObject, IEquatable<PitItem>
 	private static readonly string[] ProtectedMutationAttributes = [nameof(Id), nameof(Modified), nameof(Deleted)];
 	private string ClientSuppliedLifecycleAttribute { get; set; }
 	private bool inferredLegacyId;
+	internal LivePitItem LiveBinding { get; set; }
+	/// <summary>
+	/// Observe the root after Newtonsoft finishes notifying other subscribers. A live
+	/// refresh can then remove tombstoned properties without collection-event reentrancy.
+	/// </summary>
+	protected override void OnCollectionChanged(NotifyCollectionChangedEventArgs args)
+	{
+		try { base.OnCollectionChanged(args); }
+		finally { LiveBinding?.RootChanged(); }
+	}
 
 	public string Id
 	{
@@ -48,6 +59,11 @@ public class PitItem : JObject, IEquatable<PitItem>
 	public void DeleteProperty(string propertyName)
 	{
 		ThrowIfProtectedTombstone(propertyName);
+		if (LiveBinding is { } live)
+		{
+			live.ApplyPatch(new JObject { [propertyName] = JValue.CreateNull() });
+			return;
+		}
 		Deleted = false;
 		Invalidate();
 		this[propertyName] = null;
@@ -60,6 +76,24 @@ public class PitItem : JObject, IEquatable<PitItem>
 	{
 		var segments = ParsePropertyPath(propertyPath);
 		ThrowIfProtectedTombstone(segments[0]);
+		if (LiveBinding is { } live)
+		{
+			var patch = new JObject();
+			var target = patch;
+			JToken current = this;
+			foreach (var segment in segments.Take(segments.Length - 1))
+			{
+				current = (current as JObject)?[segment];
+				if (current is { Type: not JTokenType.Null } and not JObject)
+					throw new ArgumentException($"Property path '{propertyPath}' cannot traverse non-object property '{segment}'.", nameof(propertyPath));
+				var child = new JObject();
+				target[segment] = child;
+				target = child;
+			}
+			target[segments[^1]] = JValue.CreateNull();
+			live.ApplyPatch(patch);
+			return;
+		}
 		if (segments.Length == 1)
 		{
 			DeleteProperty(segments[0]);
@@ -91,6 +125,7 @@ public class PitItem : JObject, IEquatable<PitItem>
 	}
 	public bool Delete(string by = null, bool backDate100 = true)
 	{
+		if (LiveBinding is { } live) return live.Delete(by, backDate100);
 		if (Deleted) return false;
 		Deleted = true;
 		if (backDate100)
@@ -143,6 +178,7 @@ public class PitItem : JObject, IEquatable<PitItem>
 	public virtual bool ExtendWith(JObject obj)
 	{
 		ValidatePropertyMutationPayload(obj);
+		if (LiveBinding is { } live) return live.ApplyPatch(obj);
 		var originalClone = (JObject)DeepClone();
 		var mergeSettings = new JsonMergeSettings
 		{
@@ -172,6 +208,15 @@ public class PitItem : JObject, IEquatable<PitItem>
 	{
 		foreach (var row in arr.OfType<JObject>())
 			ValidatePropertyMutationPayload(row);
+		if (LiveBinding is { } live)
+		{
+			var patch = new JObject();
+			foreach (var el in arr)
+				if (el is JObject row)
+					foreach (var property in row.Properties()) patch[property.Name] = property.Value.DeepClone();
+				else patch["_"] = el.DeepClone();
+			return live.ApplyPatch(patch);
+		}
 		bool changed = false;
 		foreach (var el in arr)
 		{
@@ -234,7 +279,7 @@ public class PitItem : JObject, IEquatable<PitItem>
 			throw new ArgumentException($"Entity Id '{value}' contains a prohibited template marker ('{{' or '<'). Resolve template placeholders before writing to a Pit.");
 	}
 
-	private static void ValidatePropertyMutationPayload(JObject payload)
+	internal static void ValidatePropertyMutationPayload(JObject payload)
 	{
 		if (payload is null) throw new ArgumentNullException(nameof(payload));
 		var protectedProperty = payload.Properties().FirstOrDefault(property =>
@@ -334,6 +379,20 @@ public class PitItem : JObject, IEquatable<PitItem>
 			Id = id
 		};
 		return result;
+	}
+	/// <summary>Owns historical bytes without retaining a live binding or changing dirty/provenance metadata.</summary>
+	internal PitItem Snapshot() => new(this)
+	{
+		Dirty = Dirty,
+		ClientSuppliedLifecycleAttribute = ClientSuppliedLifecycleAttribute,
+		inferredLegacyId = inferredLegacyId
+	};
+	internal static PitItem CreateSparseMutation(string id, JObject patch)
+	{
+		ValidatePropertyMutationPayload(patch);
+		var payload = (JObject)patch.DeepClone();
+		payload[nameof(Id)] = id;
+		return new PitItem(payload, captureClientLifecycleAttributes: false);
 	}
 	public PitItem() { }
 	#endregion

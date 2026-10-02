@@ -20,12 +20,14 @@ public class ItemsBase(string key = null)
 /// </summary>
 public class PitItems : ItemsBase, IEnumerable<PitItem>
 {
-	public ImmutableList<PitItem> History { get; private set; }
+	internal ImmutableList<PitItem> Fragments { get; private set; }
+	/// <summary>Detached history snapshots; editing these cannot change accepted history.</summary>
+	public ImmutableList<PitItem> History => Fragments.Select(item => item.Snapshot()).ToImmutableList();
 	public ImmutableList<PitItem> Items => History;
 	public int MaxCount { get; init; } = 10;
 	public PitItems(string key, ImmutableList<PitItem> history, int maxCount = 5) : base(key)
 	{
-		History = history ?? ImmutableList<PitItem>.Empty;
+		Fragments = history?.Select(item => item.Snapshot()).ToImmutableList() ?? ImmutableList<PitItem>.Empty;
 		MaxCount = maxCount;
 	}
 	public static PitItems Create(string key, int maxCount = 10) =>
@@ -61,28 +63,46 @@ public class PitItems : ItemsBase, IEnumerable<PitItem>
 	public PitItems Push(PitItem item)
 	{
 		// Exact replay idempotence: same timestamp and identical content → ignore.
-		if (History.Any(f => f.Modified.UtcTicks == item.Modified.UtcTicks && JToken.DeepEquals(f, item)))
+		if (Fragments.Any(f => f.Modified.UtcTicks == item.Modified.UtcTicks && JToken.DeepEquals(f, item)))
 			return this;
-		var newHistory = History.Add(item).Sort(CompareFragments);
+		var newHistory = Fragments.Add(item.Snapshot()).Sort(CompareFragments);
 		if (MaxCount > 0 && newHistory.Count > MaxCount)
 			newHistory = newHistory.RemoveRange(MaxCount, newHistory.Count - MaxCount);
-		return new PitItems(Key, newHistory, MaxCount);
+		return new PitItems(Key, ImmutableList<PitItem>.Empty, MaxCount) { Fragments = newHistory };
 	}
-	internal PitItem LatestFragment() => History.IsEmpty ? null : History[0];
+	internal PitItem LatestFragment() => Fragments.IsEmpty ? null : Fragments[0];
 	private int FindProjectionStartIndex(DateTimeOffset? at)
 	{
-		if (History.IsEmpty) return -1;
+		if (Fragments.IsEmpty) return -1;
 		if (at is null) return 0;
-		for (int i = 0; i < History.Count; i++)
-			if (History[i].Modified <= at.Value)
+		for (int i = 0; i < Fragments.Count; i++)
+			if (Fragments[i].Modified <= at.Value)
 				return i;
 		return -1;
 	}
+	/// <summary>
+	/// Folds ordered history into a detached snapshot. The owning Pit uses this at
+	/// acceptance/load/merge boundaries to update its live object; current indexers
+	/// return that registered object without projecting again.
+	/// </summary>
+	/// <remarks>The following investigation note predates live-reference tracking.</remarks>
+	/// <note author="RAI 10/02/2026">
+	/// The returned object is a new instance and does not share references with the history. A change to
+	/// that object like Pit["Max"].DeleteProperty("Instagram") will not be known to the container, only
+	///  to the copy ... unless the copy is added back to the container; which then is a full copy;
+	/// this has to be reconsidered. Check: does Pit["Max"] already create a Projection of all Attributes?
+	/// Pit["Max"]["Instagram"] = null; // would this also create a projection ... a copy of Max
+	/// assigning null is not the same as setting the Deleted flag on the property. But properties do not 
+	/// have deleted flags, only PitItems do: Pit["Max"].Delete();
+	/// </note>
+	/// <param name="at"></param>
+	/// <param name="withDeleted"></param>
+	/// <returns></returns>
 	public PitItem ProjectState(DateTimeOffset? at = null, bool withDeleted = false)
 	{
 		var startIndex = FindProjectionStartIndex(at);
 		if (startIndex < 0) return null;
-		var newest = History[startIndex];
+		var newest = Fragments[startIndex];
 		if (newest.Deleted)
 		{
 			if (!withDeleted) return null;
@@ -93,21 +113,24 @@ public class PitItems : ItemsBase, IEnumerable<PitItem>
 				[nameof(PitItem.Deleted)] = true
 			});
 		}
-		var endExclusive = startIndex;
-		while (endExclusive < History.Count && !History[endExclusive].Deleted)
-			endExclusive++;
-
-		var accumulator = new JObject();
-		for (var index = endExclusive - 1; index >= startIndex; index--)
-			foreach (var property in History[index].Properties())
-				ApplyProjectedProperty(accumulator, property.Name, property.Value);
+		// History is already deterministically sorted newest first. Fold the current
+		// lifetime oldest first so later attributes/tombstones establish the live value.
+		var accumulator = Fragments.Skip(startIndex)
+			.TakeWhile(fragment => !fragment.Deleted)
+			.Reverse()
+			.SelectMany(fragment => fragment.Properties())
+			.Aggregate(new JObject(), (state, property) =>
+			{
+				ApplyProjectedProperty(state, property.Name, property.Value);
+				return state;
+			});
 
 		accumulator[nameof(PitItem.Id)] = newest.Id;
 		accumulator[nameof(PitItem.Modified)] = newest.Modified;
 		accumulator[nameof(PitItem.Deleted)] = false;
 		return new PitItem(accumulator);
 	}
-	private static bool ApplyProjectedProperty(JObject target, string name, JToken value)
+	internal static bool ApplyProjectedProperty(JObject target, string name, JToken value)
 	{
 		if (value is null || value.Type == JTokenType.Null)
 		{
@@ -122,7 +145,7 @@ public class PitItems : ItemsBase, IEnumerable<PitItem>
 		}
 
 		var nested = target[name] is JObject existing
-			? (JObject)existing.DeepClone()
+			? existing
 			: new JObject();
 		var containsTombstone = false;
 		foreach (var property in patch.Properties())
@@ -138,7 +161,7 @@ public class PitItems : ItemsBase, IEnumerable<PitItem>
 	}
 	public PitItem Peek(DateTimeOffset? timestamp = null) => ProjectState(timestamp);
 	public JObject Get(DateTimeOffset? timestamp = null) => ProjectState(timestamp);
-	public int Count => History.Count;
+	public int Count => Fragments.Count;
 	public IEnumerator<PitItem> GetEnumerator() => History.GetEnumerator();
 	IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 	/// <summary>Compatibility constructor accepting any IEnumerable of PitItems.</summary>
@@ -149,10 +172,10 @@ public class PitItems : ItemsBase, IEnumerable<PitItem>
 		var list = ImmutableList<PitItem>.Empty;
 		if (value is not null)
 		{
-			foreach (var v in value) list = list.Add(v);
+			foreach (var v in value) list = list.Add(v.Snapshot());
 			if (list.Count > 1) list = list.Sort(CompareFragments);
 			Key = key ?? list.FirstOrDefault()?.Id;
 		}
-		History = list;
+		Fragments = list;
 	}
 }

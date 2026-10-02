@@ -127,8 +127,10 @@ public sealed class SplitMasterRecoveryTests : IDisposable
 			Assert.Contains(statuses, s => s.Stage == RecoveryStage.ChangeFilesPublished);
 		}
 		var events = EventDirectory.Events(root);
-		Assert.Contains(events.Keys, k => k.Contains("_ConflictDetected_"));
-		Assert.Contains(events.Keys, k => k.Contains("_Completed_"));
+		Assert.Contains(events, entry => entry.Key.EndsWith("_ConflictDetected.event", StringComparison.Ordinal)
+			&& (string)entry.Value["Stage"] == nameof(RecoveryStage.ConflictDetected));
+		Assert.Contains(events, entry => entry.Key.EndsWith("_Completed.event", StringComparison.Ordinal)
+			&& (string)entry.Value["Stage"] == nameof(RecoveryStage.Completed));
 	}
 
 	[Fact]
@@ -340,23 +342,52 @@ public sealed class SplitMasterRecoveryTests : IDisposable
 	}
 
 	[Fact]
-	public void DistinctEqualTimestampFragments_WithSameIdentity_FailFastInsteadOfOverwriting()
+	public void DistinctEqualTimestampFragments_WithDifferentChecksums_CoexistWithoutOverwriting()
 	{
 		var root = NewPitRoot("equal-ts-files");
 		using var pit = new Pit(root, readOnly: false, autoload: false, subscriber: "cr003");
 		pit.Add(new PitItem("Seed"));
 		pit.Save(force: true);
 
-		var timestamp = DateTimeOffset.UtcNow.AddMinutes(-1);
+		var timestamp = DateTimeOffset.Parse("2026-10-02T12:00:00Z");
 		var one = new PitItem("EqualTs", invalidate: false, timestamp: timestamp); one["Payload"] = "one";
 		var two = new PitItem("EqualTs", invalidate: false, timestamp: timestamp); two["Payload"] = "two";
 
 		var fileOne = pit.CreateChangeFile(one, "RemotePeer-app-4242");
-		var error = Assert.Throws<JsonPitPersistenceException>(() =>
-			pit.CreateChangeFile(two, "RemotePeer-app-4242"));
-		Assert.Contains("collision", error.Message, StringComparison.OrdinalIgnoreCase);
+		var fileTwo = pit.CreateChangeFile(two, "RemotePeer-app-4242");
+		Assert.NotEqual(fileOne.FullName, fileTwo.FullName);
 		Assert.True(fileOne.Exists());
-		Assert.Equal(ChangeFile.ComposeName(timestamp, "RemotePeer-app-4242"), fileOne.Name);
+		Assert.True(fileTwo.Exists());
+		Assert.Equal("one", (string)Assert.Single(ChangeFile.ReadValidated(fileOne))["Payload"]);
+		Assert.Equal("two", (string)Assert.Single(ChangeFile.ReadValidated(fileTwo))["Payload"]);
+		Assert.Equal(fileOne.FullName, pit.CreateChangeFile(one, "RemotePeer-app-4242").FullName);
+	}
+
+	[Fact]
+	public void DistinctPayloads_WithSameTimestampIdentityAndChecksum_FailWithoutOverwriting()
+	{
+		var root = NewPitRoot("checksum-collision");
+		using var pit = new Pit(root, readOnly: false, autoload: false, unflagged: true);
+		var timestamp = DateTimeOffset.Parse("2026-10-02T12:00:00Z");
+		var seen = new Dictionary<string, PitItem>(StringComparer.Ordinal);
+		// 65,537 distinct payloads guarantee a repeated 16-bit prefix. Usually this
+		// deterministic search needs only a few hundred, with no filesystem writes.
+		for (var value = 0; value <= 65536; value++)
+		{
+			var candidate = new PitItem("Collision", invalidate: false, timestamp: timestamp) { ["Payload"] = value };
+			var (_, sha) = ChangeFile.CanonicalPayloadFor(candidate);
+			if (seen.TryAdd(sha[..4], candidate)) continue;
+			var first = seen[sha[..4]];
+			var original = pit.CreateChangeFile(first, "RemotePeer-app-4242");
+			var originalBytes = File.ReadAllBytes(original.FullName);
+			var error = Assert.Throws<JsonPitPersistenceException>(() => pit.CreateChangeFile(candidate, "RemotePeer-app-4242"));
+			Assert.Contains("collision", error.Message, StringComparison.OrdinalIgnoreCase);
+			Assert.Equal(originalBytes, File.ReadAllBytes(original.FullName));
+			Assert.Equal((int)first["Payload"], (int)Assert.Single(ChangeFile.ReadValidated(original))["Payload"]);
+			Assert.Single(root.EnumerateFiles("*.json"));
+			return;
+		}
+		Assert.Fail("The finite four-character checksum space must contain a collision.");
 	}
 
 	[Fact]

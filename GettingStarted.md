@@ -249,24 +249,15 @@ The usual application pattern is simpler:
 
 ## Updating an Existing Item
 
-The normal update pattern is:
-
-1. confirm the item exists when the operation requires it
-2. create a new sparse fragment carrying only the item id and changed properties
-3. add the sparse fragment to the pit
-4. save
+Current item lookups return live references. For a new ID, `Add(item)` adopts that exact item and its existing nested objects. Edits through those references append sparse fragments internally; Save persists accepted history. This behavior is introduced for the next coordinated release, 4.4.8.
 
 Example:
 
 ```csharp
-if (people["Max"] == null)
-   throw new InvalidOperationException("Max does not exist.");
-
-var update = new PitItem("Max");
-update.SetProperty(new { Phone = "+27-82-111-2222" });
-update.SetProperty(new { Instagram = "max.africastage" });
-
-people.Add(update);
+var max = people["Max"]
+   ?? throw new InvalidOperationException("Max does not exist.");
+max.SetProperty(new { Phone = "+27-82-111-2222" });
+max["Instagram"] = "max.africastage";
 people.Save();
 ```
 
@@ -274,32 +265,41 @@ Notes:
 
 - `PitItem.SetProperty(...)` updates only the provided properties.
 - If the new value is identical to the old value, JsonPit does not treat it as a change.
-- `Pit.Add(...)` stores a new sparse historical fragment for that item key when the item actually changed.
+- Explicit `Pit.Add(new PitItem(...))` sparse fragments remain supported. Later fragments update the established live item without replacing its identity.
 - `PitItem.DeleteProperty(...)` removes a top-level property by appending a null tombstone; projected reads omit that property entirely while preserving older history for time travel.
-- Never re-add the projected object returned by `people["Max"]` or `Get(...)`.
-  It contains engine-managed `Modified` and `Deleted` fields and is rejected as
-  a read-modify-write payload. Historical loaders use `AddHistorical(...)`.
+- Live items do not need to be added back after editing. `GetAt(...)` and exposed historical values are detached snapshots. Copies containing engine-managed lifecycle attributes are still rejected as client write payloads; genuine historical loaders use `AddHistorical(...)`.
+
+## Mutation Tracking Mode
+
+The default is `MutationTrackingMode.TrackedChangesWithFallback`. Both modes immediately track supported indexer and mutation-method edits. Fallback mode additionally detects edits that Newtonsoft does not notify, such as direct `JValue.Value` assignment, before persistence or replacement of live state.
+
+**Unreported edits will receive their history timestamp when detected.** Several unreported edits can be coalesced into one final value. Until detection, the live value can differ from recorded history; detection timestamps can also affect precedence against another writer's changes.
+
+For a server that consistently uses the tracked mutation API, set this once at startup, before constructing any Pits:
+
+```csharp
+Pit.DefaultMutationTrackingMode = MutationTrackingMode.TrackedChangesOnly;
+```
+
+Each instance captures its mode in the read-only `TrackingMode` property for its lifetime **in memory**. Nothing is persisted about the mode. A CLI and server can open the same pit files using different modes. Changing the static default does not affect existing instances. `TrackedChangesOnly` avoids fallback comparison passes; unreported edits are unsupported and are not guaranteed persistence in that mode.
+
+Use `max["Name"] = "Max"`, rather than `((JValue)max["Name"]).Value = "Max"`, in normal application and agent-generated code. See [MUTATION_TRACKING.md](MUTATION_TRACKING.md) for the complete contract, costs, consistency limits, and supported paths.
 
 ## Removing Properties
 
-JsonPit keeps item history append-only. To remove a top-level property, append a sparse tombstone fragment and save:
+JsonPit keeps item history append-only. Deleting a property through a live item appends its sparse tombstone internally:
 
 ```csharp
-if (people["Max"] == null)
-   throw new InvalidOperationException("Max does not exist.");
-
-var deletion = new PitItem("Max");
-deletion.DeleteProperty("Instagram");
-
-people.Add(deletion);
+var max = people["Max"]
+   ?? throw new InvalidOperationException("Max does not exist.");
+max.DeleteProperty("Instagram");
 people.Save();
 ```
 
 Projected reads no longer contain the deleted property:
 
 ```csharp
-var max = people.Get("Max");
-var instagramIsPresent = ((JObject)max).ContainsKey("Instagram"); // false
+var instagramIsPresent = max.ContainsKey("Instagram"); // false
 ```
 
 The deletion is represented in history as a top-level `null` marker. During projection, that marker blocks older values of the same property from reappearing, but a later non-null value can introduce the property again.
@@ -307,9 +307,7 @@ The deletion is represented in history as a top-level `null` marker. During proj
 For nested properties, use the explicit dot-path API:
 
 ```csharp
-var nestedDeletion = new PitItem("Max");
-nestedDeletion.DeletePropertyPath("What.Chat");
-people.Add(nestedDeletion);
+max.DeletePropertyPath("What.Chat");
 people.Save();
 ```
 
@@ -350,6 +348,26 @@ people.Add(laterUpdate);
 people.Save();
 ```
 
+Alternatively, express the same update directly through the Pit's `ItemProperty` setter:
+
+```csharp
+people.ItemProperty = new
+{
+   Id = "Max",
+   Instagram = "max.africastage",
+   Address = new
+   {
+      Street = "42 Long Street",
+      City = "Cape Town",
+      Country = "South Africa"
+   }
+};
+
+people.Save();
+```
+
+`Id` identifies the item receiving the update. This assignment appends one sparse fragment, preserving Max's existing email, phone, and earlier history. With live-reference tracking, existing references to Max also see the added attributes. `ItemProperty` belongs to `Pit` (`people`), so no separate `PitItem` construction or `Add(...)` call is needed.
+
 You can also extend an item with raw JSON or `JObject` / `JArray` when needed:
 
 ```csharp
@@ -360,7 +378,7 @@ people.Add(dynamicUpdate);
 
 Recommended default:
 
-- prefer `SetProperty(new { ... })` for normal typed C# usage
+- use `SetProperty(new { ... })` on an item, or `people.ItemProperty = new { Id = "Max", ... }` to submit a sparse update directly to the Pit
 - use `Extend(...)` or `ExtendWith(...)` when you are already working with JSON objects or need dynamic merging behavior
 
 ## Lookup and Query Examples

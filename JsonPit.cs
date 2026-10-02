@@ -18,7 +18,7 @@ namespace JsonPit;
 /// JsonPit file container with item history and persistence.
 /// Implements IDisposable to ensure changes are persisted on cleanup.
 /// </summary>
-public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
+public partial class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 {
 	private static long lastLiveMutationUtcTicks;
 	private Func<PitItem, string> orderBy;
@@ -41,20 +41,31 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 	private StringComparer Comparer => ignoreCase ? StringComparer.InvariantCultureIgnoreCase : StringComparer.InvariantCulture;
 	private StringComparison Comparison => ignoreCase ? StringComparison.InvariantCultureIgnoreCase : StringComparison.InvariantCulture;
 	public void ConsiderCase()
-	{
-		if (!ignoreCase) return;
-		ignoreCase = false;
-		if (HistoricItems is not null)
-			HistoricItems = new ConcurrentDictionary<string, PitItems>(HistoricItems, StringComparer.InvariantCulture);
-	}
+		=> SetIgnoreCase(false);
 	public void IgnoreCase()
+		=> SetIgnoreCase(true);
+	private void SetIgnoreCase(bool value)
 	{
-		if (ignoreCase) return;
-		ignoreCase = true;
-		if (HistoricItems is not null)
-			HistoricItems = new ConcurrentDictionary<string, PitItems>(HistoricItems, StringComparer.InvariantCultureIgnoreCase);
+		stateGate.EnterWriteLock();
+		try
+		{
+			if (ignoreCase == value) return;
+			FlushLiveItems();
+			var comparison = value ? StringComparer.InvariantCultureIgnoreCase : StringComparer.InvariantCulture;
+			var histories = new ConcurrentDictionary<string, PitItems>(HistoricItems, comparison);
+			var live = new ConcurrentDictionary<string, LiveSlot>(liveItems, comparison);
+			HistoricItems = histories;
+			liveItems = live;
+			ignoreCase = value;
+		}
+		finally { stateGate.ExitWriteLock(); }
 	}
 	private bool ignoreCase;
+	/// <summary>
+	/// Legacy engine-level history store. Application mutations must use Add,
+	/// AddHistorical or MergeIntoHistory; direct dictionary edits bypass live tracking.
+	/// Fragment values exposed by PitItems.History are detached snapshots.
+	/// </summary>
 	public ConcurrentDictionary<string, PitItems> HistoricItems = new();
 	public ICollection<string> Keys => HistoricItems.Keys;
 	public bool ContainsKey(string key) => HistoricItems.ContainsKey(key);
@@ -80,8 +91,8 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 	{
 		get
 		{
-			if (!HistoricItems.TryGetValue(key, out var list)) return null;
-			var top = list.ProjectState();
+			if (!liveItems.TryGetValue(key, out var slot)) return null;
+			var top = slot.Current?.Item;
 			return top is { Deleted: false } ? top : null;
 		}
 	}
@@ -96,7 +107,9 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 		}
 	}
 	/// <summary>
-	/// Add a PitItem as a new historic version using a lock-free CAS algorithm.
+	/// Accept a sparse fragment using per-identity synchronization and CAS publication.
+	/// A new identity adopts the supplied item and its nested objects as the live graph;
+	/// history owns an independent snapshot. Later fragments update that live graph.
 	/// <para>
 	/// This is the live-mutation entry point: <paramref name="item"/>'s
 	/// <see cref="PitItem.Modified"/> is refreshed to <c>UtcNow</c> immediately
@@ -130,33 +143,22 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 	private bool AddCore(PitItem item, bool refreshModified, bool legacyTombstone = false)
 	{
 		if (item is null) throw new ArgumentNullException(nameof(item));
-		if (refreshModified && !legacyTombstone) item.EnsureValidForLiveAdd();
-		// Shared entry into the state/snapshot gate: many additions may run concurrently;
-		// only Save's brief snapshot capture excludes them. Additions are never serialized
-		// behind cloud-file I/O.
-		stateGate.EnterReadLock();
-		try
+		if (item.LiveBinding is { } live && refreshModified)
 		{
-			var stamped = false;
-			while (true)
+			if (!ReferenceEquals(live.Owner, this))
+				throw new InvalidOperationException("A live PitItem cannot be attached to another Pit. Import a detached payload instead.");
+			return WithLiveState(live.Id, slot =>
 			{
-				var currentStore = HistoricItems.GetOrAdd(item.Id, key => PitItems.Create(key, DefaultMaxCount));
-				var top = currentStore.LatestFragment();
-				if (top is not null && EqualsIgnoringModified(top, item)) return false;
-				if (refreshModified && !stamped)
-				{
-					item.Invalidate(NextLiveMutationTimestamp()); // one process-monotonic UTC boundary per accepted insertion
-					stamped = true;
-				}
-				var newStore = currentStore.Push(item);
-				if (ReferenceEquals(newStore, currentStore)) return false; // exact replay — idempotent
-				if (HistoricItems.TryUpdate(item.Id, newStore, currentStore)) return true;
-			}
+				EnsureLiveOwner(live);
+				return FlushFallback(slot);
+			});
 		}
-		finally
+		if (refreshModified && !legacyTombstone) item.EnsureValidForLiveAdd();
+		return WithLiveState(item.Id, slot =>
 		{
-			stateGate.ExitReadLock();
-		}
+			FlushFallback(slot);
+			return AppendFragment(slot, item, refreshModified, legacyTombstone);
+		});
 	}
 	private static DateTimeOffset NextLiveMutationTimestamp()
 	{
@@ -245,7 +247,7 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 	public JObject Get(string key, bool withDeleted = false)
 	{
 		if (!HistoricItems.TryGetValue(key, out var list)) return null;
-		return withDeleted ? list.ProjectState(withDeleted: true) : (JObject)this[key];
+		return this[key] ?? (withDeleted ? list.ProjectState(withDeleted: true) : null);
 	}
 	public PitItem GetAt(string key, DateTimeOffset timestamp, bool withDeleted = false) =>
 		HistoricItems.TryGetValue(key, out var list) ? list.ProjectState(timestamp, withDeleted) : null;
@@ -267,7 +269,7 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 	{
 		foreach (var key in Keys)
 			if (this[key] is { Deleted: false } item)
-				yield return Get(key);
+				yield return item;
 	}
 	public void ExportJson(RaiPath exportFilePath, DateTimeOffset? at = null, bool pretty = true)
 	{
@@ -275,11 +277,12 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 	}
 	public void ExportJson(RaiFile exportFile, DateTimeOffset? at = null, bool pretty = true)
 	{
+		if (at is null) FlushLiveItems();
 		var exportItems = new JArray();
 		foreach (var key in Keys)
 		{
 			var item = at is null ? this[key] : GetAt(key, at.Value, withDeleted: false);
-			if (item is not null) exportItems.Add(item);
+			if (item is not null) exportItems.Add(item.DeepClone());
 		}
 		var formatting = pretty ? Formatting.Indented : Formatting.None;
 		var textFile = new TextFile(exportFile.FullName)
@@ -374,7 +377,20 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 				if (!emptyFile)
 					ParseHistoricItems(PitJson.ParseArray(jsonArrayOfArrayOfObject), candidate, DefaultMaxCount, markClean: true);
 				stateGate.EnterWriteLock();
-				try { HistoricItems = candidate; }
+				try
+				{
+					FlushLiveItems();
+					// Preserve accepted local edits, including previously unreported token
+					// changes, across replacement of the on-disk snapshot.
+					foreach (var pair in HistoricItems)
+						foreach (var fragment in pair.Value.Fragments.Where(fragment => !fragment.Valid()))
+						{
+							var history = candidate.GetOrAdd(pair.Key, key => PitItems.Create(key, DefaultMaxCount));
+							candidate[pair.Key] = history.Push(fragment);
+						}
+					HistoricItems = candidate;
+					PublishAllLiveState();
+				}
 				finally { stateGate.ExitWriteLock(); }
 				canonicalHadData = canonicalHadData || !emptyFile;
 				if (!emptyFile && !(undercover || unflagged))
@@ -459,6 +475,7 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 	/// <returns>true when a canonical snapshot was written to disk.</returns>
 	protected bool Store(bool force = false, bool pretty = false, char indentChar = '\t')
 	{
+		FlushLiveItems();
 		if (HistoricItems is null) return false;
 		var jfExists = JsonFile.Exists();
 		if (!jfExists && !HistoricItems.Any()) return false;
@@ -481,7 +498,7 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 			includedDirty = new List<PitItem>();
 			foreach (var kvp in ordered)
 			{
-				var history = kvp.Value.History;
+				var history = kvp.Value.Fragments;
 				var clones = new List<PitItem>(history.Count);
 				foreach (var fragment in history)
 				{
@@ -534,6 +551,7 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 		Monitor.Enter(_locker);
 		try
 		{
+			FlushLiveItems();
 			ScanForConflictSignals(nameof(Save)); // operation-boundary conflict scan (CR003)
 			if (TryAcquireMaster())
 				Store(force);
@@ -573,12 +591,14 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 	private void CreateChangeFiles()
 	{
 		var diskSnapshot = ReadCanonicalSnapshot();
-		var myLocalChanges = CompareToOtherHistory(diskSnapshot);
-		if (myLocalChanges.Count == 0) return;
+		List<PitItems> myLocalChanges;
 		// Already under _locker from Save() — merge directly
 		stateGate.EnterWriteLock();
 		try
 		{
+			FlushLiveItems();
+			myLocalChanges = CompareToOtherHistory(diskSnapshot);
+			if (myLocalChanges.Count == 0) return;
 			HistoricItems = diskSnapshot;
 			foreach (var changedPitItems in myLocalChanges)
 			{
@@ -594,6 +614,7 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 					}
 				);
 			}
+			PublishAllLiveState();
 		}
 		finally { stateGate.ExitWriteLock(); }
 		foreach (var changedPitItems in myLocalChanges)
@@ -601,9 +622,9 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 				CreateChangeFile(fragment);
 	}
 	/// <summary>
-	/// Writes one fragment as an ordinary clean CR041 change file beside the pit file.
-	/// Filename: {Modified.UtcTicks}_{ExactProcessIdentity}.json. Existing legacy hashed
-	/// files remain readable, but newly emitted names do not carry a redundant content hash.
+	/// Writes one fragment beside the pit file using
+	/// {Modified.UtcTicks}_{ExactProcessIdentity}_{sha256-prefix4}.json.
+	/// Identical content is idempotent; different content at the same path fails without overwriting.
 	/// </summary>
 	/// <returns>The change file that now durably carries this fragment.</returns>
 	public RaiFile CreateChangeFile(PitItem item, string server = null)
@@ -1134,7 +1155,7 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 			if (!canonicalSnapshot.TryGetValue(changeEntry.Key, out var canonicalHistory))
 				return false;
 			var merged = canonicalHistory;
-			foreach (var fragment in changeEntry.Value.History)
+			foreach (var fragment in changeEntry.Value.Fragments)
 				merged = merged.Push(fragment);
 			if (!HistoriesEqual(canonicalHistory, merged)) return false;
 		}
@@ -1143,16 +1164,16 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 
 	private static bool HistoriesEqual(PitItems left, PitItems right)
 	{
-		if (left.History.Count != right.History.Count) return false;
-		for (var i = 0; i < left.History.Count; i++)
-			if (!JToken.DeepEquals(left.History[i], right.History[i])) return false;
+		if (left.Fragments.Count != right.Fragments.Count) return false;
+		for (var i = 0; i < left.Fragments.Count; i++)
+			if (!JToken.DeepEquals(left.Fragments[i], right.Fragments[i])) return false;
 		return true;
 	}
 	public void MergeIntoHistory(PitItems changeItems)
 	{
-		stateGate.EnterReadLock();
-		try
+		WithLiveState(changeItems.Key, slot =>
 		{
+			FlushFallback(slot);
 			while (true)
 			{
 				var currentStore = HistoricItems.GetOrAdd(changeItems.Key, key => PitItems.Create(key, DefaultMaxCount));
@@ -1160,17 +1181,20 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 				foreach (var item in changeItems)
 					newStore = newStore.Push(item);
 				if (ReferenceEquals(newStore, currentStore))
-					break; // exact replay duplicates are harmless and ignored
+					return false; // exact replay duplicates are harmless and ignored
 				if (HistoricItems.TryUpdate(changeItems.Key, newStore, currentStore))
-					break;
+				{
+					PublishLiveState(slot, changeItems.Key, newStore);
+					return true;
+				}
 			}
-		}
-		finally { stateGate.ExitReadLock(); }
+		});
 	}
 	#endregion
 	#region Reload
 	public bool Reload()
 	{
+		FlushLiveItems();
 		ScanForConflictSignals(nameof(Reload)); // operation-boundary conflict scan (CR003)
 		var masterUpdates = MasterUpdatesAvailable();
 		var foreignChanges = ForeignChangesAvailable();
@@ -1202,10 +1226,13 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 	}
 	#endregion
 	#region Init
-	private void initValues(JArray values) =>
+	private void initValues(JArray values)
+	{
 		// Historical replay: preserves original Modified timestamps; uses the same
 		// parser as validated candidate loads and private snapshot reads.
 		ParseHistoricItems(values, HistoricItems, DefaultMaxCount);
+		PublishAllLiveState();
+	}
 	private void initValues(IEnumerable<PitItems> values)
 	{
 		if (values is null) return;
@@ -1216,6 +1243,7 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 			foreach (var item in q) stack = stack.Push(item);
 			HistoricItems.TryAdd(q[^1].Id, stack);
 		}
+		PublishAllLiveState();
 	}
 	#endregion
 	#region Constructors
@@ -1235,7 +1263,9 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 		RegisterCanonicalPathOwnership(); // reject a duplicate before it can load or mutate state
 		orderBy = orderBy ?? (x => x.Id);
 		this.descending = descending;
-		HistoricItems = new ConcurrentDictionary<string, PitItems>();
+		this.ignoreCase = ignoreCase;
+		HistoricItems = new ConcurrentDictionary<string, PitItems>(Comparer);
+		liveItems = new ConcurrentDictionary<string, LiveSlot>(Comparer);
 		try
 		{
 			initValues(values);
@@ -1426,10 +1456,11 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 		stateGate.EnterWriteLock();
 		try
 		{
+			FlushLiveItems();
 			foreach (var entry in recoveryWriteSet)
 				union[entry.Key] = entry.Value;
 			foreach (var kvp in HistoricItems)
-				foreach (var fragment in kvp.Value.History)
+				foreach (var fragment in kvp.Value.Fragments)
 					if (!fragment.Valid())
 						union[RecoveryWriteSetKey(fragment)] = fragment;
 		}
