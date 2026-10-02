@@ -171,7 +171,7 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 	}
 	public bool Add(string jsonObject)
 	{
-		var payload = JObject.Parse(jsonObject);
+		var payload = PitJson.ParseObject(jsonObject);
 		PitItem.ValidateClientPayload(payload);
 		return Add(new PitItem(payload));
 	}
@@ -190,7 +190,7 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 	}
 	public bool AddItems(string jsonArray)
 	{
-		var jArray = JArray.Parse(jsonArray);
+		var jArray = PitJson.ParseArray(jsonArray);
 		foreach (var token in jArray)
 		{
 			if (token is not JObject payload) throw new ArgumentException("Batch entities must be JSON objects.");
@@ -372,7 +372,7 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 				// Build and validate the complete candidate before publishing anything.
 				var candidate = new ConcurrentDictionary<string, PitItems>(Comparer);
 				if (!emptyFile)
-					ParseHistoricItems(JArray.Parse(jsonArrayOfArrayOfObject), candidate, DefaultMaxCount, markClean: true);
+					ParseHistoricItems(PitJson.ParseArray(jsonArrayOfArrayOfObject), candidate, DefaultMaxCount, markClean: true);
 				stateGate.EnterWriteLock();
 				try { HistoricItems = candidate; }
 				finally { stateGate.ExitWriteLock(); }
@@ -558,7 +558,7 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 		{
 			var text = string.Join(Environment.NewLine, new TextFile(JsonFile.FullName).Read());
 			if (string.IsNullOrEmpty(text) || text.Length < 2) return snapshot;
-			ParseHistoricItems(JArray.Parse(text), snapshot, DefaultMaxCount, markClean: true);
+			ParseHistoricItems(PitJson.ParseArray(text), snapshot, DefaultMaxCount, markClean: true);
 		}
 		catch (Exception ex) when (ex is JsonReaderException or JsonException or System.IO.IOException or FormatException)
 		{
@@ -609,9 +609,9 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 	public RaiFile CreateChangeFile(PitItem item, string server = null)
 	{
 		if (item is null) return null;
-		var (canonicalPayload, _) = ChangeFile.CanonicalPayloadFor(item);
+		var (canonicalPayload, sha) = ChangeFile.CanonicalPayloadFor(item);
 		var identity = server ?? ExactProcessIdentity;
-		var fileName = ChangeFile.ComposeName(item.Modified, identity);
+		var fileName = ChangeFile.ComposeName(item.Modified, identity, sha[..4]);
 		var changeFile = new RaiFile(PitDir, fileName, "json");
 		if (changeFile.Exists())
 		{
@@ -806,15 +806,40 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 		foreach (var file in eventPath.EnumerateFiles("*").OrderBy(file => file.NameWithExtension, StringComparer.Ordinal))
 		{
 			var leaf = file.NameWithExtension;
-			if (leaf.EndsWith($".{EventFile.Extension}", StringComparison.OrdinalIgnoreCase)) continue;
+			if (leaf.EndsWith($".{EventFile.Extension}", StringComparison.OrdinalIgnoreCase))
+			{
+				if (EventDirectory.TryExtractLegacyHash(file.Name, out var hash))
+				{
+					var cleanStem = file.Name[..file.Name.LastIndexOf('_')];
+					if (TryValidateLegacyHashedEvent(file, hash, out var hashedContent))
+					{
+						result.LegacyArtifactsObserved++;
+						if (options.RepairLegacyExtensions || options.Apply)
+							RepairLegacyTextFile(file, cleanStem, EventFile.Extension, hashedContent, result);
+					}
+				}
+				continue;
+			}
 			if (!TryValidateLegacyEvent(file, leaf, out var content)) continue;
 			result.LegacyArtifactsObserved++;
-			if (options.RepairLegacyExtensions)
+			if (options.RepairLegacyExtensions || options.Apply)
 				RepairLegacyTextFile(file, leaf, EventFile.Extension, content, result);
 		}
 	}
 
 	private const string MasterFlagFileExtension = "flag";
+
+	private static bool TryValidateLegacyHashedEvent(RaiFile file, string hash, out string content)
+	{
+		content = string.Empty;
+		try
+		{
+			var text = new TextFile(file.FullName);
+			content = text.ReadAllText();
+			return CanonicalJson.Sha256Hex(content) == hash;
+		}
+		catch { return false; }
+	}
 
 	private static bool TryValidateLegacyProcessFlag(RaiFile file, out string content)
 	{
@@ -1886,111 +1911,3 @@ public class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 	~Pit() => Dispose(false);
 	#endregion
 }
-#region Obsolete Class Item
-/// <summary>
-/// Base item with modified tracking and dirty state management.
-/// Use PitItem instead — it provides the same functionality backed by JObject with full JSON support.
-/// </summary>
-[Obsolete("Use PitItem instead. PitItem extends JObject and supports the same Id/Modified/Deleted/Note properties " +
-	"plus JSON merge, extend, and projection capabilities. Construct via new PitItem(id) or new PitItem(jObject).")]
-public class Item : ICloneable
-{
-	public string Id { get; set; }
-	public DateTimeOffset Modified { get; internal set; }
-	public virtual DateTimeOffset Changed() => Modified;
-	public bool Deleted { get; set; }
-	public bool Delete(string by = null, bool backDate100 = true)
-	{
-		if (!Deleted)
-		{
-			Deleted = true;
-			if (backDate100)
-				Modified = DateTimeOffset.UtcNow - new TimeSpan(0, 0, 0, 100);
-			Invalidate();
-			var s = $"[{Modified.ToUniversalTime():u}] deleted";
-			if (!string.IsNullOrEmpty(by)) s += " by " + by;
-			Note = s + ";\n" + Note;
-		}
-		return true;
-	}
-	protected bool Dirty { get; set; }
-	public virtual bool Valid() => !Dirty;
-	public virtual void Validate() => Dirty = false;
-	public virtual void Invalidate()
-	{
-		Dirty = true;
-		Modified = DateTimeOffset.UtcNow;
-	}
-	public string Note { get; set; }
-	public override string ToString() => JSON.Serialize<Item>(this);
-	public virtual bool Matches(Item x) => x.Id == Id;
-	public virtual bool Matches(SearchExpression se) => se.IsMatch(this);
-	public virtual bool Matches(string filter, Compare comp = Compare.ByProperty)
-	{
-		if (comp == Compare.JSON)
-		{
-			if (string.IsNullOrWhiteSpace(filter)) return true;
-			var json = ToString();
-			return filter.Split(['+', ' ']).All(f => json.Contains(f));
-		}
-		return new SearchExpression(filter).IsMatch(this);
-	}
-	public T Clone<T>()
-	{
-		var s = JSON.SerializeDynamic(this, JsonPitBase.jilOptions);
-		return JSON.Deserialize<T>(s, JsonPitBase.jilOptions);
-	}
-	public virtual dynamic Clone()
-	{
-		var s = JSON.SerializeDynamic(this, JsonPitBase.jilOptions);
-		if (GetType().FullName.Contains("Dynamic"))
-			return JSON.DeserializeDynamic(s, JsonPitBase.jilOptions);
-		var settings = new JsonSerializerSettings
-		{
-			DateFormatHandling = DateFormatHandling.IsoDateFormat,
-			DateParseHandling = DateParseHandling.DateTimeOffset,
-			DateTimeZoneHandling = DateTimeZoneHandling.Utc
-		};
-		return JsonConvert.DeserializeObject(s, settings);
-	}
-	public virtual void Merge(Item second)
-	{
-		if (Id != second.Id)
-			throw new ArgumentException($"Error: {Id}.Merge({second.Id}) is an invalid call - Ids must be equal.");
-		if (Changed().UtcTicks == second.Changed().UtcTicks) { Dirty = false; return; }
-		if (Changed().UtcTicks <= second.Changed().UtcTicks)
-		{
-			Dirty = true;
-			Modified = second.Modified;
-			if (second.Deleted) { Dirty = Dirty || Deleted != second.Deleted; Deleted = true; }
-			else Deleted = false;
-			foreach (var prop in GetType().GetProperties())
-			{
-				if (!prop.CanWrite) continue;
-				try { prop.SetValue(this, prop.GetValue(second, null), null); }
-				catch (System.Reflection.TargetParameterCountException)
-				{
-					try { prop.SetValue(this, prop.GetValue(this, null), null); }
-					catch (System.Reflection.TargetParameterCountException) { }
-				}
-			}
-		}
-		else Dirty = true;
-	}
-	public Item(string id, string comment, bool invalidate = true)
-	{
-		Id = id;
-		Note = comment;
-		if (invalidate) Invalidate();
-	}
-	public Item(Item from)
-	{
-		var clone = from.Clone();
-		foreach (var prop in GetType().GetProperties())
-			if (prop.CanWrite)
-				prop.SetValue(this, prop.GetValue(clone, null), null);
-		Modified = from.Changed();
-	}
-	public Item() { }
-}
-#endregion 

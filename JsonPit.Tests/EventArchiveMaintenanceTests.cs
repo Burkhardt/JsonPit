@@ -123,7 +123,7 @@ public sealed class EventArchiveMaintenanceTests : IDisposable
 	{
 		var loose = WriteEvent(new DateTimeOffset(2026, 9, 10, 12, 0, 0, TimeSpan.Zero), "valid");
 		var eventsPath = pitDirectory / EventDirectory.Name;
-		var invalidLoose = new TextFile(eventsPath, "not-a-valid-event-hash", EventFile.Extension)
+		var invalidLoose = new TextFile(eventsPath, $"not-a-valid-event-hash_{new string('a', 64)}", EventFile.Extension)
 		{
 			Lines = ["{\"Message\":\"broken\"}"],
 			Changed = true
@@ -220,6 +220,44 @@ public sealed class EventArchiveMaintenanceTests : IDisposable
 		Assert.Equal(2, audit.Count);
 		Assert.Contains(audit, item => item.Message == "snapshotted");
 		Assert.Contains(audit, item => item.Message == "published after snapshot");
+	}
+
+	[Fact]
+	public void Maintain_LegacyHashedEventFiles_MigratedToCleanStemOnApply()
+	{
+		var time = new DateTimeOffset(2026, 9, 20, 10, 0, 0, TimeSpan.Zero);
+		var content = EventContent(time, "legacy event");
+		var (canonical, sha) = CanonicalJson.CanonicalizeWithHash(content);
+		var stem = $"{time.UtcTicks}_TestMachine-tests-1_Completed";
+		var eventsDir = (pitDirectory / EventDirectory.Name).mkdir();
+
+		// Write legacy hashed event file
+		var legacyFile = new RaiFile(eventsDir, $"{stem}_{sha}", "event");
+		System.IO.File.WriteAllText(legacyFile.FullName, canonical, new System.Text.UTF8Encoding(false));
+		Assert.True(legacyFile.Exists());
+
+		using var pit = OpenPit();
+
+		// Preview: observed, not modified
+		var preview = pit.Maintain(new PitMaintenanceOptions { Apply = false });
+		Assert.Equal(1, preview.LegacyArtifactsObserved);
+		Assert.Equal(0, preview.LegacyArtifactsRepaired);
+		Assert.True(legacyFile.Exists());
+
+		// Apply: migrated to clean stem
+		var applied = pit.Maintain(new PitMaintenanceOptions { Apply = true });
+		Assert.Equal(1, applied.LegacyArtifactsObserved);
+		Assert.Equal(1, applied.LegacyArtifactsRepaired);
+
+		var cleanFile = new RaiFile(eventsDir, stem, "event");
+		Assert.True(cleanFile.Exists(), "Clean event file should exist.");
+		Assert.False(legacyFile.Exists(), "Legacy hashed file should be removed.");
+		Assert.Equal(canonical, System.IO.File.ReadAllText(cleanFile.FullName));
+
+		// Reading audit events finds the clean event
+		var audit = PitAudit.Read(pitDirectory);
+		Assert.Single(audit);
+		Assert.Equal("legacy event", audit[0].Message);
 	}
 
 	private Pit OpenPit() => new(

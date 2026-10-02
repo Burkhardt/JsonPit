@@ -18,10 +18,21 @@ public sealed class ChangeFileCleanNameTests : IDisposable
 	}
 
 	[Fact]
-	public void ComposeName_EmitsCleanFormat_AndTryParseAcceptsBothFormats()
+	public void ComposeName_Emits4CharChecksum_AndTryParseAcceptsAllFormats()
 	{
 		var timestamp = DateTimeOffset.Parse("2026-09-26T20:00:00Z");
 		const string identity = "Nkosikazi-AIA.Api-41360";
+		const string hash4 = "a3f7";
+
+		// 4-character checksum format
+		var hashed4 = ChangeFile.ComposeName(timestamp, identity, hash4);
+		Assert.Matches(new Regex(@"^[0-9]{18}_[A-Za-z0-9.\-]+-[A-Za-z0-9.\-]+-[0-9]+_[0-9a-f]{4}$"), hashed4);
+		Assert.True(ChangeFile.TryParseName(hashed4, out var ticks4, out var id4, out var parsedHash4));
+		Assert.Equal(timestamp.UtcTicks, ticks4);
+		Assert.Equal(identity, id4);
+		Assert.Equal(hash4, parsedHash4);
+
+		// Clean unhashed format (CR041)
 		var clean = ChangeFile.ComposeName(timestamp, identity);
 		Assert.Matches(new Regex(@"^[0-9]{18}_[A-Za-z0-9.\-]+-[A-Za-z0-9.\-]+-[0-9]+$"), clean);
 		Assert.True(ChangeFile.TryParseName(clean, out var cleanTicks, out var cleanIdentity, out var cleanHash));
@@ -29,6 +40,7 @@ public sealed class ChangeFileCleanNameTests : IDisposable
 		Assert.Equal(identity, cleanIdentity);
 		Assert.Null(cleanHash);
 
+		// Legacy 64-char hash format (CR003)
 		var legacyHash = new string('a', 64);
 		var legacy = ChangeFile.ComposeName(timestamp, identity, legacyHash);
 		Assert.True(ChangeFile.TryParseName(legacy, out var legacyTicks, out var legacyIdentity, out var parsedHash));
@@ -38,18 +50,26 @@ public sealed class ChangeFileCleanNameTests : IDisposable
 	}
 
 	[Fact]
-	public void CleanChangeFile_IsParseValidated_AndReceiptUsesSameStem()
+	public void ChangeFile_With4CharChecksum_IsPrefixValidated_AndTruncationRejected()
 	{
 		var fragment = new PitItem("Sipho");
 		fragment.SetProperty(new { Role = "Musician" });
-		var (payload, _) = ChangeFile.CanonicalPayloadFor(fragment);
-		var change = new RaiFile(root, ChangeFile.ComposeName(fragment, "Nkosikazi-pits-41360"), "json");
+		var (payload, sha) = ChangeFile.CanonicalPayloadFor(fragment);
+		var changeName = ChangeFile.ComposeName(fragment, "Nkosikazi-pits-41360");
+		Assert.EndsWith($"_{sha[..4]}", changeName);
+
+		var change = new RaiFile(root, changeName, "json");
 		File.WriteAllText(change.FullName, payload, new UTF8Encoding(false));
 
+		// Valid payload passes prefix check
 		Assert.NotNull(ChangeFile.ReadValidated(change));
 		var receipt = new ReceiptFile(change.FullName);
 		Assert.Equal(change.Name, receipt.Name);
 		Assert.Equal("receipt", receipt.Ext);
+
+		// Mismatched / truncated payload fails prefix check
+		File.WriteAllText(change.FullName, "[]", new UTF8Encoding(false));
+		Assert.Null(ChangeFile.ReadValidated(change));
 	}
 
 	[Fact]

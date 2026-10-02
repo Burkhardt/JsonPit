@@ -69,5 +69,21 @@ public sealed class LiveIdValidationTests
         Assert.True(pit.Contains("Good"));
     }
 
+    [Fact]
+    public void OrdinaryIsoDateStringsRetainTheirOriginalOffsetsAtLiveBoundaries()
+    {
+        const string date = "2026-09-28T17:40:31+05:30";
+        using var pit = NewPit();
+        pit.Add("{ 'Id': 'One', 'DateTimeOriginal': '" + date + "' }");
+        pit.AddItems("[{ 'Id': 'Two', 'Exif': { 'DateTimeOriginal': '" + date + "' } }]");
+        Assert.Equal(JTokenType.String, pit["One"]["DateTimeOriginal"]!.Type);
+        Assert.Equal(date, pit["One"]["DateTimeOriginal"]!.Value<string>());
+        Assert.Equal(date, pit["Two"]["Exif"]!["DateTimeOriginal"]!.Value<string>());
+        var patch = new PitItem("One");
+        patch.SetProperty("{ 'DateTimeOriginal': '" + date + "' }");
+        Assert.Equal(JTokenType.String, patch["DateTimeOriginal"]!.Type);
+        Assert.Equal(date, patch["DateTimeOriginal"]!.Value<string>());
+    }
+
     private static Pit NewPit() => new(Os.TempDir / "RAIkeep" / "cr049" / Guid.NewGuid().ToString("N"), readOnly: true, unflagged: true, autoload: false);
 }

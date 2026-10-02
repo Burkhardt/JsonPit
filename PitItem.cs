@@ -43,7 +43,7 @@ public class PitItem : JObject, IEquatable<PitItem>
 		set => this[nameof(Note)] = value;
 	}
 	#region Mutation
-	public bool SetProperty(string objectAsJsonString) => ExtendWith(JObject.Parse(objectAsJsonString));
+	public bool SetProperty(string objectAsJsonString) => ExtendWith(PitJson.ParseObject(objectAsJsonString));
 	public void SetProperty(object obj) => SetProperty(JSON.SerializeDynamic(obj));
 	public void DeleteProperty(string propertyName)
 	{
@@ -132,7 +132,7 @@ public class PitItem : JObject, IEquatable<PitItem>
 	#region Extend / Merge
 	public bool Extend(string json)
 	{
-		var token = JToken.Parse(json);
+		var token = PitJson.Parse(json);
 		return token switch
 		{
 			JObject obj => ExtendWith(obj),
