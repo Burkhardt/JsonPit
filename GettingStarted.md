@@ -1,8 +1,8 @@
-# Getting Started with JsonPit 4.5.3
+# Getting Started with JsonPit 4.5.4
 
 This guide is written for practical implementation work, especially when you want to use JsonPit from NuGet packages in another service such as OTW / AfricaStage.
 
-It is based on the current JsonPit 4.5.3 code and tests in this repository.
+It is based on the current JsonPit 4.5.4 code and tests in this repository.
 
 ## 4.x key decisions
 
@@ -43,7 +43,7 @@ It is not trying to replace a transactional database.
 
 ## Package Setup
 
-Use the coordinated NuGet package ids at version `4.5.3`:
+Use the coordinated NuGet package ids at version `4.5.4`:
 
 - `JsonPit`
 - `RaiUtils`
@@ -52,9 +52,9 @@ Use the coordinated NuGet package ids at version `4.5.3`:
 Typical install commands:
 
 ```bash
-dotnet add package JsonPit --version 4.5.3
-dotnet add package RaiUtils --version 4.5.3
-dotnet add package OsLibCore --version 4.5.3
+dotnet add package JsonPit --version 4.5.4
+dotnet add package RaiUtils --version 4.5.4
+dotnet add package OsLibCore --version 4.5.4
 ```
 
 Typical namespaces in code:
@@ -100,8 +100,12 @@ amafu detect --create-links
 
 Amafu creates `~/.CloudStorage` and provider links such as
 `~/.CloudStorage/GoogleDrive` and `~/.CloudStorage/ICloudDrive`. The links point
-to the detected cloud roots; files stay in their original locations. Generated
-configuration keeps the real provider paths. Matching links can be reused, and
+to the detected cloud roots; files stay in their original locations.
+`amafu init --create-links` writes the shortcut paths into the configuration;
+plain `amafu init` writes the real provider paths. Preview with
+`amafu init --create-links --dry-run`. Creating links with `detect` leaves an
+existing configuration unchanged; use `amafu reconcile` and then
+`amafu reconcile --apply` to migrate it with a backup. Matching links can be reused, and
 existing files, directories, or links to different targets are never replaced.
 Missing provider roots are not created or configured by this switch.
 
