@@ -1,8 +1,8 @@
-# Getting Started with JsonPit 4.4.8
+# Getting Started with JsonPit 4.5.2
 
 This guide is written for practical implementation work, especially when you want to use JsonPit from NuGet packages in another service such as OTW / AfricaStage.
 
-It is based on the current JsonPit 4.4.8 code and tests in this repository.
+It is based on the current JsonPit 4.5.2 code and tests in this repository.
 
 ## 4.x key decisions
 
@@ -43,7 +43,7 @@ It is not trying to replace a transactional database.
 
 ## Package Setup
 
-Use the coordinated NuGet package ids at version `4.4.8`:
+Use the coordinated NuGet package ids at version `4.5.2`:
 
 - `JsonPit`
 - `RaiUtils`
@@ -52,9 +52,9 @@ Use the coordinated NuGet package ids at version `4.4.8`:
 Typical install commands:
 
 ```bash
-dotnet add package JsonPit --version 4.4.8
-dotnet add package RaiUtils --version 4.4.8
-dotnet add package OsLibCore --version 4.4.8
+dotnet add package JsonPit --version 4.5.2
+dotnet add package RaiUtils --version 4.5.2
+dotnet add package OsLibCore --version 4.5.2
 ```
 
 Typical namespaces in code:
@@ -82,6 +82,34 @@ For shared synchronized storage, configure OsLib explicitly rather than hard-cod
 Current OsLib default config location:
 
 - `~/.config/RAIkeep.json5`
+
+On macOS, enable your cloud clients first, then use Amafu to detect their local
+folders. With Amafu 4.5.2 or later, we recommend creating convenient cloud shortcuts
+during setup:
+
+```bash
+amafu detect --create-links --dry-run  # inspect the detected roots and proposed links
+amafu init --create-links             # create a new configuration and the shortcuts
+```
+
+If you already have a configuration, create just the shortcuts instead:
+
+```bash
+amafu detect --create-links
+```
+
+Amafu creates `~/.CloudStorage` and provider links such as
+`~/.CloudStorage/GoogleDrive` and `~/.CloudStorage/ICloudDrive`. The links point
+to the detected cloud roots; files stay in their original locations. Generated
+configuration keeps the real provider paths. Matching links can be reused, and
+existing files, directories, or links to different targets are never replaced.
+Missing provider roots are not created or configured by this switch.
+
+Run Amafu as your ordinary user, without `sudo`. `--dry-run` writes nothing.
+Released Amafu 4.5.0 does not have `--create-links`; use `amafu init` alone with
+that version, or upgrade to Amafu 4.5.2. See the
+[Amafu cloud shortcut instructions](https://github.com/Burkhardt/Amafu/blob/main/README.md#cloud-shortcuts-452)
+for details and Finder Favorites setup.
 
 Typical cloud-root config example:
 
