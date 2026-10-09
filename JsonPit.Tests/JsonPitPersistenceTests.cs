@@ -7,19 +7,16 @@ namespace JsonPit.Tests
 {
 	public class JsonPitPersistenceTests : IDisposable
 	{
-		private readonly TmpFile _testFile;
+		private readonly RaiPath testRoot;
 		public JsonPitPersistenceTests()
 		{
-			var tempDir = RAIkeepTestEnvironment.RootPath / "Persistence";
-			_testFile = new TmpFile(tempDir, "persistence_audit_test.tmp");
-			_testFile.mkdir();
-			if (_testFile.Exists())
-				_testFile.rm();
+			testRoot = RAIkeepTestEnvironment.RootPath / "Persistence" / Guid.NewGuid().ToString("N");
+			testRoot.mkdir();
 		}
 		[Fact]
 		public void StoreAndLoad_PreservesRawHistoryFragments_DoesNotFlatten()
 		{
-			var pitA = new Pit(pitDirectory: _testFile.Path, readOnly: false, autoload: false);
+			var pitA = new Pit(pitDirectory: testRoot, readOnly: false, autoload: false);
 			var time1 = DateTimeOffset.UtcNow.AddMinutes(-10);
 			var fragment1 = new PitItem(new JObject
 			{
@@ -61,7 +58,7 @@ namespace JsonPit.Tests
 		[Fact]
 		public void RenameId_MigratesStateAndTombstonesOldKey()
 		{
-			using var pit = new Pit(pitDirectory: _testFile.Path, readOnly: false, autoload: false);
+			using var pit = new Pit(pitDirectory: testRoot, readOnly: false, autoload: false);
 			var original = new PitItem("LegacyTicker");
 			original.SetProperty(new { Price = 262.77, Exchange = "NASDAQ" });
 			pit.Add(original);
@@ -91,8 +88,8 @@ namespace JsonPit.Tests
 		}
 		public void Dispose()
 		{
-			if (_testFile.Exists())
-				_testFile.rm();
+			if (testRoot.Exists())
+				testRoot.rmdir(depth: int.MaxValue, deleteFiles: true);
 		}
 	}
 }
