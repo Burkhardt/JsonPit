@@ -283,7 +283,7 @@ public class PitItem : JObject, IEquatable<PitItem>
 	/// Rejects client attempts to mutate lifecycle metadata. A matching top-level Id is
 	/// permitted as an idempotent assertion of the item identity.
 	/// </summary>
-	internal static void ValidatePropertyMutationPayload(JObject payload, string expectedId)
+	internal static void ValidatePropertyMutationPayload(JObject payload, string expectedId = null)
 	{
 		if (payload is null) throw new ArgumentNullException(nameof(payload));
 
