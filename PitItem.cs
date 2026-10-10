@@ -177,7 +177,7 @@ public class PitItem : JObject, IEquatable<PitItem>
 	}
 	public virtual bool ExtendWith(JObject obj)
 	{
-		ValidatePropertyMutationPayload(obj);
+		ValidatePropertyMutationPayload(obj, Id);
 		if (LiveBinding is { } live) return live.ApplyPatch(obj);
 		var originalClone = (JObject)DeepClone();
 		var mergeSettings = new JsonMergeSettings
@@ -207,7 +207,7 @@ public class PitItem : JObject, IEquatable<PitItem>
 	public virtual bool ExtendWith(JArray arr)
 	{
 		foreach (var row in arr.OfType<JObject>())
-			ValidatePropertyMutationPayload(row);
+			ValidatePropertyMutationPayload(row, Id);
 		if (LiveBinding is { } live)
 		{
 			var patch = new JObject();
@@ -279,14 +279,28 @@ public class PitItem : JObject, IEquatable<PitItem>
 			throw new ArgumentException($"Entity Id '{value}' contains a prohibited template marker ('{{' or '<'). Resolve template placeholders before writing to a Pit.");
 	}
 
-	internal static void ValidatePropertyMutationPayload(JObject payload)
+	/// <summary>
+	/// Rejects client attempts to mutate lifecycle metadata. A matching top-level Id is
+	/// permitted as an idempotent assertion of the item identity.
+	/// </summary>
+	internal static void ValidatePropertyMutationPayload(JObject payload, string expectedId)
 	{
 		if (payload is null) throw new ArgumentNullException(nameof(payload));
-		var protectedProperty = payload.Properties().FirstOrDefault(property =>
-			ProtectedMutationAttributes.Any(attribute =>
-				string.Equals(attribute, property.Name, StringComparison.OrdinalIgnoreCase)));
-		if (protectedProperty is not null)
-			throw new ProtectedAttributeException(protectedProperty.Name);
+
+		foreach (var property in payload.Properties())
+		{
+			if (string.Equals(property.Name, nameof(Id), StringComparison.OrdinalIgnoreCase))
+			{
+				if (property.Value.Type != JTokenType.String ||
+					!string.Equals(property.Value.Value<string>(), expectedId, StringComparison.Ordinal))
+					throw new ProtectedAttributeException(nameof(Id));
+				continue;
+			}
+
+			if (string.Equals(property.Name, nameof(Modified), StringComparison.OrdinalIgnoreCase) ||
+				string.Equals(property.Name, nameof(Deleted), StringComparison.OrdinalIgnoreCase))
+				throw new ProtectedAttributeException(property.Name);
+		}
 	}
 
 	private static void ThrowIfProtectedTombstone(string propertyName)
@@ -389,7 +403,7 @@ public class PitItem : JObject, IEquatable<PitItem>
 	};
 	internal static PitItem CreateSparseMutation(string id, JObject patch)
 	{
-		ValidatePropertyMutationPayload(patch);
+		ValidatePropertyMutationPayload(patch, id);
 		var payload = (JObject)patch.DeepClone();
 		payload[nameof(Id)] = id;
 		return new PitItem(payload, captureClientLifecycleAttributes: false);

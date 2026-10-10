@@ -133,7 +133,7 @@ internal sealed class LivePitItem
 	internal JObject Changes()
 	{
 		var changes = Difference(Baseline, Item);
-		PitItem.ValidatePropertyMutationPayload(changes);
+		PitItem.ValidatePropertyMutationPayload(changes, Id);
 		return changes;
 	}
 

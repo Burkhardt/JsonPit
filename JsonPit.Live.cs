@@ -97,7 +97,7 @@ public partial class Pit
 
 	internal bool ApplyLivePatch(LivePitItem live, JObject patch)
 	{
-		PitItem.ValidatePropertyMutationPayload(patch);
+		PitItem.ValidatePropertyMutationPayload(patch, live.Id);
 		return WithLiveState(live.Id, slot =>
 		{
 			EnsureLiveOwner(live);

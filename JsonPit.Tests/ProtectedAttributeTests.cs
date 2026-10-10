@@ -12,9 +12,7 @@ public sealed class ProtectedAttributeTests
 	[InlineData("modified")]
 	[InlineData("Deleted")]
 	[InlineData("DELETED")]
-	[InlineData("Id")]
-	[InlineData("id")]
-	public void SetProperty_ProtectedTopLevelAttribute_FailsAtomically(string attribute)
+	public void SetProperty_LifecycleAttribute_FailsAtomically(string attribute)
 	{
 		var item = new PitItem("Sipho");
 		item.SetProperty(new { Role = "Musician" });
@@ -25,6 +23,41 @@ public sealed class ProtectedAttributeTests
 
 		Assert.Equal(attribute, error.AttributeName);
 		Assert.Equal(before, item.ToString());
+	}
+
+	[Fact]
+	public void SetProperty_MatchingId_IsAnIdempotentIdentityAssertion()
+	{
+		var item = new PitItem("Sipho");
+
+		Assert.True(item.ExtendWith(new JObject { ["Id"] = "Sipho", ["Role"] = "Musician" }));
+		Assert.Equal("Sipho", item.Id);
+		Assert.Equal("Musician", item["Role"]?.Value<string>());
+		Assert.False(item.ExtendWith(new JObject { ["Id"] = "Sipho" }));
+	}
+
+	[Theory]
+	[InlineData("Other")]
+	[InlineData("")]
+	public void SetProperty_NonMatchingId_IsRejectedAtomically(string suppliedId)
+	{
+		var item = new PitItem("Sipho");
+		var before = item.ToString();
+
+		var error = Assert.Throws<ProtectedAttributeException>(() =>
+			item.ExtendWith(new JObject { ["Id"] = suppliedId }));
+
+		Assert.Equal("Id", error.AttributeName);
+		Assert.Equal(before, item.ToString());
+	}
+
+	[Fact]
+	public void SetProperty_NonStringId_IsRejected()
+	{
+		var item = new PitItem("Sipho");
+		var error = Assert.Throws<ProtectedAttributeException>(() =>
+			item.ExtendWith(new JObject { ["Id"] = 42 }));
+		Assert.Equal("Id", error.AttributeName);
 	}
 
 	[Fact]
