@@ -4,72 +4,33 @@
 
 Coordinated 4.5.8 release; public behavior is aligned with the synchronized platform.
 
-Release notes: [JsonPit_RELEASE_NOTES_4.5.8.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.5.8.md).
+Latest release notes: [JsonPit 4.5.8 release notes](https://github.com/Burkhardt/RAIkeep/blob/main/doc/releases/v4.x/JsonPit_RELEASE_NOTES_4.x.md#458).
 
-## 4.5.7
+## Previous Versions
 
-Coordinated 4.5.7 release; public behavior is aligned with the synchronized platform.
+For release notes and changelogs of earlier releases, see the [JsonPit 4.x Release Notes](https://github.com/Burkhardt/RAIkeep/blob/main/doc/releases/v4.x/JsonPit_RELEASE_NOTES_4.x.md).
 
-Release notes: [JsonPit_RELEASE_NOTES_4.5.7.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.5.7.md).
+## Installation
 
-## 4.5.6
+### .NET CLI
 
-Coordinated 4.5.6 release; public behavior is aligned with the synchronized platform.
+```bash
+dotnet add package JsonPit --version 4.5.8
+```
 
-Release notes: [JsonPit_RELEASE_NOTES_4.5.6.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.5.6.md).
+### PackageReference
 
-## 4.5.5
+```xml
+<PackageReference Include="JsonPit" Version="4.5.8" />
+```
 
-Coordinated 4.5.5 release; public behavior is aligned with the synchronized platform.
+JsonPit stores JSON documents with value history across processes, machines, and servers using [asynchronous persistence with eventual durability](https://github.com/Burkhardt/RAIkeep/blob/main/MANIFESTO.md#asynchronous-persistence-with-eventual-durability). Change requests and release notes are kept in the RAIkeep [documentation archive](https://github.com/Burkhardt/RAIkeep/tree/main/doc).
 
-Release notes: [JsonPit_RELEASE_NOTES_4.5.5.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.5.5.md).
-
-## 4.5.4
-
-Coordinated 4.5.4 release; public behavior is aligned with the synchronized platform.
-
-Release notes: [JsonPit_RELEASE_NOTES_4.5.4.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.5.4.md).
-
-## 4.5.3
-
-Coordinated 4.5.3 release; public behavior is aligned with the synchronized platform.
-
-Release notes: [JsonPit_RELEASE_NOTES_4.5.3.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.5.3.md).
-
-## 4.5.2
-
-Coordinated 4.5.2 release; public behavior is aligned with the synchronized platform.
-
-Release notes: [JsonPit_RELEASE_NOTES_4.5.2.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.5.2.md).
-
-## 4.5.0
-
-4.5.0 adds original live object references, sparse tracked mutations, and per-instance in-memory tracking modes.
-
-Release notes: [JsonPit_RELEASE_NOTES_4.5.0.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.5.0.md).
-
-## 4.4.8
-
-4.4.8 adds original live object references, sparse tracked mutations, and per-instance in-memory tracking modes.
-
-Release notes: [JsonPit_RELEASE_NOTES_4.4.8.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.4.8.md).
-
-
-JsonPit change requests and release notes are centralized in the RAIkeep [`doc/`](https://github.com/Burkhardt/RAIkeep/tree/main/doc) directory under `JsonPit_...` filenames; they are not stored separately in this child repository.
-
-JsonPit stores JSON documents with value history across processes, machines,
-and servers using
-[asynchronous persistence with eventual durability](https://github.com/Burkhardt/RAIkeep/blob/main/MANIFESTO.md#asynchronous-persistence-with-eventual-durability).
-
-**CLI tools:** use `pits` (see
-[PitSeeder](https://github.com/Burkhardt/PitSeeder))
-or [`jpit`](https://pypi.org/project/jsonpit/) to seed, export, inspect, and
-maintain JsonPits. Use [`amafu init`](https://github.com/Burkhardt/Amafu) to
-detect cloud drives and create the shared RAIkeep configuration.
+**CLI tools:** use [pits](https://github.com/Burkhardt/PitSeeder) or [jpit](https://pypi.org/project/jsonpit/) to seed, export, inspect, and maintain JsonPits. Use [amafu init](https://github.com/Burkhardt/Amafu) to detect cloud drives and create the shared RAIkeep configuration.
 
 ## Start Here
 
-For the 4.5.8 live-reference behavior, read [MUTATION_TRACKING.md](MUTATION_TRACKING.md). It defines the supported mutation API, per-instance tracking modes, and detection-time timestamps for fallback edits. Agents and contributors should also read [AGENTS.md](AGENTS.md).
+For the 4.5.8 live-reference behavior, read [MUTATION_TRACKING.md](https://github.com/Burkhardt/JsonPit/blob/main/MUTATION_TRACKING.md). It defines the supported mutation API, per-instance tracking modes, and detection-time timestamps for fallback edits. Agents and contributors should also read [AGENTS.md](https://github.com/Burkhardt/JsonPit/blob/main/AGENTS.md).
 
 If you want to use JsonPit 4.5.8 from NuGet in another service or agent workflow, start with [GettingStarted.md](https://github.com/Burkhardt/JsonPit/blob/main/GettingStarted.md).
 
@@ -85,139 +46,6 @@ That guide now covers:
 JsonPit's durable recovery events and the strictly read-only CLI inspection path
 are documented in the
 [`pits audit` operational manual](https://github.com/Burkhardt/RAIkeep/blob/main/doc/PITS-AUDIT.md).
-
-## 4.4.6
-
-Rejects live IDs containing `{` or `<` at public write boundaries, validates complete batches before mutation, and retains historical read/export/deletion compatibility. Missing/non-string IDs cannot bypass live validation.
-
-Release notes: [JsonPit_RELEASE_NOTES_4.4.6.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.4.6.md).
-
-## 4.4.5
-
-- Participates unchanged at the public library level in the synchronized nine-package CR047 release.
-- PitSeeder uses the existing unflagged read-only projection and living-state lookup APIs for strict patch preflight.
-- Current release notes: [JsonPit_RELEASE_NOTES_4.4.5.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.4.5.md)
-
-## 4.4.4
-
-- Participates unchanged in the synchronized nine-package RAIkeep v4.4.4 CR044 release.
-- Current release notes: [JsonPit_RELEASE_NOTES_4.4.4.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.4.4.md)
-
-## 4.4.2
-
-- Implements accepted CR040: `Id`, `Modified`, and `Deleted` are protected from
-  property mutation/tombstoning; live `Pit.Add(...)` rejects projected
-  read-modify-write payloads, while `AddHistorical(...)` remains the explicit
-  replay boundary.
-- Implements accepted CR041: new change and receipt artifacts use the clean
-  `{UtcTicks}_{ExactProcessIdentity}` stem. Existing CR003 SHA-suffixed change
-  files remain readable and hash-validated during rolling upgrades. Live engine
-  timestamps are process-monotonic so concurrent writes retain distinct clean names.
-- Participates in the synchronized eight-package RAIkeep v4.4.2 release.
-- Current release notes: [JsonPit_RELEASE_NOTES_4.4.2.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.4.2.md)
-
-## 4.4.1
-
-- Participates unchanged in the synchronized eight-package RAIkeep v4.4.1 CR037/CR037.1 release.
-- Current release notes: [JsonPit_RELEASE_NOTES_4.4.1.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.4.1.md)
-
-## 4.3.2
-
-- Participates unchanged in the coordinated seven-package RAIkeep v4.3.2 CR027 release.
-- Finalizer, persistence, and process-flag cleanup behavior is unchanged from 4.3.1.
-- Current release notes: [JsonPit_RELEASE_NOTES_4.3.2.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.3.2.md)
-
-## 4.3.1
-
-- Participates unchanged in the coordinated seven-package RAIkeep v4.3.1 CR026 release.
-- Finalizer, persistence, and process-flag cleanup behavior is unchanged from 4.3.0.
-- Current release notes: [JsonPit_RELEASE_NOTES_4.3.1.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.3.1.md)
-
-## 4.3.0
-
-- Carries accepted CR024 deterministic cleanup of owned PID-specific process flags into the coordinated v4.3.0 line.
-- Finalizers remain strictly free of filesystem and recovery-publication I/O; crashed processes retain the established TTL and maintenance behavior.
-- Current release notes: [JsonPit_RELEASE_NOTES_4.3.0.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.3.0.md)
-
-## 4.2.11 (superseded before publication)
-
-- This prepared line was not published; its CR024 changes are carried by v4.3.0.
-- Owned flags are removed through `RaiFile.rm()` after the existing durability boundary; foreign flags and `Master.flag` are untouched.
-- Read-only and writable pits share the same cleanup, while finalizers remain strictly free of filesystem and recovery-publication I/O.
-- Crashed processes still leave flags for TTL detection and explicit maintenance pruning.
-- Current release notes: [JsonPit_RELEASE_NOTES_4.2.11.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.2.11.md)
-
-## 4.2.10
-
-- Adds opt-in recovery-event compaction through `PitMaintenanceOptions.ArchiveEvents`.
-- Preview reports the exact immutable `Events_yyyyMMdd-HHmm_to_yyyyMMdd-HHmm.zip` archive, UTC range, eligible count, and deferred evidence without mutation.
-- Apply creates the archive directly in the existing pit `Events` directory, validates every filename and byte payload, then removes only the validated loose copies one by one.
-- `PitAudit.Read(...)` transparently combines loose and archived events; `PitAudit.Inspect(...)` also exposes invalid/archive-conflict diagnostics and deduplicates by event identity.
-- Existing archives are never overwritten, replaced, appended to, or staged through `Os.TempDir`.
-- Current release notes: [JsonPit_RELEASE_NOTES_4.2.10.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.2.10.md)
-
-## 4.2.9
-
-- Implements accepted incident corrective action CR022: report-only `Pit.Maintain(...)` checks the non-creating canonical parent and performs zero filesystem mutation when the pit is absent.
-- Missing maintenance targets return an explicit deferred result without creating pit directories, flags, receipts, events, or canonical files.
-- Canonical and receipt persistence continues through the hardened OsLibCore in-place cloud pathname contract.
-- Aligns fallback dependencies on `OsLibCore 4.2.9` and `RaiUtils 4.2.9`.
-- Current release notes: [JsonPit_RELEASE_NOTES_4.2.9.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.2.9.md)
-- Mandatory storage contract: [Cloud-Storage-In-Place-Invariant.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/Cloud-Storage-In-Place-Invariant.md)
-
-## 4.2.8
-
-- Implements accepted CR021 durable `ReceiptFile` cleanup evidence so the ten-minute change-file grace survives restart and master transfer without refresh.
-- Adds explicit `Pit.Maintain(...)`, `PitMaintenanceOptions`, and `PitMaintenanceResult` APIs for report-only inventory and separately authorized cleanup, process-window pruning, and legacy-extension repair.
-- Retires eligible artifacts change-file first and receipt second after current-master and canonical-accounting revalidation; malformed or unverifiable evidence remains untouched.
-- Aligns fallback dependencies on `OsLibCore 4.2.8` and `RaiUtils 4.2.8`.
-- Current release notes: [JsonPit_RELEASE_NOTES_4.2.8.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.2.8.md)
-
-## 4.2.7
-
-- Aligns JsonPit with the coordinated seven-package RAIkeep 4.2.7 release implementing accepted CR020.
-- Aligns fallback dependencies on `OsLibCore 4.2.7` and `RaiUtils 4.2.7`; persistence behavior is unchanged.
-- Current release notes: [JsonPit_RELEASE_NOTES_4.2.7.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.2.7.md)
-
-## 4.2.6
-
-- Aligns JsonPit with the coordinated seven-package RAIkeep 4.2.6 release implementing accepted CR019.
-- Aligns fallback dependencies on `OsLibCore 4.2.6` and `RaiUtils 4.2.6`; persistence behavior is unchanged.
-- Current release notes: [JsonPit_RELEASE_NOTES_4.2.6.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.2.6.md)
-
-## 4.2.5
-
-- Aligns JsonPit with the coordinated seven-package RAIkeep 4.2.5 release implementing accepted CR017.
-- Existing `GetAt(...)`, timestamped pit export, history ordering, tombstone, deletion-wall, and resurrection semantics are the authoritative projection engine behind `pits export --at`.
-- Aligns fallback dependencies on `OsLibCore 4.2.5` and `RaiUtils 4.2.5`.
-- Current release notes: [JsonPit_RELEASE_NOTES_4.2.5.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.2.5.md)
-
-## 4.2.4
-
-- Aligns JsonPit with the coordinated seven-package RAIkeep 4.2.4 release implementing accepted CR016.
-- Preserves the CR015 nested tombstone and explicit nested-deletion contracts unchanged.
-- Aligns fallback dependencies on `OsLibCore 4.2.4` and `RaiUtils 4.2.4`.
-- 4.2.4 release notes: [JsonPit_RELEASE_NOTES_4.2.4.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.2.4.md)
-
-## 4.2.3
-
-- Implements accepted CR015 nested property tombstones at arbitrary depth.
-- Adds `PitItem.DeletePropertyPath(...)` without changing literal dotted-name behavior in `DeleteProperty(...)`.
-- Projected reads and exports omit tombstoned nested properties and recursively prune newly empty parent containers while preserving append-only history.
-- Aligns on `OsLibCore 4.2.3` and `RaiUtils 4.2.3`.
-- Makes `UseLocalRAIkeepSources=false` an explicit package-only boundary so release validation cannot silently resolve sibling projects.
-- `FileSystemWatcher` callbacks and debounce work now use weak ownership so an abandoned `Pit` can be collected and its canonical path reopened.
-- The `Pit` finalizer still performs no recovery publication, watcher disposal, or filesystem I/O.
-- The remote synchronization suite now waits for authority-record contents rather than only a materialized `Master.flag` pathname.
-- Keeps the WWWA-based quick-start section in [GettingStarted.md](https://github.com/Burkhardt/JsonPit/blob/main/GettingStarted.md) for cloud-path pit creation and sample JSON5 seeding.
-- The supported cloud-backed provider claim is `Dropbox`, `OneDrive`, `GoogleDrive`, and `ICloudDrive`.
-- `PitItem.Id` is now the canonical framework identifier.
-- Legacy payloads that still contain `Name` without `Id` are normalized internally by copying `Name` into `Id`, while preserving `Name`.
-- Future use of `Name` as an application-defined custom field remains supported.
-- `PitItem.DeleteProperty(...)` now projects top-level null tombstones as absent attributes instead of leaking a permanent null shadow.
-- Remote-sync workflows continue to align with OsLib's configurable metadata propagation delay handling, including the `mkdir` polymorphism package line update in OsLib.
-- No JsonPit API changes were required beyond the `3.12.0` line; this release refreshes the aligned package baseline and packaged docs.
-- Live docs and release-note pointers were refreshed for the `4.2.3` release line, and this README is packaged with the NuGet release.
 
 ## namespace
 
@@ -347,7 +175,3 @@ That keeps JsonPit aligned with OsLib in .NET today and with the upcoming Python
 
 Foldable class and contract documentation is available in
 [API.md](https://github.com/Burkhardt/JsonPit/blob/main/API.md).
-
-## release notes
-
-- Latest release notes: [JsonPit_RELEASE_NOTES_4.5.8.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.5.8.md)
