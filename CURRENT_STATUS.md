@@ -21,4 +21,4 @@ Prepared coordinated line: `4.2.5`
 - Run the relevant complete JsonPit Release suite, including configured cloud/remote scenarios where available.
 - Do not tag or publish from this repository directly; the coordinated RAIkeep chain owns release order.
 
-Release notes: [JsonPit_RELEASE_NOTES_4.2.5.md](https://github.com/Burkhardt/RAIkeep/blob/main/doc/JsonPit_RELEASE_NOTES_4.2.5.md)
+Release notes: [JsonPit 4.2.5 release notes](https://github.com/Burkhardt/RAIkeep/blob/main/doc/releases/v4.x/JsonPit_RELEASE_NOTES_4.x.md#425)
