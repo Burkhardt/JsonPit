@@ -135,8 +135,8 @@ public sealed class RemoteSyncTests : IDisposable
 		output.WriteLine($"pits on Mzansi:\n{seedOutput}");
 
 		// Mzansi should have created change files (it cannot write the canonical pit).
-		// Match the identity segment only — the exact filename differs between the legacy
-		// {ticks}_{participant}.json and the v3.13.2 {ticks}_{exactProcess}_{sha256}.json form.
+		// Match the machine in the identity segment; current change-file names
+		// also contain the application, PID, and a short payload checksum.
 		var mzansiChangeFiles = SshExec($"ls \"{mzansiPitDir}/\" 2>/dev/null | grep '_Mzansi'");
 		Assert.False(string.IsNullOrWhiteSpace(mzansiChangeFiles),
 			"Mzansi must create change files as a client (not overwrite the pit)");
@@ -151,7 +151,7 @@ public sealed class RemoteSyncTests : IDisposable
 		// PHASE 3 — Wait for change files to sync back, then Load on Nkosikazi
 		// ──────────────────────────────────────────────────────────────
 		var pitDir = pit.PitDir;
-		WaitForLocalChangeFiles(pitDir, "_Mzansi.json");
+		WaitForLocalChangeFiles(pitDir, MzansiHost);
 		// One live public Pit per canonical path per process (CR003 §4): dispose before reopening.
 		pit.Dispose();
 		// The provider may have dehydrated the local canonical while syncing; wait until
@@ -381,15 +381,14 @@ public sealed class RemoteSyncTests : IDisposable
 		Assert.Fail($"Timed out ({SyncTimeoutMs / 1000} s) waiting for {description} on {MzansiHost}");
 	}
 
-	private void WaitForLocalChangeFiles(RaiPath pitDir, string suffix)
+	private void WaitForLocalChangeFiles(RaiPath pitDir, string machine)
 	{
-		output.WriteLine($"Waiting for change files matching *{suffix} in {pitDir.FullPath} ...");
+		output.WriteLine($"Waiting for change files from {machine} in {pitDir.FullPath} ...");
 		var sw = Stopwatch.StartNew();
-		var suffixWithoutExt = suffix.Replace(".json", "");
 		while (sw.ElapsedMilliseconds < SyncTimeoutMs)
 		{
 			var found = pitDir.EnumerateFiles("*.json")
-				.Any(f => f.Name.Contains(suffixWithoutExt, StringComparison.OrdinalIgnoreCase));
+				.Any(f => ChangeFile.IdentityOf(f.Name)?.StartsWith(machine + "-", StringComparison.OrdinalIgnoreCase) == true);
 			if (found)
 			{
 				output.WriteLine($"  found change file(s) in {sw.Elapsed.TotalSeconds:F1} s");
@@ -397,7 +396,7 @@ public sealed class RemoteSyncTests : IDisposable
 			}
 			Thread.Sleep(SyncPollMs);
 		}
-		Assert.Fail($"Timed out ({SyncTimeoutMs / 1000} s) waiting for change files matching {suffix}");
+		Assert.Fail($"Timed out ({SyncTimeoutMs / 1000} s) waiting for change files from {machine}");
 	}
 
 	private void WaitForContentOnMzansi(string remotePath, string expectedContent, string description)
