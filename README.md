@@ -1,10 +1,10 @@
 # JsonPit
 
-## 4.5.11
+## 4.5.12
 
-Coordinated 4.5.11 release; public behavior is aligned with the synchronized platform.
+Coordinated 4.5.12 release; public behavior is aligned with the synchronized platform.
 
-Latest release notes: [JsonPit 4.5.11 release notes](https://github.com/Burkhardt/RAIkeep/blob/main/doc/releases/v4.x/JsonPit_RELEASE_NOTES_4.x.md#4511).
+Latest release notes: [JsonPit 4.5.12 release notes](https://github.com/Burkhardt/RAIkeep/blob/main/doc/releases/v4.x/JsonPit_RELEASE_NOTES_4.x.md#4512).
 
 ## Previous Versions
 
@@ -15,13 +15,13 @@ For release notes and changelogs of earlier releases, see the [JsonPit 4.x Relea
 ### .NET CLI
 
 ```bash
-dotnet add package JsonPit --version 4.5.11
+dotnet add package JsonPit --version 4.5.12
 ```
 
 ### PackageReference
 
 ```xml
-<PackageReference Include="JsonPit" Version="4.5.11" />
+<PackageReference Include="JsonPit" Version="4.5.12" />
 ```
 
 JsonPit stores JSON documents with value history across processes, machines, and servers using [asynchronous persistence with eventual durability](https://github.com/Burkhardt/RAIkeep/blob/main/MANIFESTO.md#asynchronous-persistence-with-eventual-durability). Change requests and release notes are kept in the RAIkeep [documentation archive](https://github.com/Burkhardt/RAIkeep/tree/main/doc).
@@ -30,9 +30,9 @@ JsonPit stores JSON documents with value history across processes, machines, and
 
 ## Start Here
 
-For the 4.5.11 live-reference behavior, read [MUTATION_TRACKING.md](https://github.com/Burkhardt/JsonPit/blob/main/MUTATION_TRACKING.md). It defines the supported mutation API, per-instance tracking modes, and detection-time timestamps for fallback edits. Agents and contributors should also read [AGENTS.md](https://github.com/Burkhardt/JsonPit/blob/main/AGENTS.md).
+For the 4.5.12 live-reference behavior, read [MUTATION_TRACKING.md](https://github.com/Burkhardt/JsonPit/blob/main/MUTATION_TRACKING.md). It defines the supported mutation API, per-instance tracking modes, and detection-time timestamps for fallback edits. Agents and contributors should also read [AGENTS.md](https://github.com/Burkhardt/JsonPit/blob/main/AGENTS.md).
 
-If you want to use JsonPit 4.5.11 from NuGet in another service or agent workflow, start with [GettingStarted.md](https://github.com/Burkhardt/JsonPit/blob/main/GettingStarted.md).
+If you want to use JsonPit 4.5.12 from NuGet in another service or agent workflow, start with [GettingStarted.md](https://github.com/Burkhardt/JsonPit/blob/main/GettingStarted.md).
 
 That guide now covers:
 
