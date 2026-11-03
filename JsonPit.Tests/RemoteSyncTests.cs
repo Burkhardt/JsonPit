@@ -118,20 +118,15 @@ public sealed class RemoteSyncTests : IDisposable
 			"Nkosikazi",
 			"Nkosikazi Master.flag ownership to finish syncing to Mzansi");
 
-		// The canonical file's first sync can consume most of the 60-second lease.
-		// Renew the exact owning process and wait for that specific timestamp so the
-		// client phase tests active-master behavior instead of racing lease expiry.
-		Assert.True(pit.TryAcquireMaster(), "Nkosikazi should renew its exact-process master lease");
-		var renewedTicketTimestamp = pit.MasterFlag().Time.UtcDateTime.ToString("o");
-		WaitForContentOnMzansi(
-			$"{mzansiPitDir}/Master.flag",
-			renewedTicketTimestamp,
-			"renewed Nkosikazi Master.flag ticket to finish syncing to Mzansi");
+		// A ticket can take longer than its 60-second lease to propagate. Keep
+		// renewing through the real cloud path, and require a fresh remote ticket
+		// before testing client behavior. An old timestamp arriving is insufficient.
+		WaitForFreshMasterOnMzansi(pit, $"{mzansiPitDir}/Master.flag");
 
 		// Create a small JSON seed file on Mzansi and run pits
 		var seedJson = "[{\"Id\":\"MzansiEntry\",\"Source\":\"Mzansi\",\"Note\":\"Added by client\"}]";
 		SshExec($"echo '{seedJson}' > /tmp/{PitName}.json5");
-		var seedOutput = SshExec(BuildRemotePitsSeedCommand($"/tmp/{PitName}.json5"));
+		var seedOutput = SeedOnMzansi($"/tmp/{PitName}.json5", pit);
 		output.WriteLine($"pits on Mzansi:\n{seedOutput}");
 
 		// Mzansi should have created change files (it cannot write the canonical pit).
@@ -198,10 +193,12 @@ public sealed class RemoteSyncTests : IDisposable
 		// Seed a second entry from Mzansi — this time it should become master
 		var seed2Json = "[{\"Id\":\"MzansiMasterEntry\",\"Source\":\"Mzansi\",\"Note\":\"Now I am master\"}]";
 		SshExec($"echo '{seed2Json}' > /tmp/{PitName}.json5");
-		var seed2Output = SshExec(BuildRemotePitsSeedCommand($"/tmp/{PitName}.json5"));
+		var seed2Output = SeedOnMzansi($"/tmp/{PitName}.json5");
 		output.WriteLine($"pits on Mzansi (after ticket expiry):\n{seed2Output}");
 
 		// Master.flag should now show Mzansi
+		WaitForContentOnMzansi($"{mzansiPitDir}/Master.flag", "Mzansi",
+			"Mzansi master ownership after successful seed");
 		var newMaster = SshExec($"cat \"{mzansiPitDir}/Master.flag\"");
 		Assert.Contains("Mzansi", newMaster);
 		output.WriteLine("Phase 4  PASS — master transferred to Mzansi after ticket expiry");
@@ -442,6 +439,48 @@ public sealed class RemoteSyncTests : IDisposable
 	#endregion
 
 	#region SSH helper
+
+	private void WaitForFreshMasterOnMzansi(Pit master, string remoteFlag)
+	{
+		output.WriteLine("Waiting for a fresh, active Nkosikazi lease on Mzansi while renewing through the cloud ...");
+		var elapsed = Stopwatch.StartNew();
+		while (elapsed.ElapsedMilliseconds < SyncTimeoutMs)
+		{
+			Assert.True(master.TryAcquireMaster(), "Nkosikazi must retain its exact-process lease during propagation");
+			var expectedOwner = master.MasterFlag().Originator;
+			var text = SshExec($"cat \"{remoteFlag}\"").Trim();
+			var parts = text.Split('|');
+			if (parts.Length == 2 && parts[0] == expectedOwner &&
+				DateTimeOffset.TryParseExact(parts[1], "o", System.Globalization.CultureInfo.InvariantCulture,
+					System.Globalization.DateTimeStyles.RoundtripKind, out var timestamp))
+			{
+				var age = DateTimeOffset.UtcNow - timestamp;
+				if (age >= TimeSpan.Zero && age < TimeSpan.FromSeconds(20))
+				{
+					output.WriteLine($"  fresh remote lease age {age.TotalSeconds:F1} s after {elapsed.Elapsed.TotalSeconds:F1} s");
+					return;
+				}
+			}
+			Thread.Sleep(SyncPollMs);
+		}
+		Assert.Fail("The configured cloud did not deliver a fresh active master lease within the synchronization timeout.");
+	}
+
+	private string SeedOnMzansi(string sourceFile, Pit activeMaster = null)
+	{
+		var seed = System.Threading.Tasks.Task.Run(() => SshSystem.ExecuteRemoteCommand(
+			MzansiHost, BuildRemotePitsSeedCommand(sourceFile), timeoutMilliseconds: 120_000));
+		while (!seed.IsCompleted)
+		{
+			if (activeMaster is not null)
+				Assert.True(activeMaster.TryAcquireMaster(), "Nkosikazi must renew its lease while the remote client runs");
+			Thread.Sleep(1000);
+		}
+		var result = seed.GetAwaiter().GetResult();
+		Assert.True(result.Succeeded,
+			$"Remote seed failed: exit={result.ExitCode}, timedOut={result.TimedOut}, stdout={result.StandardOutput}, stderr={result.StandardError}");
+		return result.Output;
+	}
 
 	private string BuildRemotePitsSeedCommand(string sourceFile)
 	{
