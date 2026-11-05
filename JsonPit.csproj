@@ -17,8 +17,8 @@
 		<PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
 		<RepositoryUrl>https://github.com/Burkhardt/JsonPit</RepositoryUrl>
 		<RepositoryType>github</RepositoryType>
-		<PackageReleaseNotes>Coordinated 4.5.17 dependencies and NuGet Trusted Publishing; storage behavior unchanged.</PackageReleaseNotes>
-		<PackageIcon>HardCastle.png</PackageIcon>
+		<PackageReleaseNotes>Coordinated 4.6.0 mutation guardrails, cross-language parity verification, and the JsonPit sync constellation package icon.</PackageReleaseNotes>
+		<PackageIcon>assets/logo-128x128.png</PackageIcon>
 		<DefaultItemExcludes>$(DefaultItemExcludes);JsonPit.Tests\**</DefaultItemExcludes>
 	</PropertyGroup>
 
@@ -27,7 +27,7 @@
 		<PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
 		<PackageReference Include="Sigil" Version="5.0.0" />
 		<None Include="README.md" Pack="true" PackagePath="\" />
-		<None Include="HardCastle.png" Pack="true" PackagePath="" />
+		<None Include="assets/logo-128x128.png" Pack="true" PackagePath="assets/" />
 	</ItemGroup>
 
 	<PropertyGroup>
