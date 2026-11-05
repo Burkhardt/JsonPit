@@ -143,6 +143,10 @@ public partial class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 	private bool AddCore(PitItem item, bool refreshModified, bool legacyTombstone = false)
 	{
 		if (item is null) throw new ArgumentNullException(nameof(item));
+		// CR077: historical replay must not bypass live ownership. Import detached
+		// historical fragments rather than attaching another Pit's live graph.
+		if (item.LiveBinding is { } owned && !ReferenceEquals(owned.Owner, this))
+			throw new InvalidOperationException("A live PitItem cannot be attached to another Pit. Import a detached payload instead.");
 		if (item.LiveBinding is { } live && refreshModified)
 		{
 			if (!ReferenceEquals(live.Owner, this))
