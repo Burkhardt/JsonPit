@@ -1,8 +1,8 @@
-# Getting Started with JsonPit 4.6.1
+# Getting Started with JsonPit 4.6.2
 
 This guide is written for practical implementation work, especially when you want to use JsonPit from NuGet packages in another service such as OTW / AfricaStage.
 
-It is based on the current JsonPit 4.6.1 code and tests in this repository.
+It is based on the current JsonPit 4.6.2 code and tests in this repository.
 
 ## 4.x key decisions
 
@@ -43,7 +43,7 @@ It is not trying to replace a transactional database.
 
 ## Package Setup
 
-Use the coordinated NuGet package ids at version `4.6.1`:
+Use the coordinated NuGet package ids at version `4.6.2`:
 
 - `JsonPit`
 - `RaiUtils`
@@ -52,9 +52,9 @@ Use the coordinated NuGet package ids at version `4.6.1`:
 Typical install commands:
 
 ```bash
-dotnet add package JsonPit --version 4.6.1
-dotnet add package RaiUtils --version 4.6.1
-dotnet add package OsLibCore --version 4.6.1
+dotnet add package JsonPit --version 4.6.2
+dotnet add package RaiUtils --version 4.6.2
+dotnet add package OsLibCore --version 4.6.2
 ```
 
 Typical namespaces in code:
@@ -719,3 +719,15 @@ If you are implementing a small JsonPit-backed feature from NuGet packages, star
 - [PitFile.cs](PitFile.cs)
 - [JsonPit.Tests/UnitTests.cs](JsonPit.Tests/UnitTests.cs)
 - [JsonPit.Tests/JsonPitRealWorldIntegrationTests.cs](JsonPit.Tests/JsonPitRealWorldIntegrationTests.cs)
+
+## Seed receipts and recovery audit time (CR081)
+
+`pits seed` reports source entries accepted as new fragments separately from
+unchanged entries, after required local persistence completes. `Pit.Add` returning
+true describes history acceptance, not immediate disk or cloud persistence.
+Latest-fragment equality ignoring Modified remains the no-op policy for detached
+client fragments; projected-state equality is not substituted.
+
+C# `Dispose` / `ChangeFilesPublished` audit events record current UTC when validated
+recovery-file publication is reported. The timestamp is not original mutation time,
+a universal ledger of canonical saves, or confirmation of remote replication.
