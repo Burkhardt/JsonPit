@@ -17,7 +17,7 @@
 		<PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
 		<RepositoryUrl>https://github.com/Burkhardt/JsonPit</RepositoryUrl>
 		<RepositoryType>github</RepositoryType>
-		<PackageReleaseNotes>Coordinated 4.6.0 mutation guardrails, cross-language parity verification, and the JsonPit sync constellation package icon.</PackageReleaseNotes>
+		<PackageReleaseNotes>Coordinated 4.6.2: preserve latest-fragment mutation semantics and live identity; document seed acceptance and disposal audit timing with both-mode regression coverage.</PackageReleaseNotes>
 		<PackageIcon>assets/logo-128x128.png</PackageIcon>
 		<DefaultItemExcludes>$(DefaultItemExcludes);JsonPit.Tests\**</DefaultItemExcludes>
 	</PropertyGroup>
