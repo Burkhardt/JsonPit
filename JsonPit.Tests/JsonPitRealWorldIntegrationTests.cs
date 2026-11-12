@@ -28,10 +28,10 @@ namespace JsonPit.Tests
 				Assert.EndsWith($"{Os.DIR}Place{Os.DIR}Place.pit", placePitFile.FullName);
 				// When the destination Pit does exist, the Pit is loaded and importing the same file leads to a sequence of Add operations
 				// that do not change the state of the Pit since the data stays the same;
-				var placePit = new Pit(placePitFile);    // open for read/write is default
-				var personPit = new Pit(personPitFile);
-				var objectPit = new Pit(objectPitFile);
-				var activityPit = new Pit(activityPitFile);
+				using var placePit = new Pit(placePitFile);    // open for read/write is default
+				using var personPit = new Pit(personPitFile);
+				using var objectPit = new Pit(objectPitFile);
+				using var activityPit = new Pit(activityPitFile);
 				// Importing the data from the JSON5 files into the Pit
 				var placeData = new TextFile(sampleDir, "Place", "json5").ReadAllText();
 				placePit.AddItems(placeData);
@@ -91,21 +91,13 @@ namespace JsonPit.Tests
 		}
 		private static bool TryPrepareCloudIntegrationRoot(string relativeDirectory, out RaiPath root, out string reason)
 		{
-			// Try each known cloud provider from Os.Config
-			string cloudDir = null;
-			foreach (var provider in new[] { "OneDrive", "GoogleDrive", "Dropbox", "ICloudDrive" })
+			if (ConfiguredCloudPits.ProviderNameOrNull() is null)
 			{
-				cloudDir = Os.Config?.Cloud?[provider];
-				if (!string.IsNullOrWhiteSpace(cloudDir))
-					break;
-			}
-			if (string.IsNullOrWhiteSpace(cloudDir))
-			{
-				root = new RaiPath(string.Empty);
-				reason = $"no cloud provider configured in {Os.DefaultConfigFileLocation}";
+				root = null;
+				reason = "Os.Config.Cloud.Dropbox is unconfigured or unavailable; no live-provider fallback";
 				return false;
 			}
-			root = new RaiPath(cloudDir) / "RAIkeep" / relativeDirectory;
+			root = ConfiguredCloudPits.RequirePitRoot(relativeDirectory);
 			reason = string.Empty;
 			try
 			{

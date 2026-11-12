@@ -1,5 +1,24 @@
 # JsonPit
 
+## Automated cloud test isolation
+
+Local automated cloud fixtures use `Os.Config.Cloud.Dropbox`, under a unique
+`RAIkeep.Test.<run-id>/` directory per test process. They never fall back to
+OneDrive or alter `DefaultCloudOrder`. Missing Dropbox prerequisites produce an
+explicit skip; a skipped integration test is not release-acceptance evidence.
+Fixtures clean only their own roots; startup never deletes another run's data.
+Residual run directories may be removed after their owning test processes finish.
+
+Live AIA and AfricaStage quartets remain on OneDrive. Explicit discovery remains
+`pits -h -r AIA -c OneDrive` and `pits -h -r AfricaStage -c OneDrive` (likewise
+`jpit` with `-c OneDrive`). Local-only unit fixtures may use `Os.TempDir`.
+
+**Remote replication exception:** `RemoteSyncTests` and
+`RemoteCloudConcurrencyTests` deliberately retain Nkosikazi ↔ Mzansi OneDrive
+replication, in `RAIkeep/jsonpit-remote-sync-tests/{testId}` and
+`RAIkeep/jsonpit-cr003-remote/{testId}`. Run these separately from high-frequency
+local verification; they require the genuine remote channel.
+
 ## 4.6.3
 
 Coordinated 4.6.3 release; public behavior is aligned with the synchronized platform.

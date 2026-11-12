@@ -4,13 +4,8 @@ namespace JsonPit.Tests
 {
 	internal static class RAIkeepTestEnvironment
 	{
-		private static readonly RaiPath rootPath = ResolveWritableRootPath();
-		static RAIkeepTestEnvironment()
-		{
-			CleanupRoot();
-			rootPath.mkdir();
-		}
-		internal static RaiPath RootPath => rootPath;
+		private static readonly Lazy<RaiPath> rootPath = new(ResolveWritableRootPath);
+		internal static RaiPath RootPath => rootPath.Value;
 		internal static RaiPath CloudPath(params string[] segments)
 		{
 			var path = RootPath;
@@ -27,32 +22,19 @@ namespace JsonPit.Tests
 				path = path / segments[i];
 			return new RaiFile(path, segments[^1]).FullName;
 		}
-		private static void CleanupRoot()
-		{
-			try
-			{
-				if (rootPath.Exists())
-					rootPath.rmdir(depth: 10, deleteFiles: true);
-			}
-			catch
-			{
-			}
-		}
 		private static RaiPath ResolveWritableRootPath()
 		{
-			var baseRoot = Os.TempDir;
-			var candidate = baseRoot / "RAIkeep" / "JsonPitTests" / "CloudRoot";
+			var candidate = ConfiguredCloudPits.RequirePitRoot("JsonPitTests");
 			try
 			{
 				candidate.mkdir();
-				candidate.rmdir(depth: 3, deleteFiles: true);
 				return candidate;
 			}
 			catch (Exception ex)
 			{
 				throw new InvalidOperationException(
-					$"JsonPit tests require Os.TempDir ('{baseRoot.Path}') to point to a writable root that allows creating directories and writing files. " +
-					"Please update Os.TempDir configuration before running these tests.",
+					$"JsonPit tests require writable Dropbox test storage at '{candidate.Path}'. " +
+					"Check Os.Config.Cloud.Dropbox before running these tests.",
 					ex);
 			}
 		}

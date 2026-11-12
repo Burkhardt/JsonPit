@@ -34,15 +34,9 @@ namespace JsonPit.Tests
 
         private static string ConfiguredCloudRootOrNull()
         {
-            var cloud = (Os.Config as JObject)?["Cloud"] as JObject;
-            foreach (var provider in new[] { "GoogleDrive", "OneDrive", "Dropbox", "ICloudDrive" })
-            {
-                var root = cloud?[provider]?.ToString();
-                if (!string.IsNullOrWhiteSpace(root))
-                    return root;
-            }
-
-            return null;
+            return ConfiguredCloudPits.ProviderNameOrNull() is null
+                ? null
+                : (string)Os.Config.Cloud[ConfiguredCloudPits.Provider];
         }
 
         [Fact]
