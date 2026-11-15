@@ -1,8 +1,8 @@
-# Getting Started with JsonPit 4.6.3
+# Getting Started with JsonPit 4.6.4
 
 This guide is written for practical implementation work, especially when you want to use JsonPit from NuGet packages in another service such as OTW / AfricaStage.
 
-It is based on the current JsonPit 4.6.3 code and tests in this repository.
+It is based on the current JsonPit 4.6.4 code and tests in this repository.
 
 ## 4.x key decisions
 
@@ -43,7 +43,7 @@ It is not trying to replace a transactional database.
 
 ## Package Setup
 
-Use the coordinated NuGet package ids at version `4.6.3`:
+Use the coordinated NuGet package ids at version `4.6.4`:
 
 - `JsonPit`
 - `RaiUtils`
@@ -52,9 +52,9 @@ Use the coordinated NuGet package ids at version `4.6.3`:
 Typical install commands:
 
 ```bash
-dotnet add package JsonPit --version 4.6.3
-dotnet add package RaiUtils --version 4.6.3
-dotnet add package OsLibCore --version 4.6.3
+dotnet add package JsonPit --version 4.6.4
+dotnet add package RaiUtils --version 4.6.4
+dotnet add package OsLibCore --version 4.6.4
 ```
 
 Typical namespaces in code:
@@ -315,7 +315,7 @@ Pit.DefaultMutationTrackingMode = MutationTrackingMode.TrackedChangesOnly;
 
 Each instance captures its mode in the read-only `TrackingMode` property for its lifetime **in memory**. Nothing is persisted about the mode. A CLI and server can open the same pit files using different modes. Changing the static default does not affect existing instances. `TrackedChangesOnly` avoids fallback comparison passes; unreported edits are unsupported and are not guaranteed persistence in that mode.
 
-Use `max["Name"] = "Max"`, rather than `((JValue)max["Name"]).Value = "Max"`, in normal application and agent-generated code. See [MUTATION_TRACKING.md](MUTATION_TRACKING.md) for the complete contract, costs, consistency limits, and supported paths.
+Use `max["Name"] = "Max"`, rather than `((JValue)max["Name"]).Value = "Max"`, in normal application and agent-generated code. See [MUTATION_TRACKING.md](https://github.com/Burkhardt/JsonPit/blob/main/MUTATION_TRACKING.md) for the complete contract, costs, consistency limits, and supported paths.
 
 ## Removing Properties
 
