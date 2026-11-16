@@ -16,6 +16,71 @@ public sealed class ReceiptMaintenanceTests : IDisposable
 
 	public ReceiptMaintenanceTests() => root.mkdir();
 
+	[Fact]
+	public void Save_HistoricalSnapshotPublishesFreshLeaseAndNotifiesEarlierReaders()
+	{
+		var directory = (root / "OldSnapshot").mkdir();
+		using var pit = new Pit(directory, readOnly: false, autoload: false);
+		var historical = DateTimeOffset.UtcNow.AddDays(-1);
+		pit.AddHistorical(new PitItem("Past", true, historical));
+		var beforeWrite = DateTimeOffset.UtcNow.AddSeconds(-2);
+		pit.Save(force: true);
+
+		Assert.True(pit.MasterFlag().IsOwnedBy(pit.ExactProcessIdentity));
+		Assert.Equal(historical, pit["Past"].Modified);
+		Assert.False(pit.MasterUpdatesAvailable());
+		// A checkpoint newer than the historical data still needs this publication.
+		pit.ProcessFlag().Update(beforeWrite);
+		Assert.True(pit.MasterUpdatesAvailable());
+	}
+
+	[Theory]
+	[InlineData(false)]
+	[InlineData(true)]
+	public void OrdinaryWritableOpen_RetiresBacklogWithoutRewritingCanonical(bool openFromPitFile)
+	{
+		var directory = (root / "Backlog").mkdir();
+		var changes = new System.Collections.Generic.List<RaiFile>();
+		var modified = DateTimeOffset.UtcNow.AddDays(-2);
+		using (var fixture = new Pit(directory, readOnly: false, unflagged: true, autoload: false))
+		{
+			for (int i = 0; i < 102; i++)
+			{
+				var fragment = new PitItem($"Item{i}", true, modified.AddSeconds(i));
+				fixture.AddHistorical(fragment);
+				var file = fixture.CreateChangeFile(fragment, i % 2 == 0 ? fixture.ExactProcessIdentity : "Peer-app-42");
+				changes.Add(file);
+				if (i < 101)
+				{
+					var age = i < 100 ? TimeSpan.FromMinutes(11) : TimeSpan.Zero;
+					var receipt = new TextFile(ReceiptFile.PathFor(file.FullName).FullName)
+					{
+						Lines = [(DateTimeOffset.UtcNow - age).ToString("o")], Changed = true
+					};
+					receipt.Save();
+				}
+			}
+			fixture.Save(force: true);
+		}
+		var canonical = new PitFile(directory, name: "Backlog");
+		var lastWrite = canonical.LastWriteTimeUtc;
+		using (var reader = new Pit(directory, readOnly: true, unflagged: true))
+			Assert.All(changes, file => Assert.True(file.Exists()));
+		using var opened = openFromPitFile ? new Pit(canonical, readOnly: false) : new Pit(directory, readOnly: false);
+		Assert.Equal(lastWrite, canonical.LastWriteTimeUtc);
+		Assert.All(changes.Take(100), file =>
+		{
+			Assert.False(file.Exists());
+			Assert.False(ReceiptFile.PathFor(file.FullName).Exists());
+		});
+		Assert.All(changes.Skip(100), file =>
+		{
+			Assert.True(file.Exists());
+			Assert.True(ReceiptFile.PathFor(file.FullName).Exists());
+		});
+		Assert.Equal(102, opened.HistoricItems.Count);
+	}
+
 	public void Dispose()
 	{
 		Pit.ChangeFileCleanupGrace = originalGrace;
@@ -110,6 +175,54 @@ public sealed class ReceiptMaintenanceTests : IDisposable
 		Assert.False(change.Exists());
 		Assert.False(ReceiptFile.PathFor(change.FullName).Exists());
 		Assert.NotNull(reopened["Peer"]);
+	}
+
+	[Theory]
+	[InlineData(false)]
+	[InlineData(true)]
+	public void Maintain_HistoricalChanges_RevalidatesExactOwnerAfterStore(bool foreignTakeover)
+	{
+		var directory = (root / "Historical").mkdir();
+		using var pit = new Pit(directory, readOnly: false, autoload: false);
+		var old = DateTimeOffset.UtcNow.AddDays(-8);
+		var change = pit.CreateChangeFile(new PitItem("First", true, old), "Peer-app-123");
+		Assert.True(pit.Maintain(apply: true).CanonicalPersisted);
+		Assert.True(pit.MasterFlag().IsOwnedBy(pit.ExactProcessIdentity));
+		Assert.False(pit.MasterUpdatesAvailable());
+		var receipt = new TextFile(ReceiptFile.PathFor(change.FullName).FullName)
+		{
+			Lines = [DateTimeOffset.UtcNow.AddMinutes(-11).ToString("o")], Changed = true
+		};
+		receipt.Save();
+		pit.CreateChangeFile(new PitItem("Second", true, old.AddMinutes(5)), "Peer-app-123");
+		if (foreignTakeover)
+			pit.RecoveryStatusChanged += status =>
+			{
+				if (status.Stage == RecoveryStage.CleanupPending)
+					new MasterFlagFile(directory, "Master").Update(originator: "OtherHost-peer-42");
+			};
+
+		var result = pit.Maintain(apply: true);
+
+		Assert.True(result.CanonicalPersisted);
+		Assert.Equal(1, result.ChangeFilesEligible);
+		Assert.Equal(foreignTakeover ? 0 : 1, result.ChangeFilesRemoved);
+		Assert.Equal(result.ChangeFilesRemoved, result.ReceiptsRemoved);
+		Assert.Equal(foreignTakeover, change.Exists());
+		Assert.Equal(foreignTakeover, receipt.Exists());
+		if (foreignTakeover)
+		{
+			Assert.Contains($"Cleanup revalidation deferred {change.NameWithExtension}", result.Deferred);
+			Assert.True(pit.MasterFlag().IsOwnedBy("OtherHost-peer-42"));
+		}
+		else
+		{
+			Assert.Empty(result.Deferred);
+			Assert.True(pit.MasterFlag().IsOwnedBy(pit.ExactProcessIdentity));
+		}
+		var canonical = File.ReadAllText(pit.JsonFile.FullName);
+		Assert.Contains("\"First\"", canonical);
+		Assert.Contains("\"Second\"", canonical);
 	}
 
 	[Fact]

@@ -488,11 +488,10 @@ public partial class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 			throw new System.IO.IOException($"JsonFile {JsonFile.Name} was set to readonly mode but an attempt was made to execute JsonFile.Store");
 		JsonFile.mkdir();
 		// Brief exclusive snapshot window — clone fragments for byte stability, capture the
-		// exact live dirty fragments included in this snapshot and the snapshot change time.
+		// exact live dirty fragments included in this snapshot.
 		// No I/O happens while the gate is held.
 		List<List<PitItem>> model;
 		List<PitItem> includedDirty;
-		var snapshotChangeTime = DateTimeOffset.MinValue;
 		var snapshotHasData = false;
 		stateGate.EnterWriteLock();
 		try
@@ -508,7 +507,6 @@ public partial class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 				{
 					clones.Add(new PitItem(fragment)); // stable bytes: live JObjects stay mutable
 					if (!fragment.Valid()) includedDirty.Add(fragment);
-					if (fragment.Modified > snapshotChangeTime) snapshotChangeTime = fragment.Modified;
 					snapshotHasData = true;
 				}
 				model.Add(clones);
@@ -532,10 +530,14 @@ public partial class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 		canonicalHadData = canonicalHadData || snapshotHasData;
 		if (!unflagged)
 		{
-			// Flag metadata describes the written snapshot, never newer live state.
-			var changeTime = snapshotChangeTime == DateTimeOffset.MinValue ? DateTimeOffset.UtcNow : snapshotChangeTime;
-			MasterFlag().Update(changeTime, originator: ExactProcessIdentity);
-			ProcessFlag().Update(changeTime);
+			// Signal the completed disk write to readers. Dirty tracking below still
+			// acknowledges only the fragments captured under the snapshot gate.
+			var master = new MasterFlagFile(PitDir, "Master");
+			if (master.Originator == ExactProcessIdentity)
+			{
+				var publication = master.Update(originator: ExactProcessIdentity);
+				ProcessFlag().Update(publication.Time);
+			}
 			// Record newly persisted fragments in the tenure recovery write set BEFORE they
 			// are marked clean (concept §5).
 			foreach (var fragment in includedDirty)
@@ -1126,7 +1128,7 @@ public partial class Pit : JsonPitBase, IEnumerable<PitItems>, IDisposable
 				// ReceiptFile accepts the deterministic missing change path and opens the
 				// existing sibling receipt without recreating the change file.
 				var receipt = new ReceiptFile(changeFile.FullName);
-				if (!apply || !result.CurrentMaster || now - receipt.Time < ChangeFileCleanupGrace)
+				if (!apply || !result.CurrentMaster || now - receipt.Time < ChangeFileCleanupGrace || !IsCurrentExactMaster())
 					continue;
 				receipt.rm();
 				if (!receipt.Exists()) result.ReceiptsRemoved++;
