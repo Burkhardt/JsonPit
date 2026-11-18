@@ -1,5 +1,7 @@
 # JsonPit
 
+[Code signing policy](https://github.com/Burkhardt/RAIkeep/blob/main/README_codesigning.md)
+
 ## Automated cloud test isolation
 
 Local automated cloud fixtures use `Os.Config.Cloud.Dropbox`, under a unique
