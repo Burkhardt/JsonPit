@@ -18,7 +18,7 @@
 		<RepositoryUrl>https://github.com/Burkhardt/JsonPit</RepositoryUrl>
 		<RepositoryType>github</RepositoryType>
 		<PackageReleaseNotes>Coordinated 4.6.3 release; no JsonPit runtime behavior change. CR082 corrects Python jpit export routing and missing-source reporting.</PackageReleaseNotes>
-		<PackageIcon>assets/logo-128x128.png</PackageIcon>
+		<PackageIcon>HardCastle.png</PackageIcon>
 		<DefaultItemExcludes>$(DefaultItemExcludes);JsonPit.Tests\**</DefaultItemExcludes>
 	</PropertyGroup>
 
@@ -27,7 +27,7 @@
 		<PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
 		<PackageReference Include="Sigil" Version="5.0.0" />
 		<None Include="README.md" Pack="true" PackagePath="\" />
-		<None Include="assets/logo-128x128.png" Pack="true" PackagePath="assets/" />
+		<None Include="HardCastle.png" Pack="true" PackagePath="" />
 	</ItemGroup>
 
 	<PropertyGroup>
