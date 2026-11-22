@@ -11,7 +11,7 @@ namespace JsonPit.Tests
 	{
 		private static RaiPath NewTestRoot([CallerMemberName] string testName = "")
 		{
-			var root = new RaiPath(Path.GetTempPath()) / "RAIkeep" / "jsonpit-tests" / "snapshot" / SanitizeSegment(testName);
+			var root = new RaiPath(Os.TempDir.FullPath) / "RAIkeep" / "jsonpit-tests" / "snapshot" / SanitizeSegment(testName);
 			Cleanup(root);
 			return root;
 		}
@@ -30,7 +30,7 @@ namespace JsonPit.Tests
 		{
 			if (string.IsNullOrWhiteSpace(value))
 				return "test";
-			var invalid = Path.GetInvalidFileNameChars();
+			var invalid = RaiPath.InvalidFileNameChars;
 			var cleaned = new string(value
 				.Select(ch => invalid.Contains(ch) || char.IsWhiteSpace(ch) ? '-' : ch)
 				.ToArray())
@@ -59,7 +59,7 @@ namespace JsonPit.Tests
 						Instagram = "Dr2RAI"
 					}
 				});
-				var pit = new Pit(snapshot, root, readOnly: false, autoload: false, backup: false);
+				using var pit = new Pit(snapshot, root, readOnly: false, autoload: false, backup: false);
 				Assert.Equal(2, pit.Keys.Count);
 				Assert.Equal("max@example.org", pit["Max"]?["Email"]?.Value<string>());
 				Assert.Equal("Dr2RAI", pit["Rainer"]?["Instagram"]?.Value<string>());
@@ -84,7 +84,7 @@ namespace JsonPit.Tests
 						Email = "max@example.org"
 					}
 				});
-				var pit = new Pit(legacySnapshot, root, readOnly: false, autoload: false, backup: false);
+				using var pit = new Pit(legacySnapshot, root, readOnly: false, autoload: false, backup: false);
 				Assert.Single(pit.Keys);
 				Assert.Equal("Max", pit["Max"]?["Id"]?.Value<string>());
 				Assert.Equal("Max", pit["Max"]?["Name"]?.Value<string>());
@@ -107,7 +107,7 @@ namespace JsonPit.Tests
 					new { Id = "Rainer", Instagram = "Dr2RAI" },
 					new { Id = "Rainer", Phone = "+27-82-000-0000" }
 				});
-				var pit = new Pit(snapshot, root, readOnly: false, autoload: false, backup: false);
+				using var pit = new Pit(snapshot, root, readOnly: false, autoload: false, backup: false);
 				var history = pit.HistoricItems["Rainer"];
 				Assert.Equal(3, history.Count);
 				// Newest-first: the most recently added fragment is at History[0].
@@ -128,7 +128,7 @@ namespace JsonPit.Tests
 			root.mkdir();
 			try
 			{
-				var pit = new Pit(root, readOnly: false, autoload: false, backup: false);
+				using var pit = new Pit(root, readOnly: false, autoload: false, backup: false);
 				var maxV1 = new PitItem("Max");
 				maxV1.SetProperty(new { Email = "max-v1@example.org", Stage = "draft" });
 				pit.Add(maxV1);
@@ -144,14 +144,14 @@ namespace JsonPit.Tests
 				pit.Delete("Obsolete");
 				var exportFile = new RaiFile(root, "person-export", "json");
 				pit.ExportJson(exportFile, at: at, pretty: true);
-				var exported = JArray.Parse(File.ReadAllText(exportFile.FullName));
+				var exported = PitJson.ParseArray(new TextFile(exportFile.FullName).ReadAllText());
 				Assert.NotEmpty(exported);
 				Assert.All(exported, token => Assert.IsType<JObject>(token));
 				Assert.DoesNotContain(exported, token => token is JArray);
 				Assert.Equal("max-v1@example.org", exported.Single(obj => obj["Id"]!.Value<string>() == "Max")["Email"]!.Value<string>());
 				Assert.DoesNotContain(exported, obj => obj["Id"]!.Value<string>() == "Obsolete");
 				pit.ExportJson(exportFile, pretty: false);
-				exported = JArray.Parse(File.ReadAllText(exportFile.FullName));
+				exported = PitJson.ParseArray(new TextFile(exportFile.FullName).ReadAllText());
 				Assert.Equal("max-v2@example.org", exported.Single(obj => obj["Id"]!.Value<string>() == "Max")["Email"]!.Value<string>());
 				Assert.DoesNotContain(exported, obj => obj["Id"]!.Value<string>() == "Obsolete");
 			}

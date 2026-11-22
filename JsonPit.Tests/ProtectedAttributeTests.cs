@@ -90,7 +90,7 @@ public sealed class ProtectedAttributeTests
 	public void NestedDomainPropertyNamedModified_RemainsValid()
 	{
 		var item = new PitItem("Sipho");
-		item.SetProperty(JObject.Parse("{ 'What': { 'Modified': 'domain value' } }"));
+		item.SetProperty(PitJson.ParseObject("{ 'What': { 'Modified': 'domain value' } }"));
 		Assert.Equal("domain value", item["What"]?["Modified"]?.Value<string>());
 		item.DeletePropertyPath("What.Modified");
 		Assert.Equal(JTokenType.Null, item["What"]?["Modified"]?.Type);
@@ -105,7 +105,7 @@ public sealed class ProtectedAttributeTests
 		{
 			using var pit = new Pit(root, readOnly: false, unflagged: true, autoload: false);
 			var historicalTime = DateTimeOffset.Parse("2026-09-26T20:00:00+02:00");
-			var payload = JObject.Parse(
+			var payload = PitJson.ParseObject(
 				$"{{ 'Id': 'Sipho', 'Modified': '{historicalTime:O}', 'Deleted': false, 'Role': 'Musician' }}");
 			var projectedPayload = new PitItem(payload);
 

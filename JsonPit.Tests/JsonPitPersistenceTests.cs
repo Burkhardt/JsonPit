@@ -44,7 +44,7 @@ namespace JsonPit.Tests
 			pitA.Dispose(); // release canonical-path ownership before reopening (CR003 §4)
 			var textFile = new TextFile(persistedFileFullName);
 			var rawJson = string.Join(Environment.NewLine, textFile.Read());
-			var diskArray = JArray.Parse(rawJson);
+			var diskArray = PitJson.ParseArray(rawJson);
 			Assert.True(diskArray[0] is JArray, "The JSON on disk is flattened! It must be an array of history arrays.");
 			Assert.Equal(2, ((JArray)diskArray[0]).Count);
 			using var pitB = new Pit(pitDirectory: RaiPath.SplitRaiPathAndName(persistedFileFullName).path, readOnly: true, autoload: true);
@@ -81,7 +81,7 @@ namespace JsonPit.Tests
 			Assert.True(oldDeletedState!["Deleted"]!.Value<bool>());
 			pit.Save(force: true);
 			var rawJson = string.Join(Environment.NewLine, new TextFile(pit.JsonFile.FullName).Read());
-			var diskArray = JArray.Parse(rawJson);
+			var diskArray = PitJson.ParseArray(rawJson);
 			Assert.Equal(2, diskArray.Count);
 			Assert.Contains(diskArray.OfType<JArray>(), history => history.Any(fragment => fragment["Id"]?.Value<string>() == "LegacyTicker"));
 			Assert.Contains(diskArray.OfType<JArray>(), history => history.Any(fragment => fragment["Id"]?.Value<string>() == "AAPL"));

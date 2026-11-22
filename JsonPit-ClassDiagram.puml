@@ -33,6 +33,16 @@ skinparam ArrowFontName "Casual"
 show circle
 
 package "JsonPit" {
+	enum PitSaveOutcome {
+		NothingToWrite
+		Wrote
+		PublishedAsChanges
+		PitNotLoaded
+	}
+	class PitSaveResult {
+		+Outcome : PitSaveOutcome
+		+FragmentCount : int
+	}
 	class "<size:18>ItemsBase</size>" as ItemsBase {
 		+Key : string
 		+ItemsBase(key : string = null)
@@ -49,6 +59,7 @@ package "JsonPit" {
 		+ProcessFlag() : ProcessFlagFile
 		+TryReleaseProcessWindow() : bool
 		+MasterFlag() : MasterFlagFile
+		+TryAcquireMaster() : (bool Acquired, DateTimeOffset EarliestWriteUtc)
 		+MasterUpdatesAvailable() : bool
 		+FileHasChangedOnDisk() : bool
 		+ForeignChangesAvailable() : bool
@@ -62,6 +73,19 @@ package "JsonPit" {
 		+ToString() : string
 	}
 
+	class PitTiming {
+		Ticket : TimeSpan
+		PitSync : TimeSpan
+		FlagSync : TimeSpan
+		Buffer : TimeSpan
+	}
+	class MasterTicket {
+		State : Held | Returned
+		Owner : string
+		Claimed : DateTimeOffset
+		Written : DateTimeOffset?
+		Machine : string
+	}
 	class "<size:18>MasterFlagFile</size>" as MasterFlagFile {
 		+Originator : string
 		+Time : DateTimeOffset
@@ -144,7 +168,10 @@ package "JsonPit" {
 		+ValuesOverTime(oName : string, pName : string) : IEnumerable<KeyValuePair<DateTimeOffset, JToken>>
 		+ValueListsOverTime(oName : string, pName : string) : IEnumerable<KeyValuePair<DateTimeOffset, List<JToken>>>
 		+ExportJson(exportFilePath : RaiPath, at : DateTimeOffset? = null, pretty : bool = true) : void
-		+Load(undercover : bool = false) : void
+		+Load(undercover : bool = false) : bool
+		+SaveWithOutcomeAsync(backup, force) : Task<PitSaveResult>
+		+SaveWithOutcome(backup, force) : PitSaveResult
+		+SaveAsync(backup, force) : Task
 		+Save(backup : bool? = null, force : bool = false) : void
 		+CreateChangeFile(item : PitItem, machineName : string = null) : void
 		+MergeChanges() : void
@@ -194,6 +221,8 @@ JObject <|-- PitItem
 JsonPitBase --> PitFile : owns
 JsonPitBase --> ProcessFlagFile : uses
 JsonPitBase --> MasterFlagFile : uses
+JsonPitBase --> PitTiming
+MasterFlagFile --> MasterTicket
 PitItems --> PitItem : history
 Pit --> PitItems : stores
 Pit --> PitItem : adds and retrieves

@@ -97,7 +97,7 @@ public sealed class SplitMasterRecoveryTests : IDisposable
 		// The provider materializes the losing outcome: canonical Master.flag names the
 		// other claimant; the longer conflict copy carries this process's exact claim.
 		var foreignWinner = "OtherServer-cr003-424242";
-		pit.MasterFlag().Update(originator: foreignWinner);
+		TicketFixture.WriteMaster(pit.MasterFlag(), originator: foreignWinner);
 		PlantConflictFlag(root, "Master (1)", pit.ExactProcessIdentity, DateTimeOffset.UtcNow);
 
 		// The native watcher queues one debounced recovery evaluation.
@@ -144,7 +144,7 @@ public sealed class SplitMasterRecoveryTests : IDisposable
 			pit.Add(new PitItem("Tenure"));
 			pit.Save(force: true);
 
-			pit.MasterFlag().Update(originator: "OtherServer-cr003-424242");
+			TicketFixture.WriteMaster(pit.MasterFlag(), originator: "OtherServer-cr003-424242");
 			PlantConflictFlag(root, "Master (1)", pit.ExactProcessIdentity, DateTimeOffset.UtcNow);
 			Thread.Sleep(300);
 			Assert.True(new RaiFile(root, "Master (1)", "flag").Exists(), "Precondition: the signal was not consumed yet.");
@@ -214,32 +214,16 @@ public sealed class SplitMasterRecoveryTests : IDisposable
 	}
 
 	[Fact]
-	public void LiveAuthorityTransfer_ExportsTenureWriteSet_SameProcessReacquisitionDoesNot()
+	public void ForeignTakeoverAfterReturnDoesNotRepublishCleanFragments()
 	{
 		var root = NewPitRoot("transfer");
 		using var pit = new Pit(root, readOnly: false, autoload: false, subscriber: "cr003");
 		pit.Add(new PitItem("TenureFragment"));
 		pit.Save(force: true);
-
-		int ChangeFileCount() => root.EnumerateFiles("*.json").Count(f => f.Name != pit.JsonFile.Name);
-
-		// Mere lease expiry followed by reacquisition by the same exact process is not a
-		// transfer and must not trigger the durable handoff export.
-		pit.MasterFlag().Update(DateTimeOffset.UtcNow - MasterFlagFile.TicketDuration - TimeSpan.FromSeconds(5),
-			originator: pit.ExactProcessIdentity);
-		Assert.True(pit.TryAcquireMaster());
-		Assert.Equal(0, ChangeFileCount());
-
-		// A live transfer to another exact process is a durability handoff even without
-		// any conflict flag: the completed tenure's write set is exported.
-		var newOwner = "OtherServer-cr003-424242";
-		pit.MasterFlag().Update(originator: newOwner);
-		PlantProcessWindow(root, newOwner, DateTimeOffset.UtcNow);
-		Assert.False(pit.TryAcquireMaster());
-
-		Assert.True(ChangeFileCount() >= 1, "The completed tenure's recovery write set must be exported as ordinary change files.");
-		Assert.Contains(root.EnumerateFiles("*.json").Where(f => f.Name != pit.JsonFile.Name),
-			f => ChangeFile.IdentityOf(f.Name) == pit.ExactProcessIdentity);
+		Assert.Equal("Returned", pit.MasterFlag().ReadTicket().State);
+		TicketFixture.WriteMaster(pit.MasterFlag(), originator: "OtherServer-cr003-424242");
+		Assert.False(TicketFixture.AttemptClaim(pit).Acquired);
+		Assert.Empty(root.EnumerateFiles("*.json"));
 	}
 
 	[Fact]
@@ -327,11 +311,11 @@ public sealed class SplitMasterRecoveryTests : IDisposable
 	public void EquivalentPropertyOrder_ProducesSameChangeFileHash_ChangedValueDoesNot()
 	{
 		var timestamp = DateTimeOffset.UtcNow;
-		var orderedOneWay = new PitItem(JObject.Parse(
+		var orderedOneWay = new PitItem(PitJson.ParseObject(
 			$"{{ \"Id\": \"X\", \"Modified\": \"{timestamp:o}\", \"Deleted\": false, \"Alpha\": 1, \"Beta\": 2 }}"));
-		var orderedOtherWay = new PitItem(JObject.Parse(
+		var orderedOtherWay = new PitItem(PitJson.ParseObject(
 			$"{{ \"Beta\": 2, \"Alpha\": 1, \"Deleted\": false, \"Modified\": \"{timestamp:o}\", \"Id\": \"X\" }}"));
-		var changedValue = new PitItem(JObject.Parse(
+		var changedValue = new PitItem(PitJson.ParseObject(
 			$"{{ \"Id\": \"X\", \"Modified\": \"{timestamp:o}\", \"Deleted\": false, \"Alpha\": 1, \"Beta\": 3 }}"));
 
 		var (_, shaA) = ChangeFile.CanonicalPayloadFor(orderedOneWay);
@@ -379,10 +363,10 @@ public sealed class SplitMasterRecoveryTests : IDisposable
 			if (seen.TryAdd(sha[..4], candidate)) continue;
 			var first = seen[sha[..4]];
 			var original = pit.CreateChangeFile(first, "RemotePeer-app-4242");
-			var originalBytes = File.ReadAllBytes(original.FullName);
+			var originalBytes = original.ReadAllBytes();
 			var error = Assert.Throws<JsonPitPersistenceException>(() => pit.CreateChangeFile(candidate, "RemotePeer-app-4242"));
 			Assert.Contains("collision", error.Message, StringComparison.OrdinalIgnoreCase);
-			Assert.Equal(originalBytes, File.ReadAllBytes(original.FullName));
+			Assert.Equal(originalBytes, original.ReadAllBytes());
 			Assert.Equal((int)first["Payload"], (int)Assert.Single(ChangeFile.ReadValidated(original))["Payload"]);
 			Assert.Single(root.EnumerateFiles("*.json"));
 			return;
@@ -404,14 +388,14 @@ public sealed class SplitMasterRecoveryTests : IDisposable
 		var fileName = ChangeFile.ComposeName(fragment.Modified, "RemotePeer-app-4242", sha);
 		var partialFile = new RaiFile(root, fileName, "json");
 		// A partially materialized file: correct hashed name, truncated bytes.
-		File.WriteAllText(partialFile.FullName, canonicalPayload[..(canonicalPayload.Length / 2)], new UTF8Encoding(false));
+		new TextFile(partialFile.FullName).WriteAllText(canonicalPayload[..(canonicalPayload.Length / 2)]);
 
 		pit.MergeChanges();
 		Assert.Null(pit["Recoverable"]); // not merged
 		Assert.True(partialFile.Exists(), "An incomplete change file must not be deleted or marked processed.");
 
 		// Once the bytes materialize completely, a later ordinary pass accepts it.
-		File.WriteAllText(partialFile.FullName, canonicalPayload, new UTF8Encoding(false));
+		new TextFile(partialFile.FullName).WriteAllText(canonicalPayload);
 		pit.MergeChanges();
 		Assert.NotNull(pit["Recoverable"]);
 	}

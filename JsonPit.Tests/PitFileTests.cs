@@ -10,7 +10,7 @@ namespace JsonPit.Tests
 	{
 		private static RaiPath NewTestRoot([CallerMemberName] string testName = "")
 		{
-			var root = new RaiPath(Path.GetTempPath()) / "RAIkeep" / "jsonpit-tests" / "pitfile" / SanitizeSegment(testName);
+			var root = new RaiPath(Os.TempDir.FullPath) / "RAIkeep" / "jsonpit-tests" / "pitfile" / SanitizeSegment(testName);
 			Cleanup(root);
 			return root;
 		}
@@ -18,7 +18,7 @@ namespace JsonPit.Tests
 		{
 			try
 			{
-				if (Directory.Exists(root.Path))
+				if (new RaiPath(root.Path).Exists())
 					new RaiFile(root.Path).rmdir(depth: 10, deleteFiles: true);
 			}
 			catch
@@ -29,7 +29,7 @@ namespace JsonPit.Tests
 		{
 			if (string.IsNullOrWhiteSpace(value))
 				return "test";
-			var invalid = Path.GetInvalidFileNameChars();
+			var invalid = RaiPath.InvalidFileNameChars;
 			var cleaned = new string(value
 				.Select(ch => invalid.Contains(ch) || char.IsWhiteSpace(ch) ? '-' : ch)
 				.ToArray())
@@ -52,7 +52,7 @@ namespace JsonPit.Tests
 				new TextFile(new RaiFile(pit.Path + "preview.png").FullName, "png");
 				var files = pit.GetAllFiles(pit.Path, excludeCanonicalFile: true).OrderBy(x => x).ToArray();
 				Assert.Equal(2, files.Length);
-				Assert.All(files, file => Assert.Equal(".pit", Path.GetExtension(file)));
+				Assert.All(files, file => Assert.Equal("pit", new RaiFile(file).Ext));
 				Assert.DoesNotContain(files, file => file.EndsWith(".json", StringComparison.OrdinalIgnoreCase));
 				Assert.DoesNotContain(files, file => file.EndsWith(".png", StringComparison.OrdinalIgnoreCase));
 			}

@@ -152,7 +152,7 @@ namespace JsonPit.Tests
 			var pit = NewPit();
 			var id = NewId("DP_nested_merge_");
 			var item = new PitItem(id);
-			item.SetProperty(JObject.Parse(@"{
+			item.SetProperty(PitJson.ParseObject(@"{
 				'What': {
 					'Instrument': 'Guitar',
 					'Chat': 'LegacyChatId'
@@ -162,7 +162,7 @@ namespace JsonPit.Tests
 			pit.Save(force: true);
 
 			var mutation = new PitItem(id);
-			Assert.True(mutation.Merge(JObject.Parse(@"{ 'What': { 'Chat': null } }")));
+			Assert.True(mutation.Merge(PitJson.ParseObject(@"{ 'What': { 'Chat': null } }")));
 			Assert.Equal(JTokenType.Null, mutation["What"]!["Chat"]!.Type);
 			pit.Add(mutation);
 			pit.Save(force: true);
@@ -207,7 +207,7 @@ namespace JsonPit.Tests
 			var pit = NewPit();
 			var id = NewId("DP_nested_empty_");
 			var item = new PitItem(id);
-			item.SetProperty(JObject.Parse(@"{ 'Action': { 'Conversation': { 'Chat': 'Legacy' } } }"));
+			item.SetProperty(PitJson.ParseObject(@"{ 'Action': { 'Conversation': { 'Chat': 'Legacy' } } }"));
 			pit.Add(item);
 			pit.Save(force: true);
 
@@ -243,7 +243,7 @@ namespace JsonPit.Tests
 			var pit = NewPit(root);
 			var id = NewId("DP_nested_reload_");
 			var item = new PitItem(id);
-			item.SetProperty(JObject.Parse(@"{ 'What': { 'Instrument': 'Guitar', 'Chat': 'Legacy' } }"));
+			item.SetProperty(PitJson.ParseObject(@"{ 'What': { 'Instrument': 'Guitar', 'Chat': 'Legacy' } }"));
 			pit.Add(item);
 			pit.Save(force: true);
 

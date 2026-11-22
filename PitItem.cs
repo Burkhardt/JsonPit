@@ -30,12 +30,16 @@ public class PitItem : JObject, IEquatable<PitItem>
 	public string Id
 	{
 		get => (string)this[nameof(Id)];
+#pragma warning disable RAI012 // This accessor implements the lifecycle field on its backing JObject.
 		set => this[nameof(Id)] = value;
+#pragma warning restore RAI012
 	}
 	public DateTimeOffset Modified
 	{
 		get => (DateTimeOffset)this[nameof(Modified)];
+#pragma warning disable RAI012 // This accessor implements the lifecycle field on its backing JObject.
 		internal set => this[nameof(Modified)] = value.ToUniversalTime();
+#pragma warning restore RAI012
 	}
 	public bool Deleted
 	{
@@ -46,7 +50,9 @@ public class PitItem : JObject, IEquatable<PitItem>
 				throw new KeyNotFoundException($"Deleted does not exist in Item {Id}");
 			return (bool)this[nameof(Deleted)];
 		}
+#pragma warning disable RAI012 // This accessor implements the lifecycle field on its backing JObject.
 		set => this[nameof(Deleted)] = value;
+#pragma warning restore RAI012
 	}
 	public string Note
 	{
@@ -141,6 +147,7 @@ public class PitItem : JObject, IEquatable<PitItem>
 	protected bool Dirty { get; set; }
 	public virtual bool Valid() => !Dirty;
 	public virtual void Validate() => Dirty = false;
+	internal void MarkPending() => Dirty = true;
 	public virtual void Invalidate()
 		=> Invalidate(DateTimeOffset.UtcNow);
 	internal void Invalidate(DateTimeOffset modified)

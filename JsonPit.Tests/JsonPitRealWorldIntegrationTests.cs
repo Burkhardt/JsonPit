@@ -94,7 +94,7 @@ namespace JsonPit.Tests
 			if (ConfiguredCloudPits.ProviderNameOrNull() is null)
 			{
 				root = null;
-				reason = "Os.Config.Cloud.Dropbox is unconfigured or unavailable; no live-provider fallback";
+				reason = "Os.TestCloud is unconfigured or unavailable; no live-provider fallback";
 				return false;
 			}
 			root = ConfiguredCloudPits.RequirePitRoot(relativeDirectory);

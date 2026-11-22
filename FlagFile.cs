@@ -5,13 +5,13 @@ using OsLib;
 namespace JsonPit;
 /// <summary>
 /// Flag file tracking which participant currently holds master rights for a pit.
-/// Stored as a single-line text file: "OwnerIdentity|ISO8601-timestamp".
+/// Stores the Held or Returned record for a single persistence turn.
 /// The timestamp acts as a timed ticket — master rights expire after <see cref="TicketDuration"/>.
 /// </summary>
 public class MasterFlagFile : TextFile
 {
 	/// <summary>How long a master ticket stays valid before it expires.</summary>
-	public static TimeSpan TicketDuration { get; set; } = TimeSpan.FromSeconds(60);
+	public static TimeSpan TicketDuration { get; set; } = TimeSpan.FromSeconds(120);
 	public int mv(MasterFlagFile src, bool replace = false, bool keepBackup = false) =>
 		mv((RaiFile)src, replace, keepBackup);
 	private readonly object locker = new();
@@ -19,51 +19,29 @@ public class MasterFlagFile : TextFile
 	{
 		lock (locker) { base.SaveInPlace(); }
 	}
+	internal MasterTicket ReadTicket()
+	{
+		if (!Exists()) return null;
+		var lines = Read();
+		if (lines.Count != 1) throw new FormatException("Expected one master ticket record.");
+		return MasterTicket.Parse(lines[0]);
+	}
+	internal void WriteTicket(MasterTicket ticket)
+	{
+		WriteAllText(ticket.ToString());
+	}
 	public string Originator
 	{
-		get
-		{
-			if (Lines is not { Count: > 0 }) Read();
-			return new TimestampedValue(Lines.Count == 0 ? "|" : Lines[0]).Value;
-		}
-		set
-		{
-			Lines = [new TimestampedValue(value).ToString()];
-			Changed = true;
-			Save();
-		}
+		get => ReadTicket()?.Owner ?? "";
+		set => Update(originator: value);
 	}
 	public DateTimeOffset Time
 	{
-		get
-		{
-			Read();
-			return new TimestampedValue(Lines.Count == 0 ? "|" : Lines[0]).Time;
-		}
-		set
-		{
-			if (Lines is not { Count: > 0 }) Read();
-			var tv = new TimestampedValue(Lines.Count == 0 ? "|" : Lines[0]) { Time = value };
-			Lines = [tv.ToString()];
-			Changed = true;
-			Save();
-		}
+		get => ReadTicket()?.Claimed ?? DateTimeOffset.MinValue;
+		set => Update(value, Originator);
 	}
-	/// <summary>
-	/// True when the ticket timestamp is older than <see cref="TicketDuration"/> from now.
-	/// An empty or missing file is considered expired.
-	/// </summary>
-	public bool IsExpired
-	{
-		get
-		{
-			if (!Exists()) return true;
-			Read();
-			if (Lines is not { Count: > 0 }) return true;
-			var tv = new TimestampedValue(Lines[0]);
-			return string.IsNullOrEmpty(tv.Value) || (DateTimeOffset.UtcNow - tv.Time) > TicketDuration;
-		}
-	}
+	public bool IsExpired => ReadTicket() is not { State: "Held" } ticket ||
+		DateTimeOffset.UtcNow >= ticket.Claimed + TicketDuration;
 	/// <summary>
 	/// True when this machine currently owns the master ticket and it hasn't expired.
 	/// </summary>
@@ -114,7 +92,7 @@ public class MasterFlagFile : TextFile
 	/// Attempts to claim master rights for the supplied participant identity.
 	/// Succeeds when:
 	///   - the ticket is expired (no active master), or
-	///   - this participant already owns the ticket (renewal).
+	///   - the previous ticket has been returned.
 	/// On success, writes a fresh ticket valid for another <see cref="TicketDuration"/>.
 	/// </summary>
 	/// <returns>true if this participant now holds the master ticket</returns>
@@ -125,7 +103,7 @@ public class MasterFlagFile : TextFile
 			var claimant = string.IsNullOrWhiteSpace(originator) ? Environment.MachineName : originator;
 			// Re-read from disk — another process may have claimed since our last read
 			Read();
-			if (!IsExpired && Originator != claimant)
+			if (!IsExpired)
 				return false;   // someone else has a valid ticket
 			Update(originator: claimant);
 			return true;
@@ -138,9 +116,7 @@ public class MasterFlagFile : TextFile
 			tv.Value = originator;
 		if (time is not null)
 			tv.Time = time.Value;
-		Lines = [tv.ToString()];
-		Changed = true;
-		Save();
+		WriteTicket(new("Held", tv.Value, tv.Time, null, ""));
 		return tv;
 	}
 	public static string FileName(string changeDir, string name) =>
@@ -281,9 +257,7 @@ public class ProcessFlagFile : MasterFlagFile
 	{
 		var tv = new TimestampedValue(process ?? CurrentProcessId(), DateTimeOffset.UtcNow);
 		if (time is not null) tv.Time = time.Value;
-		Lines = [tv.ToString()];
-		Changed = true;
-		Save();
+		WriteAllText(tv.ToString());
 		return tv;
 	}
 	/// <summary>

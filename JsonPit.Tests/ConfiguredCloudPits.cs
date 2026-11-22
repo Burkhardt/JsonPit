@@ -5,7 +5,7 @@ using Xunit;
 namespace JsonPit.Tests;
 
 /// <summary>
-/// Resolves Dropbox for local concurrency suites through the dynamic <see cref="Os.Config"/> object
+/// Resolves TestCloud for local concurrency suites through the dynamic <see cref="Os.Config"/> object
 /// (<c>Os.Config?.Cloud?[provider]</c>). The machine configuration file is the sole
 /// source of truth: no environment variables, rewritten configuration, dependency
 /// injection, or local temporary substitutes. A missing prerequisite produces an
@@ -13,21 +13,22 @@ namespace JsonPit.Tests;
 /// </summary>
 internal static class ConfiguredCloudPits
 {
-	internal const string Provider = "Dropbox";
+	internal static string Provider => Os.TestCloud;
 	internal static readonly string RunDirectory = $"RAIkeep.Test.{Guid.NewGuid():N}";
 
-	/// <summary>Dropbox only: local tests never fall back to a live provider.</summary>
+	/// <summary>Configured TestCloud only: local tests never fall back to a live provider.</summary>
 	internal static string ProviderNameOrNull()
 	{
-		string root = (string)Os.Config?.Cloud?[Provider];
+		if (Provider is null) return null;
+		string root = Os.CloudRoot(Provider).FullPath;
 		return !string.IsNullOrWhiteSpace(root) && new RaiPath(root).Exists() ? Provider : null;
 	}
 
 	internal static RaiPath RequirePitRoot(params string[] segments)
 	{
 		if (ProviderNameOrNull() is null)
-			Assert.Skip("Local cloud tests require an available Os.Config.Cloud.Dropbox root; no OneDrive fallback.");
-		var path = new RaiPath((string)Os.Config.Cloud[Provider]) / RunDirectory;
+			Assert.Skip("Local cloud tests require an available Os.TestCloud root; no OneDrive fallback.");
+		var path = Os.CloudRoot(Provider) / RunDirectory;
 		foreach (var segment in segments)
 			path /= segment;
 		return path;

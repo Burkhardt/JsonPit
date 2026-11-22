@@ -11,10 +11,14 @@ namespace JsonPit.Tests;
 
 public sealed class ReceiptMaintenanceTests : IDisposable
 {
-	private readonly RaiPath root = Os.TempDir / "RAIkeep" / "jsonpit-tests" / $"receipts-{Guid.NewGuid():N}";
+	private readonly RaiPath root = Os.TempDir / "RAIkeep" / "jsonpit-tests" / $"receipts-{Guid.NewGuid():N}" / "Tenant";
 	private readonly TimeSpan originalGrace = Pit.ChangeFileCleanupGrace;
 
-	public ReceiptMaintenanceTests() => root.mkdir();
+	public ReceiptMaintenanceTests()
+	{
+		root.mkdir();
+		new TextFile((root.Parent / "JsonPit").mkdir(), "timing", "json5", "{SyncPitDurationSeconds:0,SyncFlagDurationSeconds:0,BufferSeconds:0}");
+	}
 
 	[Fact]
 	public void Save_HistoricalSnapshotPublishesFreshLeaseAndNotifiesEarlierReaders()
@@ -26,18 +30,17 @@ public sealed class ReceiptMaintenanceTests : IDisposable
 		var beforeWrite = DateTimeOffset.UtcNow.AddSeconds(-2);
 		pit.Save(force: true);
 
-		Assert.True(pit.MasterFlag().IsOwnedBy(pit.ExactProcessIdentity));
+		Assert.Equal("Returned", pit.MasterFlag().ReadTicket().State);
 		Assert.Equal(historical, pit["Past"].Modified);
 		Assert.False(pit.MasterUpdatesAvailable());
 		// A checkpoint newer than the historical data still needs this publication.
-		pit.ProcessFlag().Update(beforeWrite);
-		Assert.True(pit.MasterUpdatesAvailable());
+		Assert.True(pit.MasterFlag().ReadTicket().Written > beforeWrite);
 	}
 
 	[Theory]
 	[InlineData(false)]
 	[InlineData(true)]
-	public void OrdinaryWritableOpen_RetiresBacklogWithoutRewritingCanonical(bool openFromPitFile)
+	public void OrdinaryWritableOpen_PreservesBacklogUntilMaintenance(bool openFromPitFile)
 	{
 		var directory = (root / "Backlog").mkdir();
 		var changes = new System.Collections.Generic.List<RaiFile>();
@@ -45,9 +48,11 @@ public sealed class ReceiptMaintenanceTests : IDisposable
 		using (var fixture = new Pit(directory, readOnly: false, unflagged: true, autoload: false))
 		{
 			for (int i = 0; i < 102; i++)
+				fixture.AddHistorical(new PitItem($"Item{i}", true, modified.AddSeconds(i)));
+			fixture.Save(force: true);
+			for (int i = 0; i < 102; i++)
 			{
 				var fragment = new PitItem($"Item{i}", true, modified.AddSeconds(i));
-				fixture.AddHistorical(fragment);
 				var file = fixture.CreateChangeFile(fragment, i % 2 == 0 ? fixture.ExactProcessIdentity : "Peer-app-42");
 				changes.Add(file);
 				if (i < 101)
@@ -60,7 +65,6 @@ public sealed class ReceiptMaintenanceTests : IDisposable
 					receipt.Save();
 				}
 			}
-			fixture.Save(force: true);
 		}
 		var canonical = new PitFile(directory, name: "Backlog");
 		var lastWrite = canonical.LastWriteTimeUtc;
@@ -68,6 +72,7 @@ public sealed class ReceiptMaintenanceTests : IDisposable
 			Assert.All(changes, file => Assert.True(file.Exists()));
 		using var opened = openFromPitFile ? new Pit(canonical, readOnly: false) : new Pit(directory, readOnly: false);
 		Assert.Equal(lastWrite, canonical.LastWriteTimeUtc);
+		Assert.Equal(100, opened.Maintain(apply: true).ChangeFilesRemoved);
 		Assert.All(changes.Take(100), file =>
 		{
 			Assert.False(file.Exists());
@@ -83,8 +88,8 @@ public sealed class ReceiptMaintenanceTests : IDisposable
 
 	public void Dispose()
 	{
-		Pit.ChangeFileCleanupGrace = originalGrace;
-		try { root.rmdir(depth: 6, deleteFiles: true); } catch { }
+		TicketFixture.SetCleanupGrace(originalGrace);
+		try { root.Parent.rmdir(depth: 6, deleteFiles: true); } catch { }
 	}
 
 	[Theory]
@@ -94,7 +99,7 @@ public sealed class ReceiptMaintenanceTests : IDisposable
 	{
 		var parent = (root / $"missing-parent-{apply}").mkdir();
 		var missing = parent / "Activity";
-		var parentWriteTime = Directory.GetLastWriteTimeUtc(parent.FullPath);
+		var parentWriteTime = parent.LastWriteTimeUtc;
 		var before = parent.EnumerateFiles("*", SearchOption.AllDirectories)
 			.Select(file => file.FullName)
 			.Concat(parent.EnumerateDirectories("*", SearchOption.AllDirectories).Select(path => path.FullPath))
@@ -111,7 +116,7 @@ public sealed class ReceiptMaintenanceTests : IDisposable
 			.ToArray();
 		Assert.False(missing.Exists());
 		Assert.Equal(before, after);
-		Assert.Equal(parentWriteTime, Directory.GetLastWriteTimeUtc(parent.FullPath));
+		Assert.Equal(parentWriteTime, parent.LastWriteTimeUtc);
 		Assert.Contains(result.Deferred, message => message.Contains("does not exist", StringComparison.Ordinal));
 	}
 
@@ -145,7 +150,7 @@ public sealed class ReceiptMaintenanceTests : IDisposable
 		RaiFile change;
 		DateTimeOffset receiptTime;
 		DateTimeOffset receiptWriteTime;
-		Pit.ChangeFileCleanupGrace = TimeSpan.FromHours(1);
+		TicketFixture.SetCleanupGrace(TimeSpan.FromHours(1));
 
 		using (var first = new Pit(pitPath, readOnly: false, unflagged: true, autoload: false))
 		{
@@ -168,7 +173,7 @@ public sealed class ReceiptMaintenanceTests : IDisposable
 		Assert.Equal(receiptWriteTime, preserved.LastWriteTimeUtc);
 		Assert.NotNull(reopened["Peer"]);
 
-		Pit.ChangeFileCleanupGrace = TimeSpan.Zero;
+		TicketFixture.SetCleanupGrace(TimeSpan.Zero);
 		var cleanup = reopened.Maintain(apply: true);
 
 		Assert.Equal(1, cleanup.ChangeFilesRemoved);
@@ -187,7 +192,7 @@ public sealed class ReceiptMaintenanceTests : IDisposable
 		var old = DateTimeOffset.UtcNow.AddDays(-8);
 		var change = pit.CreateChangeFile(new PitItem("First", true, old), "Peer-app-123");
 		Assert.True(pit.Maintain(apply: true).CanonicalPersisted);
-		Assert.True(pit.MasterFlag().IsOwnedBy(pit.ExactProcessIdentity));
+		Assert.Equal("Returned", pit.MasterFlag().ReadTicket().State);
 		Assert.False(pit.MasterUpdatesAvailable());
 		var receipt = new TextFile(ReceiptFile.PathFor(change.FullName).FullName)
 		{
@@ -199,7 +204,7 @@ public sealed class ReceiptMaintenanceTests : IDisposable
 			pit.RecoveryStatusChanged += status =>
 			{
 				if (status.Stage == RecoveryStage.CleanupPending)
-					new MasterFlagFile(directory, "Master").Update(originator: "OtherHost-peer-42");
+					TicketFixture.WriteMaster(new MasterFlagFile(directory, "Master"), originator: "OtherHost-peer-42");
 			};
 
 		var result = pit.Maintain(apply: true);
@@ -218,9 +223,9 @@ public sealed class ReceiptMaintenanceTests : IDisposable
 		else
 		{
 			Assert.Empty(result.Deferred);
-			Assert.True(pit.MasterFlag().IsOwnedBy(pit.ExactProcessIdentity));
+			Assert.Equal("Returned", pit.MasterFlag().ReadTicket().State);
 		}
-		var canonical = File.ReadAllText(pit.JsonFile.FullName);
+		var canonical = new TextFile(pit.JsonFile.FullName).ReadAllText();
 		Assert.Contains("\"First\"", canonical);
 		Assert.Contains("\"Second\"", canonical);
 	}
@@ -235,7 +240,7 @@ public sealed class ReceiptMaintenanceTests : IDisposable
 			cloudRoot.mkdir();
 			RaiFile change;
 			DateTimeOffset receiptTime;
-			Pit.ChangeFileCleanupGrace = TimeSpan.FromHours(1);
+			TicketFixture.SetCleanupGrace(TimeSpan.FromHours(1));
 
 			using (var first = new Pit(cloudRoot, readOnly: false, unflagged: true, autoload: false))
 			{
@@ -253,7 +258,7 @@ public sealed class ReceiptMaintenanceTests : IDisposable
 			Assert.Equal(receiptTime, new ReceiptFile(change.FullName).Time);
 			Assert.NotNull(reopened["CloudPeer"]);
 
-			Pit.ChangeFileCleanupGrace = TimeSpan.Zero;
+			TicketFixture.SetCleanupGrace(TimeSpan.Zero);
 			var cleanup = reopened.Maintain(apply: true);
 
 			Assert.Equal(1, cleanup.ChangeFilesRemoved);
@@ -283,7 +288,7 @@ public sealed class ReceiptMaintenanceTests : IDisposable
 			Changed = true
 		};
 		malformed.Save();
-		Pit.ChangeFileCleanupGrace = TimeSpan.Zero;
+		TicketFixture.SetCleanupGrace(TimeSpan.Zero);
 
 		var result = pit.Maintain(apply: true);
 
@@ -302,14 +307,14 @@ public sealed class ReceiptMaintenanceTests : IDisposable
 		pit.Save(force: true);
 		var missingChange = ValidChangePath(pitPath, "RemotePeer-app-4242");
 		var receipt = new ReceiptFile(missingChange.FullName);
-		Pit.ChangeFileCleanupGrace = TimeSpan.FromHours(1);
+		TicketFixture.SetCleanupGrace(TimeSpan.FromHours(1));
 
 		var retained = pit.Maintain(apply: true);
 
 		Assert.True(receipt.Exists());
 		Assert.Equal(1, retained.ReceiptsOrphaned);
 
-		Pit.ChangeFileCleanupGrace = TimeSpan.Zero;
+		TicketFixture.SetCleanupGrace(TimeSpan.Zero);
 		var removed = pit.Maintain(apply: true);
 
 		Assert.False(receipt.Exists());
@@ -327,14 +332,14 @@ public sealed class ReceiptMaintenanceTests : IDisposable
 			Changed = true
 		};
 		expired.Save();
-		var active = new TextFile(pitPath, "Nkosikazi-pits-67890", "flag")
+		var active = new TextFile(pitPath, $"{Environment.MachineName}-pits-{Environment.ProcessId}", "flag")
 		{
-			Lines = [new TimestampedValue("Nkosikazi:pits:67890", DateTimeOffset.UtcNow).ToString()],
+			Lines = [new TimestampedValue($"{Environment.MachineName}:pits:{Environment.ProcessId}", DateTimeOffset.UtcNow).ToString()],
 			Changed = true
 		};
 		active.Save();
 		var master = new MasterFlagFile(pitPath, "Master");
-		master.Update(originator: "Nkosikazi-pits-99999");
+		TicketFixture.WriteMaster(master, originator: "Nkosikazi-pits-99999");
 
 		var report = pit.Maintain();
 		Assert.True(expired.Exists());
@@ -413,7 +418,7 @@ public sealed class ReceiptMaintenanceTests : IDisposable
 		var eventPath = (pitPath / EventDirectory.Name).mkdir();
 		var typed = new RaiFile(eventPath, stem, EventFile.Extension);
 		var legacy = new RaiFile(eventPath, stem);
-		File.WriteAllText(legacy.FullName, canonical, new System.Text.UTF8Encoding(false));
+		new TextFile(legacy.FullName).WriteAllText(canonical);
 		Assert.True(legacy.Exists());
 		Assert.False(typed.Exists());
 		var legacyContent = new TextFile(legacy.FullName).ReadAllText();

@@ -107,7 +107,7 @@ namespace JsonPit.Tests
 		[Fact]
 		public void Ctor_FromLegacyNamePayload_MapsIdentifierToId()
 		{
-			var item = new PitItem(JObject.Parse(@"{ ""Name"": ""AAPL"", ""Price"": 262.77 }"));
+			var item = new PitItem(PitJson.ParseObject(@"{ ""Name"": ""AAPL"", ""Price"": 262.77 }"));
 			Assert.Equal("AAPL", item.Id);
 			Assert.Equal(262.77, item["Price"]!.Value<double>(), 5);
 			Assert.Equal("AAPL", item["Name"]!.Value<string>());

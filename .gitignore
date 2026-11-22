@@ -33,3 +33,9 @@ msbuild.wrn
 artifacts/
 *.nupkg
 *.snupkg
+
+# JsonPit diagnostics and local development artifacts
+/diag-jsonpit*.log
+*.lscache
+*.cs.old
+/JsonPit.Tests/out.json

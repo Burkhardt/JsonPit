@@ -39,6 +39,7 @@
 		<UseLocalRAIkeepSources Condition="'$(UseLocalRAIkeepSources)' == ''">false</UseLocalRAIkeepSources>
 		<OsLibPackageVersion Condition="'$(OsLibPackageVersion)' == ''">4.6.7</OsLibPackageVersion>
 		<RaiUtilsPackageVersion Condition="'$(RaiUtilsPackageVersion)' == ''">4.6.7</RaiUtilsPackageVersion>
+		<RaiGuardAnalyzerVersion Condition="'$(RaiGuardAnalyzerVersion)' == ''">4.6.7</RaiGuardAnalyzerVersion>
 	</PropertyGroup>
 
 	<Target Name="ValidateLocalRAIkeepSources"
@@ -56,6 +57,12 @@
 	<ItemGroup Condition="'$(UseLocalRAIkeepSources)' != 'true'">
 		<PackageReference Include="OsLibCore" Version="$(OsLibPackageVersion)" />
 		<PackageReference Include="RaiUtils" Version="$(RaiUtilsPackageVersion)" />
+	</ItemGroup>
+
+	<!-- RaiGuard Roslyn analyzer: development-only, never flows to package consumers. -->
+	<ItemGroup>
+		<PackageDownload Include="RaiGuard.Analyzer" Version="[$(RaiGuardAnalyzerVersion)]" />
+		<Analyzer Include="$(NuGetPackageRoot)/raiguard.analyzer/$(RaiGuardAnalyzerVersion)/analyzers/dotnet/cs/RaiGuard.Core.dll" />
 	</ItemGroup>
 
 	<ItemGroup>

@@ -143,9 +143,9 @@ public class PitAddTimestampStalenessTests
 
 		var snapshots = new[]
 		{
-			JObject.Parse($"{{ \"Id\": \"{ItemId}\", \"Modified\": \"{t0:O}\", \"Deleted\": false, \"Payload\": 0 }}"),
-			JObject.Parse($"{{ \"Id\": \"{ItemId}\", \"Modified\": \"{t1:O}\", \"Deleted\": false, \"Payload\": 1 }}"),
-			JObject.Parse($"{{ \"Id\": \"{ItemId}\", \"Modified\": \"{t2:O}\", \"Deleted\": false, \"Payload\": 2 }}"),
+			PitJson.ParseObject($"{{ \"Id\": \"{ItemId}\", \"Modified\": \"{t0:O}\", \"Deleted\": false, \"Payload\": 0 }}"),
+			PitJson.ParseObject($"{{ \"Id\": \"{ItemId}\", \"Modified\": \"{t1:O}\", \"Deleted\": false, \"Payload\": 1 }}"),
+			PitJson.ParseObject($"{{ \"Id\": \"{ItemId}\", \"Modified\": \"{t2:O}\", \"Deleted\": false, \"Payload\": 2 }}"),
 		};
 
 		foreach (var snap in snapshots)

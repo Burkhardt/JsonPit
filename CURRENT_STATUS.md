@@ -1,24 +1,5 @@
-# JsonPit CURRENT_STATUS
+# JsonPit release status
 
-Last updated: 2026-08-26
+The released C# package is [JsonPit 4.6.7 on NuGet](https://www.nuget.org/packages/JsonPit/4.6.7).
 
-Current released line: `4.1.0`
-
-Prepared coordinated line: `4.2.5`
-
-## Prepared state
-
-- The abandoned-instance watcher ownership fix remains in place: watcher callbacks and debounce work acquire the `Pit` through weak ownership.
-- Forced collection can clear the registry target and make the canonical path reopenable without finalizer recovery publication, watcher disposal, or filesystem I/O.
-- CR015 recursive nested tombstones, `DeletePropertyPath(...)`, and empty-parent pruning are implemented.
-- Fallback package references align to `OsLibCore 4.2.5` and `RaiUtils 4.2.5`.
-- `UseLocalRAIkeepSources=false` forces package references even inside the RAIkeep umbrella checkout.
-- The test project references JsonPit only; it no longer bypasses package-only validation with duplicate direct OsLib/RaiUtils project references.
-
-## Release gate
-
-- Run the focused `SplitMasterRecoveryTests.Finalizer_PerformsNoRecoveryPublicationOrFilesystemIO_AndPathBecomesReopenable` regression.
-- Run the relevant complete JsonPit Release suite, including configured cloud/remote scenarios where available.
-- Do not tag or publish from this repository directly; the coordinated RAIkeep chain owns release order.
-
-Release notes: [JsonPit 4.2.5 release notes](https://github.com/Burkhardt/RAIkeep/blob/main/doc/releases/v4.x/JsonPit_RELEASE_NOTES_4.x.md#425)
+The coordinated 4.7.0 candidate is under review. CR090 changes how writers claim and return the master ticket, how long they wait for propagation, and when changes can be merged into the canonical pit. CR084 separates test cloud selection from live replication. See the [RAIkeep release notes](https://github.com/Burkhardt/RAIkeep/blob/main/doc/releases/v4.x/RAIkeep_RELEASE_NOTES_4.x.md).

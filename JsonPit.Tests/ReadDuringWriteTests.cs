@@ -53,7 +53,7 @@ public sealed class ReadDuringWriteTests : IDisposable
 	}
 
 	[Fact]
-	public void OverlappedCanonicalWriteAndLoad_OnlyCompleteSnapshotsBecomeVisible()
+	public async Task OverlappedCanonicalWriteAndLoad_OnlyCompleteSnapshotsBecomeVisible()
 	{
 		var root = NewPitRoot("overlap");
 		using var pit = new Pit(root, readOnly: false, autoload: false, subscriber: "cr003");
@@ -66,16 +66,16 @@ public sealed class ReadDuringWriteTests : IDisposable
 		var newKeys = new[] { "Alpha", "Beta", "Gamma", "Delta" };
 		var newContent = CanonicalPayload(newKeys.Select(k => (k, "v2")).ToArray());
 
-		using var stopWriter = new CancellationTokenSource();
+		using var stopWriter = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
 		var writer = Task.Run(() =>
 		{
 			// Another process's exact master rewriting the canonical in place, repeatedly.
 			while (!stopWriter.IsCancellationRequested)
 			{
-				File.WriteAllText(canonicalPath, newContent, new UTF8Encoding(false));
+				new TextFile(canonicalPath).WriteAllText(newContent);
 				Thread.Yield();
 			}
-		});
+		}, stopWriter.Token);
 
 		try
 		{
@@ -94,12 +94,12 @@ public sealed class ReadDuringWriteTests : IDisposable
 		finally
 		{
 			stopWriter.Cancel();
-			writer.Wait();
+			await writer;
 		}
 	}
 
 	[Fact]
-	public void TransientEmptyContentDuringKnownRewrite_IsRetried_PriorStatePreserved()
+	public async Task TransientEmptyContentDuringKnownRewrite_IsRetried_PriorStatePreserved()
 	{
 		var root = NewPitRoot("transient-empty");
 		using var pit = new Pit(root, readOnly: false, autoload: false, subscriber: "cr003");
@@ -108,21 +108,21 @@ public sealed class ReadDuringWriteTests : IDisposable
 		var canonicalPath = pit.JsonFile.FullName;
 
 		// A rewrite truncated the file; the complete content arrives while Load retries.
-		File.WriteAllText(canonicalPath, string.Empty, new UTF8Encoding(false));
-		var completer = Task.Run(() =>
+		new TextFile(canonicalPath).WriteAllText(string.Empty);
+		var completer = Task.Run(async () =>
 		{
-			Thread.Sleep(400);
-			File.WriteAllText(canonicalPath, CanonicalPayload(("Kept", "v2")), new UTF8Encoding(false));
-		});
+			await Task.Delay(400, TestContext.Current.CancellationToken);
+			new TextFile(canonicalPath).WriteAllText(CanonicalPayload(("Kept", "v2")));
+		}, TestContext.Current.CancellationToken);
 
 		Assert.True(pit.Load(undercover: true));
-		completer.Wait();
+		await completer;
 		Assert.NotNull(pit["Kept"]); // never replaced by transiently empty state
 		Assert.Equal("v2", (string)pit["Kept"]["Value"]);
 	}
 
 	[Fact]
-	public void TransientAbsenceDuringKnownRewrite_IsRetried_NotReportedAsNoData()
+	public async Task TransientAbsenceDuringKnownRewrite_IsRetried_NotReportedAsNoData()
 	{
 		var root = NewPitRoot("transient-missing");
 		using var pit = new Pit(root, readOnly: false, autoload: false, subscriber: "cr003");
@@ -131,15 +131,15 @@ public sealed class ReadDuringWriteTests : IDisposable
 		var canonicalPath = pit.JsonFile.FullName;
 
 		// The known-to-exist canonical is briefly absent, then rematerializes.
-		File.Delete(canonicalPath);
-		var completer = Task.Run(() =>
+		new RaiFile(canonicalPath).rm();
+		var completer = Task.Run(async () =>
 		{
-			Thread.Sleep(400);
-			File.WriteAllText(canonicalPath, CanonicalPayload(("Kept", "v3")), new UTF8Encoding(false));
-		});
+			await Task.Delay(400, TestContext.Current.CancellationToken);
+			new TextFile(canonicalPath).WriteAllText(CanonicalPayload(("Kept", "v3")));
+		}, TestContext.Current.CancellationToken);
 
 		Assert.True(pit.Load(undercover: true));
-		completer.Wait();
+		await completer;
 		Assert.Equal("v3", (string)pit["Kept"]["Value"]);
 	}
 
@@ -156,7 +156,7 @@ public sealed class ReadDuringWriteTests : IDisposable
 		try
 		{
 			// Permanently incomplete content: every bounded attempt fails to parse.
-			File.WriteAllText(canonicalPath, "[[{\"Id\":\"Broken", new UTF8Encoding(false));
+			new TextFile(canonicalPath).WriteAllText("[[{\"Id\":\"Broken");
 
 			var ex = Assert.Throws<JsonPitPersistenceException>(() => pit.Load(undercover: true));
 			Assert.Contains(canonicalPath, ex.Message);

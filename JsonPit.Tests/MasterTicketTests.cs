@@ -14,14 +14,15 @@ public sealed class MasterTicketTests : IDisposable
 	public MasterTicketTests()
 	{
 		originalDuration = MasterFlagFile.TicketDuration;
-		root = new RaiPath(Path.GetTempPath()) / "RAIkeep" / "jsonpit-tests" / "master-ticket";
+		root = Os.TempDir / Guid.NewGuid().ToString("N") / "Tenant";
+		new TextFile((root.Parent / "JsonPit").mkdir(), "timing", "json5", "{SyncPitDurationSeconds:0,SyncFlagDurationSeconds:0,BufferSeconds:0}");
 		Cleanup();
 		root.mkdir();
 	}
 	public void Dispose()
 	{
 		MasterFlagFile.TicketDuration = originalDuration;
-		Cleanup();
+		root.Parent.rmdir(depth: 8, deleteFiles: true);
 	}
 	private void Cleanup()
 	{
@@ -103,7 +104,7 @@ public sealed class MasterTicketTests : IDisposable
 	{
 		var dir = (root / "flag-naming").mkdir();
 		var flag = new ProcessFlagFile(dir, "RAIkeep");
-		flag.Update();
+		TicketFixture.WriteProcess(flag);
 		Assert.True(flag.Exists());
 		Assert.Equal($"{Environment.MachineName}-RAIkeep-{Environment.ProcessId}", flag.Name);
 	}
@@ -112,7 +113,7 @@ public sealed class MasterTicketTests : IDisposable
 	{
 		var dir = (root / "flag-content").mkdir();
 		var flag = new ProcessFlagFile(dir, "Nomsa");
-		flag.Update();
+		TicketFixture.WriteProcess(flag);
 		flag.Read();
 		// Content should be "MachineName:ProcessName:PID|timestamp"
 		Assert.Contains(Environment.MachineName, flag.Lines[0]);
@@ -123,7 +124,7 @@ public sealed class MasterTicketTests : IDisposable
 	{
 		var dir = (root / "flag-release-owned").mkdir();
 		var flag = new ProcessFlagFile(dir, "pits");
-		flag.Update();
+		TicketFixture.WriteProcess(flag);
 
 		Assert.False(flag.IsExpired);
 		Assert.True(flag.TryReleaseCurrentProcess());
@@ -135,7 +136,7 @@ public sealed class MasterTicketTests : IDisposable
 	{
 		var dir = (root / "flag-release-foreign").mkdir();
 		var flag = new ProcessFlagFile(dir, "pits");
-		flag.Update(process: $"{Environment.MachineName}:pits:999999");
+		TicketFixture.WriteProcess(flag, process: $"{Environment.MachineName}:pits:999999");
 
 		Assert.False(flag.TryReleaseCurrentProcess());
 		Assert.False(flag.IsExpired);
@@ -155,7 +156,7 @@ public sealed class MasterTicketTests : IDisposable
 	{
 		var dir = (root / "not-expired").mkdir();
 		var flag = new MasterFlagFile(dir, "Master");
-		flag.Update();
+		TicketFixture.WriteMaster(flag);
 		Assert.False(flag.IsExpired);
 	}
 	[Fact]
@@ -164,7 +165,7 @@ public sealed class MasterTicketTests : IDisposable
 		MasterFlagFile.TicketDuration = TimeSpan.FromMilliseconds(1);
 		var dir = (root / "aged-out").mkdir();
 		var flag = new MasterFlagFile(dir, "Master");
-		flag.Update(time: DateTimeOffset.UtcNow - TimeSpan.FromSeconds(5));
+		TicketFixture.WriteMaster(flag, time: DateTimeOffset.UtcNow - TimeSpan.FromMinutes(5));
 		Assert.True(flag.IsExpired);
 	}
 	[Fact]
@@ -172,14 +173,14 @@ public sealed class MasterTicketTests : IDisposable
 	{
 		var dir = (root / "owned-by-me").mkdir();
 		var flag = new MasterFlagFile(dir, "Master");
-		flag.Update();
+		TicketFixture.WriteMaster(flag);
 		Assert.True(flag.IsOwnedByMe);
 	}
 	[Fact]
 	public void IsOwnedByMe_FalseWhenOtherMachineOwns()
 	{
 		var dir = (root / "owned-other").mkdir();
-		var flag = new MasterFlagFile(dir, "Master", server: "OtherMachine");
+		var flag = TicketFixture.PeerFlag(dir, "OtherMachine");
 		Assert.False(flag.IsOwnedByMe);
 		Assert.False(flag.IsExpired);
 	}
@@ -188,8 +189,8 @@ public sealed class MasterTicketTests : IDisposable
 	{
 		MasterFlagFile.TicketDuration = TimeSpan.FromMilliseconds(1);
 		var dir = (root / "claim-expired").mkdir();
-		var flag = new MasterFlagFile(dir, "Master", server: "OtherMachine");
-		flag.Update(time: DateTimeOffset.UtcNow - TimeSpan.FromSeconds(5), originator: "OtherMachine");
+		var flag = TicketFixture.PeerFlag(dir, "OtherMachine");
+		TicketFixture.WriteMaster(flag, time: DateTimeOffset.UtcNow - TimeSpan.FromMinutes(5), originator: "OtherMachine");
 		Assert.True(flag.IsExpired);
 		Assert.True(flag.TryClaim());
 		Assert.Equal(Environment.MachineName, flag.Originator);
@@ -198,21 +199,21 @@ public sealed class MasterTicketTests : IDisposable
 	public void TryClaim_FailsWhenOtherMachineHasValidTicket()
 	{
 		var dir = (root / "claim-refused").mkdir();
-		var flag = new MasterFlagFile(dir, "Master", server: "OtherMachine");
+		var flag = TicketFixture.PeerFlag(dir, "OtherMachine");
 		Assert.False(flag.IsExpired);
 		Assert.False(flag.TryClaim());
 		Assert.Equal("OtherMachine", flag.Originator);
 	}
 	[Fact]
-	public void TryClaim_RenewsOwnTicket()
+	public void TryClaim_RefusesOwnActiveTicket()
 	{
 		var dir = (root / "claim-renew").mkdir();
 		var flag = new MasterFlagFile(dir, "Master");
-		flag.Update();
+		TicketFixture.WriteMaster(flag);
 		var firstTime = flag.Time;
 		System.Threading.Thread.Sleep(10);
-		Assert.True(flag.TryClaim());
-		Assert.True(flag.Time > firstTime);
+		Assert.False(flag.TryClaim());
+		Assert.Equal(firstTime, flag.Time);
 	}
 	#endregion
 	#region TryAcquireMaster integration tests
@@ -221,15 +222,15 @@ public sealed class MasterTicketTests : IDisposable
 	{
 		var pitPath = (root / "unflagged-pit").mkdir();
 		var pit = new Pit(pitPath, readOnly: false, autoload: false, unflagged: true);
-		Assert.True(pit.TryAcquireMaster());
+		Assert.True(TicketFixture.AttemptClaim(pit).Acquired);
 	}
 	[Fact]
 	public void ReleasingProcessWindow_DoesNotReleaseMasterWriterTicket()
 	{
 		var pitPath = (root / "release-process-not-master").mkdir();
 		using var pit = new Pit(pitPath, readOnly: false, autoload: false, subscriber: "pits");
-		pit.ProcessFlag().Update();
-		Assert.True(pit.TryAcquireMaster());
+		TicketFixture.WriteProcess(pit.ProcessFlag());
+		Assert.True(TicketFixture.AttemptClaim(pit).Acquired);
 
 		Assert.True(pit.TryReleaseProcessWindow());
 		Assert.False(pit.ProcessFlag().Exists());
@@ -244,53 +245,53 @@ public sealed class MasterTicketTests : IDisposable
 		var pitPath = (root / $"dispose-process-{readOnly}").mkdir();
 		var pit = new Pit(pitPath, readOnly: readOnly, autoload: false, subscriber: "pits");
 		var processFlag = pit.ProcessFlag();
-		processFlag.Update();
+		TicketFixture.WriteProcess(processFlag);
 		var master = pit.MasterFlag();
 		var owner = master.Originator;
 
 		pit.Dispose();
 
 		Assert.False(processFlag.Exists());
-		Assert.True(master.Exists());
+		Assert.False(master.Exists());
 		Assert.Equal(owner, master.Originator);
 	}
 	[Fact]
 	public void TryAcquireMaster_SucceedsWhenNobodyElseActive()
 	{
 		var pitPath = (root / "sole-pit").mkdir();
-		var pit = new Pit(pitPath, readOnly: false, autoload: false, subscriber: "pits");
-		Assert.True(pit.TryAcquireMaster());
+		using var pit = new Pit(pitPath, readOnly: false, autoload: false, subscriber: "pits");
+		Assert.True(TicketFixture.AttemptClaim(pit).Acquired);
 	}
 	[Fact]
 	public void TryAcquireMaster_FailsWhenOtherMachineHoldsTicket()
 	{
 		var pitPath = (root / "blocked-pit").mkdir();
-		var otherFlag = new MasterFlagFile(pitPath, "Master", server: "FarAwayServer");
+		var otherFlag = TicketFixture.PeerFlag(pitPath, "FarAwayServer");
 		Assert.False(otherFlag.IsExpired);
-		var pit = new Pit(pitPath, readOnly: false, autoload: false, subscriber: "pits");
-		Assert.False(pit.TryAcquireMaster());
+		using var pit = new Pit(pitPath, readOnly: false, autoload: false, subscriber: "pits");
+		Assert.False(TicketFixture.AttemptClaim(pit).Acquired);
 	}
 	[Fact]
 	public void TryAcquireMaster_SucceedsAfterOtherMachineTicketExpires()
 	{
 		MasterFlagFile.TicketDuration = TimeSpan.FromMilliseconds(1);
 		var pitPath = (root / "expired-other-pit").mkdir();
-		var otherFlag = new MasterFlagFile(pitPath, "Master", server: "FarAwayServer");
-		otherFlag.Update(time: DateTimeOffset.UtcNow - TimeSpan.FromSeconds(5), originator: "FarAwayServer");
+		var otherFlag = TicketFixture.PeerFlag(pitPath, "FarAwayServer");
+		TicketFixture.WriteMaster(otherFlag, time: DateTimeOffset.UtcNow - TimeSpan.FromMinutes(5), originator: "FarAwayServer");
 		Assert.True(otherFlag.IsExpired);
 		using var pit = new Pit(pitPath, readOnly: false, autoload: false, subscriber: "pits");
-		Assert.True(pit.TryAcquireMaster());
+		Assert.True(TicketFixture.AttemptClaim(pit).Acquired);
 		// v3.13.2: the claim records the exact process identity, not only the participant.
 		Assert.Equal(ProcessFlagFile.CurrentFlagName("pits"), pit.MasterFlag().Originator);
 	}
 	[Fact]
-	public void TryAcquireMaster_RefusedWhenForeignProcessRecentlyActive()
+	public void TryAcquireMaster_ExpiredMasterIgnoresForeignProcessWindow()
 	{
 		MasterFlagFile.TicketDuration = TimeSpan.FromMilliseconds(1);
 		var pitPath = (root / "foreign-active-pit").mkdir();
 		// Plant an expired master flag
-		var masterFlag = new MasterFlagFile(pitPath, "Master", server: "OldMaster");
-		masterFlag.Update(time: DateTimeOffset.UtcNow - TimeSpan.FromSeconds(5), originator: "OldMaster");
+		var masterFlag = TicketFixture.PeerFlag(pitPath, "OldMaster");
+		TicketFixture.WriteMaster(masterFlag, time: DateTimeOffset.UtcNow - TimeSpan.FromMinutes(5), originator: "OldMaster");
 		Assert.True(masterFlag.IsExpired);
 		// Plant a *recent* foreign process flag: "FarAwayServer-RAIkeep.flag"
 		MasterFlagFile.TicketDuration = TimeSpan.FromSeconds(60);
@@ -299,8 +300,8 @@ public sealed class MasterTicketTests : IDisposable
 		foreignFlag.Lines = [recentTimestamp.ToString()];
 		foreignFlag.Changed = true;
 		foreignFlag.Save();
-		var pit = new Pit(pitPath, readOnly: false, autoload: false, subscriber: "pits");
-		Assert.False(pit.TryAcquireMaster());
+		using var pit = new Pit(pitPath, readOnly: false, autoload: false, subscriber: "pits");
+		Assert.True(TicketFixture.AttemptClaim(pit).Acquired);
 	}
 	#endregion
 	#region Save: master vs client path
@@ -308,7 +309,7 @@ public sealed class MasterTicketTests : IDisposable
 	public void Save_AsMaster_StoresPitFileDirectly()
 	{
 		var pitPath = (root / "save-master").mkdir();
-		var pit = new Pit(pitPath, readOnly: false, autoload: false, subscriber: "pits");
+		using var pit = new Pit(pitPath, readOnly: false, autoload: false, subscriber: "pits");
 		pit.Add(new PitItem("Item1"));
 		pit.Save(force: true);
 		Assert.True(pit.JsonFile.Exists());
@@ -320,8 +321,8 @@ public sealed class MasterTicketTests : IDisposable
 	public void Save_AsClient_WritesChangeFilesOnly()
 	{
 		var pitPath = (root / "save-client").mkdir();
-		var otherFlag = new MasterFlagFile(pitPath, "Master", server: "TheMaster");
-		var pit = new Pit(pitPath, readOnly: false, autoload: false, subscriber: "pits");
+		var otherFlag = TicketFixture.PeerFlag(pitPath, "TheMaster");
+		using var pit = new Pit(pitPath, readOnly: false, autoload: false, subscriber: "pits");
 		pit.Add(new PitItem("ClientItem"));
 		pit.Save(force: true);
 		var changeFiles = pit.PitDir.EnumerateFiles("*.json")
@@ -335,7 +336,7 @@ public sealed class MasterTicketTests : IDisposable
 		// process is represented here by its exact on-disk footprint: a Master.flag lease
 		// recorded for another exact PID and that PID's active process window.
 		MasterFlagFile.TicketDuration = TimeSpan.FromMinutes(5);
-		var pitPath = (root / "local-api-pits-window" / "Activity").mkdir();
+		var pitPath = (root / "Activity").mkdir();
 		var apiExactIdentity = ProcessFlagFile.CurrentFlagName("AfricaStage.Api");
 		var cliExactIdentity = $"{Environment.MachineName}-pits-999999";
 
@@ -350,7 +351,7 @@ public sealed class MasterTicketTests : IDisposable
 
 		// The pits CLI process (different exact PID) claims the expired lease and holds
 		// an active process window — planted exactly as that process would write it.
-		apiPit.MasterFlag().Update(originator: cliExactIdentity);
+		TicketFixture.WriteMaster(apiPit.MasterFlag(), originator: cliExactIdentity);
 		var cliWindow = new TextFile(pitPath, cliExactIdentity, "flag");
 		cliWindow.Lines = [new TimestampedValue($"{Environment.MachineName}:pits:999999", DateTimeOffset.UtcNow).ToString()];
 		cliWindow.Changed = true;
@@ -368,12 +369,12 @@ public sealed class MasterTicketTests : IDisposable
 			.ToList();
 		Assert.Contains(changeFiles, file => ChangeFile.IdentityOf(file.Name) == apiExactIdentity);
 
-		var canonicalBeforeMerge = File.ReadAllText(apiPit.JsonFile.FullName);
+		var canonicalBeforeMerge = new TextFile(apiPit.JsonFile.FullName).ReadAllText();
 		Assert.DoesNotContain("ApiShutdownFlushActivity", canonicalBeforeMerge);
 
 		// The CLI process window ends; the API process may claim and fold the changes in.
 		var expired = DateTimeOffset.UtcNow - MasterFlagFile.TicketDuration - TimeSpan.FromSeconds(10);
-		apiPit.MasterFlag().Update(expired, originator: cliExactIdentity);
+		TicketFixture.WriteMaster(apiPit.MasterFlag(), expired, originator: cliExactIdentity);
 		cliWindow.Lines = [new TimestampedValue($"{Environment.MachineName}:pits:999999", expired).ToString()];
 		cliWindow.Changed = true;
 		cliWindow.Save();
@@ -384,7 +385,7 @@ public sealed class MasterTicketTests : IDisposable
 		Assert.NotNull(apiPit.Get("ApiShutdownFlushActivity"));
 		Assert.Equal(apiExactIdentity, apiPit.MasterFlag().Originator);
 
-		var canonicalAfterMerge = File.ReadAllText(apiPit.JsonFile.FullName);
+		var canonicalAfterMerge = new TextFile(apiPit.JsonFile.FullName).ReadAllText();
 		Assert.Contains("ApiShutdownFlushActivity", canonicalAfterMerge);
 	}
 	#endregion
@@ -409,14 +410,14 @@ public sealed class MasterTicketTests : IDisposable
 	public void MergeChanges_ClientMergesButDoesNotDeleteOrStore()
 	{
 		var pitPath = (root / "merge-client").mkdir();
-		var otherFlag = new MasterFlagFile(pitPath, "Master", server: "TheMaster");
+		var otherFlag = TicketFixture.PeerFlag(pitPath, "TheMaster");
 		var setupPit = new Pit(pitPath, readOnly: false, autoload: false, unflagged: true);
 		setupPit.Add(new PitItem("BaseItem"));
 		setupPit.Save(force: true);
 		setupPit.CreateChangeFile(new PitItem("PeerItem"), "PeerMachine-client-4242");
 		setupPit.Dispose(); // release canonical-path ownership before reopening (CR003 §4)
 		// Re-plant master flag (setupPit may have overwritten it)
-		var masterFlagAgain = new MasterFlagFile(pitPath, "Master", server: "TheMaster");
+		var masterFlagAgain = TicketFixture.PeerFlag(pitPath, "TheMaster");
 		using var clientPit = new Pit(pitPath, readOnly: false, autoload: false, subscriber: "pits");
 		clientPit.Load(undercover: true);
 		clientPit.MergeChanges();

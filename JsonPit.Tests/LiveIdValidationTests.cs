@@ -7,83 +7,87 @@ namespace JsonPit.Tests;
 
 public sealed class LiveIdValidationTests
 {
-    [Theory]
-    [InlineData("{AdminPersonId}")]
-    [InlineData("<Pending>")]
-    [InlineData("Person{Suffix}")]
-    [InlineData("Activity<Pending")]
-    [InlineData("")]
-    [InlineData(" ")]
-    public void LiveWritesRejectInvalidIdsWithoutMutation(string id)
-    {
-        using var pit = NewPit();
-        var item = new PitItem(id);
-        Assert.Throws<ArgumentException>(() => pit.Add(item));
-        Assert.Throws<ArgumentException>(() => pit.PitItem = item);
-        Assert.Throws<ArgumentException>(() => pit.AddItems(new[] { new PitItem("Good"), item }));
-        Assert.Throws<ArgumentException>(() => pit.AddItems(new JArray(new JObject { ["Id"] = "Good" }, new JObject { ["Id"] = id }).ToString()));
-        Assert.Empty(pit.HistoricItems);
-    }
+	[Theory]
+	[InlineData("{AdminPersonId}")]
+	[InlineData("<Pending>")]
+	[InlineData("Person{Suffix}")]
+	[InlineData("Activity<Pending")]
+	[InlineData("")]
+	[InlineData(" ")]
+	public void LiveWritesRejectInvalidIdsWithoutMutation(string id)
+	{
+		using var pit = NewPit();
+		var item = new PitItem(id);
+		Assert.Throws<ArgumentException>(() => pit.Add(item));
+		Assert.Throws<ArgumentException>(() => pit.PitItem = item);
+		Assert.Throws<ArgumentException>(() => pit.AddItems(new[] { new PitItem("Good"), item }));
+		Assert.Throws<ArgumentException>(() => pit.AddItems(new JArray(new JObject { ["Id"] = "Good" }, new JObject { ["Id"] = id }).ToString()));
+		Assert.Empty(pit.HistoricItems);
+	}
 
-    [Theory]
-    [InlineData("{ 'Name': 'NotAnId' }")]
-    [InlineData("{ 'Id': 42 }")]
-    [InlineData("{ 'Id': null }")]
-    public void LiveWritesDoNotInventOrCoerceIds(string json)
-    {
-        using var pit = NewPit();
-        Assert.Throws<ArgumentException>(() => pit.Add(json));
-        Assert.Throws<ArgumentException>(() => pit.Add(new PitItem(JObject.Parse(json))));
-        Assert.Empty(pit.HistoricItems);
-    }
+	[Theory]
+	[InlineData("{ 'Name': 'NotAnId' }")]
+	[InlineData("{ 'Id': 42 }")]
+	[InlineData("{ 'Id': null }")]
+	public void LiveWritesDoNotInventOrCoerceIds(string json)
+	{
+		using var pit = NewPit();
+		Assert.Throws<ArgumentException>(() => pit.Add(json));
+		Assert.Throws<ArgumentException>(() => pit.Add(new PitItem(PitJson.ParseObject(json))));
+		Assert.Empty(pit.HistoricItems);
+	}
 
-    [Fact]
-    public void OrdinaryFieldsAndUnicodeIdsRemainUnrestricted()
-    {
-        using var pit = NewPit();
-        Assert.True(pit.Add("{ 'Id': 'München}', 'Name': '{Name}', 'Note': '<tag>', 'Nested': { 'Id': '{domain value}' } }"));
-        Assert.Equal("<tag>", pit.Get("München}")["Note"]!.Value<string>());
-    }
+	[Fact]
+	public void OrdinaryFieldsAndUnicodeIdsRemainUnrestricted()
+	{
+		using var pit = NewPit();
+		Assert.True(pit.Add("{ 'Id': 'München}', 'Name': '{Name}', 'Note': '<tag>', 'Nested': { 'Id': '{domain value}' } }"));
+		Assert.Equal("<tag>", pit.Get("München}")["Note"]!.Value<string>());
+	}
 
-    [Fact]
-    public void HistoricalReplayAndExplicitDeletionWorkButLiveRecreationFails()
-    {
-        using var pit = NewPit();
-        var old = new PitItem("{Legacy}", true, DateTimeOffset.UtcNow.AddDays(-1));
-        Assert.True(pit.AddHistorical(old));
-        Assert.NotNull(pit.Get("{Legacy}"));
-        Assert.True(pit.Delete("{Legacy}", backDate: false));
-        Assert.Null(pit.Get("{Legacy}"));
-        Assert.True(pit.Get("{Legacy}", withDeleted: true)["Deleted"]!.Value<bool>());
-        Assert.Throws<ArgumentException>(() => pit.Add(new PitItem("{Legacy}")));
-        Assert.False(pit.Delete("{NeverExisted}"));
-        Assert.False(pit.Contains("{NeverExisted}", withDeleted: true));
-    }
+	[Fact]
+	public void HistoricalReplayAndExplicitDeletionWorkButLiveRecreationFails()
+	{
+		using var pit = NewPit();
+#pragma warning disable RAI015 // Exercise the historical placeholder rejected on live input.
+		var old = new PitItem("{Legacy}", true, DateTimeOffset.UtcNow.AddDays(-1));
+#pragma warning restore RAI015
+		Assert.True(pit.AddHistorical(old));
+		Assert.NotNull(pit.Get("{Legacy}"));
+		Assert.True(pit.Delete("{Legacy}", backDate: false));
+		Assert.Null(pit.Get("{Legacy}"));
+		Assert.True(pit.Get("{Legacy}", withDeleted: true)["Deleted"]!.Value<bool>());
+#pragma warning disable RAI015 // Exercise the historical placeholder rejected on live input.
+		Assert.Throws<ArgumentException>(() => pit.Add(new PitItem("{Legacy}")));
+#pragma warning restore RAI015
+		Assert.False(pit.Delete("{NeverExisted}"));
+		Assert.False(pit.Contains("{NeverExisted}", withDeleted: true));
+	}
 
-    [Fact]
-    public void InvalidRenameDoesNotDeleteOriginal()
-    {
-        using var pit = NewPit();
-        pit.Add(new PitItem("Good"));
-        Assert.Throws<ArgumentException>(() => pit.RenameId("Good", "<Bad>"));
-        Assert.True(pit.Contains("Good"));
-    }
+	[Fact]
+	public void InvalidRenameDoesNotDeleteOriginal()
+	{
+		using var pit = NewPit();
+		pit.Add(new PitItem("Good"));
+		Assert.Throws<ArgumentException>(() => pit.RenameId("Good", "<Bad>"));
+		Assert.True(pit.Contains("Good"));
+	}
 
-    [Fact]
-    public void OrdinaryIsoDateStringsRetainTheirOriginalOffsetsAtLiveBoundaries()
-    {
-        const string date = "2026-09-28T17:40:31+05:30";
-        using var pit = NewPit();
-        pit.Add("{ 'Id': 'One', 'DateTimeOriginal': '" + date + "' }");
-        pit.AddItems("[{ 'Id': 'Two', 'Exif': { 'DateTimeOriginal': '" + date + "' } }]");
-        Assert.Equal(JTokenType.String, pit["One"]["DateTimeOriginal"]!.Type);
-        Assert.Equal(date, pit["One"]["DateTimeOriginal"]!.Value<string>());
-        Assert.Equal(date, pit["Two"]["Exif"]!["DateTimeOriginal"]!.Value<string>());
-        var patch = new PitItem("One");
-        patch.SetProperty("{ 'DateTimeOriginal': '" + date + "' }");
-        Assert.Equal(JTokenType.String, patch["DateTimeOriginal"]!.Type);
-        Assert.Equal(date, patch["DateTimeOriginal"]!.Value<string>());
-    }
+	[Fact]
+	public void OrdinaryIsoDateStringsRetainTheirOriginalOffsetsAtLiveBoundaries()
+	{
+		const string date = "2026-09-28T17:40:31+05:30";
+		using var pit = NewPit();
+		pit.Add("{ 'Id': 'One', 'DateTimeOriginal': '" + date + "' }");
+		pit.AddItems("[{ 'Id': 'Two', 'Exif': { 'DateTimeOriginal': '" + date + "' } }]");
+		Assert.Equal(JTokenType.String, pit["One"]["DateTimeOriginal"]!.Type);
+		Assert.Equal(date, pit["One"]["DateTimeOriginal"]!.Value<string>());
+		Assert.Equal(date, pit["Two"]["Exif"]!["DateTimeOriginal"]!.Value<string>());
+		var patch = new PitItem("One");
+		patch.SetProperty("{ 'DateTimeOriginal': '" + date + "' }");
+		Assert.Equal(JTokenType.String, patch["DateTimeOriginal"]!.Type);
+		Assert.Equal(date, patch["DateTimeOriginal"]!.Value<string>());
+	}
 
-    private static Pit NewPit() => new(Os.TempDir / "RAIkeep" / "cr049" / Guid.NewGuid().ToString("N"), readOnly: true, unflagged: true, autoload: false);
+	private static Pit NewPit() => new(Os.TempDir / "RAIkeep" / "cr049" / Guid.NewGuid().ToString("N"), readOnly: true, unflagged: true, autoload: false);
 }

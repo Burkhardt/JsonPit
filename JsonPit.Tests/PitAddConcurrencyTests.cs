@@ -21,18 +21,19 @@ namespace JsonPit.Tests
 		private PitFile jsonPitTestPitFile = new PitFile(CreateUniquePitFileName());	// make sure it's a CanonicalFile
 		private Pit jsonPitTestsPit;
 		
-		private void CleanupPit()
+		public void Dispose()
 		{
 			if (jsonPitTestsPit != null)
 			{
 				jsonPitTestsPit.ReadOnly = true;
+				jsonPitTestsPit.Dispose();
 				jsonPitTestsPit = null;
 			}
 			jsonPitTestPitFile.Path.rmdir(depth: 10, deleteFiles: true);
 		}
 		private void Create_JsonPitTests_Pit()
 		{
-			CleanupPit();
+			Dispose();
 			jsonPitTestPitFile = new PitFile(CreateUniquePitFileName());
 			jsonPitTestsPit = new Pit(jsonPitTestPitFile, readOnly: false);
 		}
@@ -42,10 +43,6 @@ namespace JsonPit.Tests
 			if (jsonPitTestsPit != null)
 				jsonPitTestsPit.Save();
 			else jsonPitTestsPit = new Pit(jsonPitTestPitFile, readOnly: false);
-		}
-		public void Dispose()
-		{
-			CleanupPit();
 		}
 		[Fact]
 		public void Add_NewItem_ReturnsTrue_AndIsRetrievableAsTop()

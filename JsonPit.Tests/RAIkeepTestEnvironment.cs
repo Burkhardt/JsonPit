@@ -33,8 +33,8 @@ namespace JsonPit.Tests
 			catch (Exception ex)
 			{
 				throw new InvalidOperationException(
-					$"JsonPit tests require writable Dropbox test storage at '{candidate.Path}'. " +
-					"Check Os.Config.Cloud.Dropbox before running these tests.",
+					$"JsonPit tests require writable TestCloud storage at '{candidate.Path}'. " +
+					"Check Os.TestCloud before running these tests.",
 					ex);
 			}
 		}

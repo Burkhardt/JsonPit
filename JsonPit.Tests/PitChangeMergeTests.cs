@@ -9,7 +9,7 @@ namespace JsonPit.Tests
 	{
 		private static RaiPath NewTestRoot(string testName)
 		{
-			var root = new RaiPath(Path.GetTempPath()) / "RAIkeep" / "jsonpit-tests" / "change-merge" / SanitizeSegment(testName);
+			var root = new RaiPath(Os.TempDir.FullPath) / "RAIkeep" / "jsonpit-tests" / "change-merge" / SanitizeSegment(testName);
 			Cleanup(root);
 			return root;
 		}
@@ -28,7 +28,7 @@ namespace JsonPit.Tests
 		{
 			if (string.IsNullOrWhiteSpace(value))
 				return "test";
-			var invalid = Path.GetInvalidFileNameChars();
+			var invalid = RaiPath.InvalidFileNameChars;
 			var cleaned = new string(value
 				.Select(ch => invalid.Contains(ch) || char.IsWhiteSpace(ch) ? '-' : ch)
 				.ToArray())
@@ -49,7 +49,7 @@ namespace JsonPit.Tests
 				var (payload, sha) = ChangeFile.CanonicalPayloadFor(peerItem);
 				Assert.Equal($"{peerItem.Modified.UtcTicks}_ubuntu-tests-4242_{sha[..4]}.json", file.NameWithExtension);
 				Assert.Equal(pit.JsonFile.Path.ToString(), file.Path.ToString());
-				Assert.Equal(payload, File.ReadAllText(file.FullName));
+				Assert.Equal(payload, new TextFile(file.FullName).ReadAllText());
 				var stored = Assert.Single(ChangeFile.ReadValidated(file));
 				Assert.Equal("PeerItem", (string)stored["Id"]);
 				Assert.Equal(126, (int)stored["Value"]);
@@ -76,7 +76,7 @@ namespace JsonPit.Tests
 				peerItem.SetProperty(new { Value = 126, CreatedBy = "Mzansi", Marker = "peer-marker" });
 				masterPit.CreateChangeFile(peerItem, "ubuntu-tests-4242");
 				masterPit.Dispose(); // release canonical-path ownership before reopening (CR003 §4)
-				var reloaded = new Pit(pitPath, readOnly: false, autoload: false, backup: false);
+				using var reloaded = new Pit(pitPath, readOnly: false, autoload: false, backup: false);
 				reloaded.Load(undercover: true);
 				Assert.NotNull(reloaded.Get("CloudItem"));
 				Assert.Null(reloaded.Get("PeerItem"));

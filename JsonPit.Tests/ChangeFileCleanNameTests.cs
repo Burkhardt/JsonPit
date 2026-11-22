@@ -59,7 +59,7 @@ public sealed class ChangeFileCleanNameTests : IDisposable
 		Assert.EndsWith($"_{sha[..4]}", changeName);
 
 		var change = new RaiFile(root, changeName, "json");
-		File.WriteAllText(change.FullName, payload, new UTF8Encoding(false));
+		new TextFile(change.FullName).WriteAllText(payload);
 
 		// Valid payload passes prefix check
 		Assert.NotNull(ChangeFile.ReadValidated(change));
@@ -68,7 +68,7 @@ public sealed class ChangeFileCleanNameTests : IDisposable
 		Assert.Equal("receipt", receipt.Ext);
 
 		// Mismatched / truncated payload fails prefix check
-		File.WriteAllText(change.FullName, "[]", new UTF8Encoding(false));
+		new TextFile(change.FullName).WriteAllText("[]");
 		Assert.Null(ChangeFile.ReadValidated(change));
 	}
 
@@ -78,10 +78,10 @@ public sealed class ChangeFileCleanNameTests : IDisposable
 		var fragment = new PitItem("Sipho");
 		var (payload, hash) = ChangeFile.CanonicalPayloadFor(fragment);
 		var valid = new RaiFile(root, ChangeFile.ComposeName(fragment.Modified, "Nkosikazi-pits-41360", hash), "json");
-		File.WriteAllText(valid.FullName, payload, new UTF8Encoding(false));
+		new TextFile(valid.FullName).WriteAllText(payload);
 		Assert.NotNull(ChangeFile.ReadValidated(valid));
 
-		File.WriteAllText(valid.FullName, payload + " ", new UTF8Encoding(false));
+		new TextFile(valid.FullName).WriteAllText(payload + " ");
 		Assert.Null(ChangeFile.ReadValidated(valid));
 	}
 }

@@ -184,7 +184,7 @@ namespace JsonPit.Tests
 			System.Threading.Thread.Sleep(25);
 			Burkhardt.ExtendWith(new JArray {
 				new JObject { { "Email", "burkhardt@example.com" } },
-			 	new JObject { { "Email", "example@burkhardt.com" } },
+				new JObject { { "Email", "example@burkhardt.com" } },
 				new JObject { { "BizEmail", "burkhardt@example.com" } },
 				new JObject { { "Instagram", "burkhardt_insta" } }
 			});
@@ -219,7 +219,7 @@ namespace JsonPit.Tests
 	{
 		private static RaiPath CreatePitPath([CallerMemberName] string testName = "")
 		{
-			var root = (new RaiPath(Path.GetTempPath())) / "JsonPitTests" / "GetAtTests" / SanitizeSegment(testName);
+			var root = (new RaiPath(Os.TempDir.FullPath)) / "JsonPitTests" / "GetAtTests" / SanitizeSegment(testName);
 			root.rmdir(depth: 10, deleteFiles: true);
 			return root;
 		}
@@ -228,7 +228,7 @@ namespace JsonPit.Tests
 		{
 			if (string.IsNullOrWhiteSpace(value))
 				return "test";
-			var invalid = Path.GetInvalidFileNameChars();
+			var invalid = RaiPath.InvalidFileNameChars;
 			var cleaned = new string(value
 				.Select(ch => invalid.Contains(ch) || char.IsWhiteSpace(ch) ? '-' : ch)
 				.ToArray())
@@ -281,7 +281,7 @@ namespace JsonPit.Tests
 				pit.Add(item1);
 				pit.Save(force: true);  // why do I need to force it? because invalidate was set to false above
 				var deleted = new PitItem(symbol, invalidate: false, timestamp: baseTs.AddMinutes(-1));
-				deleted.Deleted = true;
+				deleted.Delete(backDate100: false);
 				pit.Add(deleted);
 				var hidden = pit.GetAt(symbol, deleted.Modified.AddTicks(1));
 				Assert.Null(hidden);
@@ -342,8 +342,9 @@ namespace JsonPit.Tests
 				original["Email"] = "before@example.org";
 				original["Country"] = "ZA";
 				pit.AddHistorical(original);
-				var tombstone = new PitItem(symbol, invalidate: false, timestamp: baseTs.AddMinutes(-2));
-				tombstone.Deleted = true;
+				var deletion = new PitItem(symbol);
+				deletion.Delete();
+				var tombstone = new PitItem(deletion, timestamp: baseTs.AddMinutes(-2));
 				pit.AddHistorical(tombstone);
 				var resurrected = new PitItem(symbol, invalidate: false, timestamp: baseTs.AddMinutes(-1));
 				resurrected["Email"] = "after@example.org";

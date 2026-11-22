@@ -40,7 +40,7 @@ public sealed class MultiPitInstanceConcurrencyTests : IDisposable
 		first.Save(force: true);
 
 		var flagsBefore = root.EnumerateFiles("*.flag").Select(f => f.NameWithExtension).OrderBy(n => n).ToList();
-		var canonicalBefore = File.ReadAllText(first.JsonFile.FullName);
+		var canonicalBefore = new TextFile(first.JsonFile.FullName).ReadAllText();
 
 		var ex = Assert.Throws<PitInstanceConflictException>(() =>
 			new Pit(root, readOnly: false, autoload: true, subscriber: "cr003"));
@@ -50,7 +50,7 @@ public sealed class MultiPitInstanceConcurrencyTests : IDisposable
 		// Rejection happened before observable pit work: no new flags, no data mutation.
 		var flagsAfter = root.EnumerateFiles("*.flag").Select(f => f.NameWithExtension).OrderBy(n => n).ToList();
 		Assert.Equal(flagsBefore, flagsAfter);
-		Assert.Equal(canonicalBefore, File.ReadAllText(first.JsonFile.FullName));
+		Assert.Equal(canonicalBefore, new TextFile(first.JsonFile.FullName).ReadAllText());
 	}
 
 	[Fact]
@@ -100,19 +100,19 @@ public sealed class MultiPitInstanceConcurrencyTests : IDisposable
 		var segments = root.ToString().Split(Os.DIR, StringSplitOptions.RemoveEmptyEntries);
 		var canonical = new RaiFile(root, segments[^1], "pit");
 		canonical.mkdir();
-		File.WriteAllText(canonical.FullName, "{ \"not\": \"a pit\" }");
+		new TextFile(canonical.FullName).WriteAllText("{ \"not\": \"a pit\" }");
 
 		Assert.ThrowsAny<FormatException>(() =>
 			new Pit(root, readOnly: false, autoload: true, subscriber: "cr003"));
 
 		// Repair the canonical and prove the path is reusable — no stale reservation.
-		File.WriteAllText(canonical.FullName, "[]");
+		new TextFile(canonical.FullName).WriteAllText("[]");
 		using var recovered = new Pit(root, readOnly: false, autoload: true, subscriber: "cr003");
 		Assert.True(recovered.Add(new PitItem("AfterRepair")));
 	}
 
 	[Fact]
-	public void RacingConstructors_ExactlyOneWinsThePath()
+	public async Task RacingConstructors_ExactlyOneWinsThePath()
 	{
 		var root = NewPitRoot("ctor-race");
 		var winners = new List<Pit>();
@@ -121,19 +121,24 @@ public sealed class MultiPitInstanceConcurrencyTests : IDisposable
 		{
 			try
 			{
-				var pit = new Pit(root, readOnly: false, autoload: false, subscriber: "cr003");
-				lock (winners) winners.Add(pit);
+				var winner = new Pit(root, readOnly: false, autoload: false, subscriber: "cr003"); // rail:ignore RAI014 - ownership transfers to winners under the lock
+				lock (winners) winners.Add(winner);
 			}
 			catch (PitInstanceConflictException)
 			{
 				System.Threading.Interlocked.Increment(ref rejections);
 			}
-		})).ToArray();
-		Task.WaitAll(tasks);
-
-		Assert.Single(winners);
-		Assert.Equal(5, rejections);
-		winners[0].Dispose();
+		}, TestContext.Current.CancellationToken)).ToArray();
+		try
+		{
+			await Task.WhenAll(tasks);
+			Assert.Single(winners);
+			Assert.Equal(5, rejections);
+		}
+		finally
+		{
+			foreach (var winner in winners) winner.Dispose();
+		}
 	}
 
 	[Fact]
@@ -145,7 +150,7 @@ public sealed class MultiPitInstanceConcurrencyTests : IDisposable
 		pit.Save(force: true);
 
 		// Force the non-master change-file path: a valid foreign lease blocks this process.
-		pit.MasterFlag().Update(originator: $"{Environment.MachineName}-foreign-999999");
+		TicketFixture.WriteMaster(pit.MasterFlag(), originator: $"{Environment.MachineName}-foreign-999999");
 		var window = new TextFile(root, $"{Environment.MachineName}-foreign-999999", "flag");
 		window.Lines = new List<string> { new TimestampedValue($"{Environment.MachineName}:foreign:999999", DateTimeOffset.UtcNow).ToString() };
 		window.Changed = true;

@@ -77,7 +77,7 @@
 ### Accessibility
 - Ensure at least one server instance runs on the same CloudSpace account.
 - Develop a server as a deployable Docker image for various platforms.
-- Provide a NuGet package.
+- Distribute the library through NuGet. The published package is [JsonPit](https://www.nuget.org/packages/JsonPit).
 - Create a project website for documentation and support.
 
 By adhering to these requirements, JsonPit will efficiently manage structured and unstructured data across multiple servers with robust synchronization and failover mechanisms.

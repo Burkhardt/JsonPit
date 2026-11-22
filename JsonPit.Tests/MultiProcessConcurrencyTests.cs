@@ -48,7 +48,7 @@ public sealed class MultiProcessConcurrencyTests : IDisposable
 	}
 
 	[Fact]
-	public void ExactOwner_RenewsItsActiveMasterLeaseDirectly()
+	public void ExactOwner_CannotReclaimDuringSelfBan()
 	{
 		var root = NewPitRoot("exact-renewal");
 		using var pit = new Pit(root, readOnly: false, autoload: false, subscriber: "cr003");
@@ -58,9 +58,9 @@ public sealed class MultiProcessConcurrencyTests : IDisposable
 		var firstLease = pit.MasterFlag().Time;
 
 		System.Threading.Thread.Sleep(20);
-		Assert.True(pit.TryAcquireMaster()); // fast-path renewal by the exact owner
+		Assert.False(TicketFixture.AttemptClaim(pit).Acquired);
 		Assert.Equal(pit.ExactProcessIdentity, pit.MasterFlag().Originator);
-		Assert.True(pit.MasterFlag().Time > firstLease, "Renewal must refresh the lease timestamp.");
+		Assert.Equal(firstLease, pit.MasterFlag().Time);
 	}
 
 	[Fact]
@@ -73,19 +73,19 @@ public sealed class MultiProcessConcurrencyTests : IDisposable
 
 		// Another PID of the SAME stable participant holds the lease and an active window.
 		var otherPid = $"{pit.ParticipantIdentity}-999999";
-		pit.MasterFlag().Update(originator: otherPid);
+		TicketFixture.WriteMaster(pit.MasterFlag(), originator: otherPid);
 		PlantProcessWindow(root, otherPid, DateTimeOffset.UtcNow);
 
-		Assert.False(pit.TryAcquireMaster(), "A different PID must not inherit while the recorded owner's window is active.");
+		Assert.False(TicketFixture.AttemptClaim(pit).Acquired, "A different PID must not inherit while the recorded owner's window is active.");
 		Assert.Equal(otherPid, pit.MasterFlag().Originator);
 
-		var canonicalBefore = File.ReadAllText(pit.JsonFile.FullName);
+		var canonicalBefore = new TextFile(pit.JsonFile.FullName).ReadAllText();
 		pit.Add(new PitItem("RefusedProcessChange"));
 		pit.Save();
 
 		// Change-file fallback: the canonical pit is untouched; the fragment is durable
 		// as an ordinary collision-safe change file authored by this exact process.
-		Assert.Equal(canonicalBefore, File.ReadAllText(pit.JsonFile.FullName));
+		Assert.Equal(canonicalBefore, new TextFile(pit.JsonFile.FullName).ReadAllText());
 		var changeFiles = root.EnumerateFiles("*.json")
 			.Where(f => f.Name != pit.JsonFile.Name)
 			.ToList();
@@ -93,7 +93,7 @@ public sealed class MultiProcessConcurrencyTests : IDisposable
 	}
 
 	[Fact]
-	public void SameParticipantNewPid_Inherits_AfterExplicitProcessWindowRelease()
+	public void SameParticipantNewPid_StillDefers_AfterExplicitProcessWindowRelease()
 	{
 		var root = NewPitRoot("inherit-release");
 		using var pit = new Pit(root, readOnly: false, autoload: false, subscriber: "cr003");
@@ -101,16 +101,16 @@ public sealed class MultiProcessConcurrencyTests : IDisposable
 		pit.Save(force: true);
 
 		var otherPid = $"{pit.ParticipantIdentity}-999999";
-		pit.MasterFlag().Update(originator: otherPid);
+		TicketFixture.WriteMaster(pit.MasterFlag(), originator: otherPid);
 		// Explicitly released window: CR024 removes the owned PID-specific flag.
 		// No activity file is planted for the former process.
 
-		Assert.True(pit.TryAcquireMaster(), "The still-protected participant lease is inheritable after explicit release.");
-		Assert.Equal(pit.ExactProcessIdentity, pit.MasterFlag().Originator);
+		Assert.False(TicketFixture.AttemptClaim(pit).Acquired);
+		Assert.Equal(otherPid, pit.MasterFlag().Originator);
 	}
 
 	[Fact]
-	public void SameParticipantNewPid_Inherits_AfterProcessWindowExpiry()
+	public void SameParticipantNewPid_StillDefers_AfterProcessWindowExpiry()
 	{
 		var root = NewPitRoot("inherit-expiry");
 		using var pit = new Pit(root, readOnly: false, autoload: false, subscriber: "cr003");
@@ -118,11 +118,11 @@ public sealed class MultiProcessConcurrencyTests : IDisposable
 		pit.Save(force: true);
 
 		var otherPid = $"{pit.ParticipantIdentity}-999999";
-		pit.MasterFlag().Update(originator: otherPid);
+		TicketFixture.WriteMaster(pit.MasterFlag(), originator: otherPid);
 		PlantProcessWindow(root, otherPid, DateTimeOffset.UtcNow - MasterFlagFile.TicketDuration - TimeSpan.FromSeconds(5));
 
-		Assert.True(pit.TryAcquireMaster(), "The participant lease is inheritable after the owner's window expired.");
-		Assert.Equal(pit.ExactProcessIdentity, pit.MasterFlag().Originator);
+		Assert.False(TicketFixture.AttemptClaim(pit).Acquired);
+		Assert.Equal(otherPid, pit.MasterFlag().Originator);
 	}
 
 	[Fact]
@@ -135,10 +135,10 @@ public sealed class MultiProcessConcurrencyTests : IDisposable
 
 		// A DIFFERENT subscriber on this machine holds a valid lease and active window.
 		var foreign = $"{Environment.MachineName}-otherapp-999999";
-		pit.MasterFlag().Update(originator: foreign);
+		TicketFixture.WriteMaster(pit.MasterFlag(), originator: foreign);
 		PlantProcessWindow(root, foreign, DateTimeOffset.UtcNow);
 
-		Assert.False(pit.TryAcquireMaster(), "Different subscribers are distinct stable participants; a valid foreign lease blocks the claim.");
+		Assert.False(TicketFixture.AttemptClaim(pit).Acquired, "Different subscribers are distinct stable participants; a valid foreign lease blocks the claim.");
 
 		pit.Add(new PitItem("OtherSubscriberChange"));
 		pit.Save(); // must take the ordinary non-master change-file path
@@ -147,23 +147,25 @@ public sealed class MultiProcessConcurrencyTests : IDisposable
 	}
 
 	[Fact]
-	public void StaleWriter_DoesNotOverwriteNewerState_ChangesRemainMergeableAndDeterministic()
+	public async System.Threading.Tasks.Task StaleWriter_DoesNotOverwriteNewerState_ChangesRemainMergeableAndDeterministic()
 	{
 		var root = NewPitRoot("stale-writer");
 		using var pit = new Pit(root, readOnly: false, autoload: false, subscriber: "cr003");
 		pit.Add(new PitItem("Seed"));
 		pit.Save(force: true);
+		var timing = PitTiming.Load(root);
+		var localReady = DateTimeOffset.UtcNow + timing.PitSync + timing.Buffer;
 
 		// This process becomes a stale writer: a foreign lease with an active window took over.
 		var foreign = $"{Environment.MachineName}-takeover-999999";
-		pit.MasterFlag().Update(originator: foreign);
+		TicketFixture.WriteMaster(pit.MasterFlag(), originator: foreign);
 		PlantProcessWindow(root, foreign, DateTimeOffset.UtcNow);
 
 		var item = new PitItem("StaleWrite");
 		item.SetProperty(new { Payload = "from-stale-writer" });
 		pit.Add(item);
 		pit.Save();
-		var canonicalAfterStaleSave = File.ReadAllText(pit.JsonFile.FullName);
+		var canonicalAfterStaleSave = new TextFile(pit.JsonFile.FullName).ReadAllText();
 		Assert.DoesNotContain("StaleWrite", canonicalAfterStaleSave); // canonical not overwritten
 
 		// Duplicate change files are safe: republication is filename-idempotent.
@@ -174,10 +176,13 @@ public sealed class MultiProcessConcurrencyTests : IDisposable
 
 		// Once the foreign lease and window lapse, the merge protocol folds the change in
 		// deterministically — the accepted write was never lost.
-		pit.MasterFlag().Update(DateTimeOffset.UtcNow - MasterFlagFile.TicketDuration - TimeSpan.FromSeconds(5), originator: foreign);
+		TicketFixture.WriteMaster(pit.MasterFlag(), DateTimeOffset.UtcNow - MasterFlagFile.TicketDuration - TimeSpan.FromSeconds(5), originator: foreign);
 		PlantProcessWindow(root, foreign, DateTimeOffset.UtcNow - MasterFlagFile.TicketDuration - TimeSpan.FromSeconds(5));
+		// Returning the seed ticket bars this machine until its propagation window has elapsed.
+		var remaining = localReady - DateTimeOffset.UtcNow;
+		if (remaining > TimeSpan.Zero) await System.Threading.Tasks.Task.Delay(remaining + TimeSpan.FromMilliseconds(1), TestContext.Current.CancellationToken);
 		pit.MergeChanges();
-		Assert.Contains("StaleWrite", File.ReadAllText(pit.JsonFile.FullName));
+		Assert.Contains("StaleWrite", new TextFile(pit.JsonFile.FullName).ReadAllText());
 	}
 
 	[Fact]

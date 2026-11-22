@@ -233,7 +233,7 @@ public sealed class EventArchiveMaintenanceTests : IDisposable
 
 		// Write legacy hashed event file
 		var legacyFile = new RaiFile(eventsDir, $"{stem}_{sha}", "event");
-		System.IO.File.WriteAllText(legacyFile.FullName, canonical, new System.Text.UTF8Encoding(false));
+		new TextFile(legacyFile.FullName).WriteAllText(canonical);
 		Assert.True(legacyFile.Exists());
 
 		using var pit = OpenPit();
@@ -252,7 +252,7 @@ public sealed class EventArchiveMaintenanceTests : IDisposable
 		var cleanFile = new RaiFile(eventsDir, stem, "event");
 		Assert.True(cleanFile.Exists(), "Clean event file should exist.");
 		Assert.False(legacyFile.Exists(), "Legacy hashed file should be removed.");
-		Assert.Equal(canonical, System.IO.File.ReadAllText(cleanFile.FullName));
+		Assert.Equal(canonical, new TextFile(cleanFile.FullName).ReadAllText());
 
 		// Reading audit events finds the clean event
 		var audit = PitAudit.Read(pitDirectory);

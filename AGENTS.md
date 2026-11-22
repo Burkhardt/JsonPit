@@ -8,7 +8,7 @@ Before changing JsonPit or writing its usage examples, read `MUTATION_TRACKING.m
 - Both tracking modes support normal tracked edits. `TrackedChangesWithFallback` is the default. `TrackedChangesOnly` disables boundary reconciliation. Each instance captures the process default in memory; never persist this setting.
 - Preserve this documented limitation exactly: **Unreported edits will receive their history timestamp when detected.** Fallback is eventual-value protection, not a complete chronological audit.
 - Use public mutation/replay APIs, not direct writes to the legacy `HistoricItems` dictionary. Read-only historical snapshots must remain detached.
-- Verify reference identity, sparse history, and both modes when changing mutation/persistence behavior. The next coordinated release after 4.4.6/4.4.7 is 4.4.8.
+- Verify reference identity, sparse history, and both modes when changing mutation/persistence behavior.
 
 ## C# package branding
 

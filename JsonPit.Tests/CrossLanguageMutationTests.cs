@@ -1,6 +1,4 @@
 using System;
-using System.Diagnostics;
-using System.IO;
 using System.Linq;
 using System.Text.Json;
 using Newtonsoft.Json.Linq;
@@ -15,25 +13,32 @@ namespace JsonPit.Tests;
 /// </summary>
 public sealed class CrossLanguageMutationTests
 {
-	private static string RepoRoot()
+	private static RaiPath RepoRoot()
 	{
-		for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory != null; directory = directory.Parent)
-			if (File.Exists(Path.Combine(directory.FullName, "tests", "cr077", "python_replica.py"))) return directory.FullName;
+		var directory = new RaiPath(AppContext.BaseDirectory);
+		while (true)
+		{
+			if (new RaiFile(directory / "tests" / "cr077", "python_replica.py").Exists()) return directory;
+			var parent = directory.Parent;
+			if (parent.FullPath == directory.FullPath) break;
+			directory = parent;
+		}
 		throw new InvalidOperationException("Run CR077 acceptance from a complete RAIkeep checkout.");
 	}
 	private static JsonDocument Python(RaiPath root, MutationTrackingMode mode, string operation)
 	{
 		var repo = RepoRoot();
-		var info = new ProcessStartInfo("python3") { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false };
-		info.ArgumentList.Add(Path.Combine(repo, "tests", "cr077", "python_replica.py"));
-		info.ArgumentList.Add(root.Path.TrimEnd('/', '\\'));
-		info.ArgumentList.Add(mode.ToString()); info.ArgumentList.Add(operation);
-		info.Environment["PYTHONPATH"] = Path.Combine(repo, "JsonPit.Python");
-		using var process = Process.Start(info) ?? throw new InvalidOperationException("Cannot start Python replica.");
-		var output = process.StandardOutput.ReadToEndAsync(); var error = process.StandardError.ReadToEndAsync();
-		if (!process.WaitForExit(60_000)) { process.Kill(entireProcessTree: true); throw new TimeoutException("Python replica did not complete."); }
-		Assert.True(process.ExitCode == 0, error.GetAwaiter().GetResult() + output.GetAwaiter().GetResult());
-		return JsonDocument.Parse(output.GetAwaiter().GetResult());
+		var script = new RaiFile(repo / "tests" / "cr077", "python_replica.py");
+		var replica = new RaiSystem("python3", new[] { script.FullName, root.FullPath, mode.ToString(), operation })
+		{
+			EnvironmentOverrides = new System.Collections.Generic.Dictionary<string, string>
+			{
+				["PYTHONPATH"] = (repo / "JsonPit.Python").FullPath
+			}
+		};
+		var result = replica.ExecResult(60_000);
+		Assert.True(result.Succeeded, result.StandardError + result.StandardOutput);
+		return JsonDocument.Parse(result.StandardOutput);
 	}
 
 	[Theory]

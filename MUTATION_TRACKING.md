@@ -1,6 +1,6 @@
 # Live references and mutation tracking
 
-This contract is introduced for the next coordinated release, 4.4.8. It applies to C# JsonPit. See `GettingStarted.md` for application examples and `JsonPit.Tests/ReferenceTests.cs` for the minimal identity requirement.
+This contract applies to C# JsonPit. See `GettingStarted.md` for application examples and `JsonPit.Tests/ReferenceTests.cs` for the minimal identity requirement.
 
 ## Normal application and agent-generated code
 

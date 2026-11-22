@@ -131,6 +131,7 @@ public partial class Pit
 				item.Invalidate(NextLiveMutationTimestamp());
 				stamped = true;
 			}
+			if (!refreshModified) item.MarkPending();
 			var updated = current.Push(item);
 			if (ReferenceEquals(updated, current)) return false;
 			if (!HistoricItems.TryUpdate(item.Id, updated, current)) continue;

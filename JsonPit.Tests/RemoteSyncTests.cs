@@ -98,7 +98,7 @@ public sealed class RemoteSyncTests : IDisposable
 
 		Assert.True(pitFile.Exists(), "Pit file must exist after Save()");
 		Assert.StartsWith($"{Environment.MachineName}-", pit.MasterFlag().Originator);
-		Assert.False(pit.MasterFlag().IsExpired);
+		Assert.Equal("Returned", pit.MasterFlag().ReadTicket().State);
 		Assert.NotNull(pit["NkosikaziEntry"]);
 		output.WriteLine("Phase 1  PASS — pit created, Nkosikazi is master");
 
@@ -118,15 +118,19 @@ public sealed class RemoteSyncTests : IDisposable
 			"Nkosikazi",
 			"Nkosikazi Master.flag ownership to finish syncing to Mzansi");
 
-		// A ticket can take longer than its 60-second lease to propagate. Keep
-		// renewing through the real cloud path, and require a fresh remote ticket
-		// before testing client behavior. An old timestamp arriving is insufficient.
-		WaitForFreshMasterOnMzansi(pit, $"{mzansiPitDir}/Master.flag");
+		var timing = PitTiming.Load(pit.PitDir);
+		var returned = pit.MasterFlag().ReadTicket();
+		var banRemaining = returned.Written.Value + timing.PitSync + timing.Buffer - DateTimeOffset.UtcNow;
+		if (banRemaining > TimeSpan.Zero) Thread.Sleep(banRemaining + TimeSpan.FromMilliseconds(10));
+		Assert.True(TicketFixture.AttemptClaim(pit).Acquired);
+		var held = pit.MasterFlag().ReadTicket();
+		WaitForContentOnMzansi($"{mzansiPitDir}/Master.flag", held.ToString(), "single-use Held ticket");
+		Assert.True(DateTimeOffset.UtcNow < held.Claimed + timing.Ticket);
 
 		// Create a small JSON seed file on Mzansi and run pits
 		var seedJson = "[{\"Id\":\"MzansiEntry\",\"Source\":\"Mzansi\",\"Note\":\"Added by client\"}]";
 		SshExec($"echo '{seedJson}' > /tmp/{PitName}.json5");
-		var seedOutput = SeedOnMzansi($"/tmp/{PitName}.json5", pit);
+		var seedOutput = SeedOnMzansi($"/tmp/{PitName}.json5");
 		output.WriteLine($"pits on Mzansi:\n{seedOutput}");
 
 		// Mzansi should have created change files (it cannot write the canonical pit).
@@ -171,20 +175,9 @@ public sealed class RemoteSyncTests : IDisposable
 		// ──────────────────────────────────────────────────────────────
 		// PHASE 4 — Master transfer: expire ticket, let Mzansi claim
 		// ──────────────────────────────────────────────────────────────
-		// Phase 3's master merge wrote an updated pit file.  OneDrive is now
-		// syncing it to Mzansi.  We must wait for that sync to complete before
-		// running pits on Mzansi — otherwise it reads a half-written file.
-		// In a real scenario the TicketDuration (60 s) provides this buffer
-		// naturally; here we simulate expiry, so we wait explicitly.
-		reloaded.Dispose(); // graceful disposal exports and releases authority before Mzansi takes over
-		WaitForContentOnMzansi(mzansiPitFilePath, "MzansiEntry",
-			"merged pit file to finish syncing to Mzansi");
-
-		// "Better idea": instead of waiting 60 s for TicketDuration to elapse,
-		// we overwrite the flag files on Mzansi's local copy with expired timestamps.
-		// This deterministically simulates the passage of time. Since v3.13.2 the master
-		// owner and the process flags carry exact PID identities, so every Nkosikazi flag
-		// is expired regardless of its PID suffix.
+		// Reopening merged the remote delta in memory. Mzansi's next winning
+		// save must reconcile it into the canonical file as part of that turn.
+		reloaded.Dispose();
 		var expiredTimestamp = DateTimeOffset.UtcNow.AddMinutes(-5).ToString("o");
 		SshExec($"echo 'Nkosikazi|{expiredTimestamp}' > '{mzansiPitDir}/Master.flag'");
 		SshExec($"for f in '{mzansiPitDir}'/Nkosikazi-*.flag; do [ -f \"$f\" ] && echo 'Nkosikazi:dotnet:1|{expiredTimestamp}' > \"$f\"; done; true");
@@ -229,7 +222,7 @@ public sealed class RemoteSyncTests : IDisposable
 		// Reclaim master for Nkosikazi so we can test the cleanup path locally.
 		var expiredTs = DateTimeOffset.UtcNow.AddMinutes(-5);
 		var localMasterFlag = new MasterFlagFile(pitDir, "Master");
-		localMasterFlag.Update(time: expiredTs, originator: "Mzansi");
+		TicketFixture.WriteMaster(localMasterFlag, time: expiredTs, originator: "Mzansi");
 		// Expire any Mzansi process flag files locally
 		foreach (var flagFile in pitDir.EnumerateFiles("*.flag"))
 		{
@@ -248,16 +241,13 @@ public sealed class RemoteSyncTests : IDisposable
 		var originalGrace = Pit.ChangeFileCleanupGrace;
 		try
 		{
-			Assert.True(masterPit.TryAcquireMaster(), "Nkosikazi should reclaim master after expiring Mzansi's ticket");
-			output.WriteLine("Phase 6  Nkosikazi reclaimed master");
-
 			var changeFilesBefore = pitDir.EnumerateFiles("*.json")
 				.Where(f => f.Name != masterPit.JsonFile.Name)
 				.ToList();
 			Assert.NotEmpty(changeFilesBefore);
 			output.WriteLine($"Phase 6  Change files before cleanup: {changeFilesBefore.Count}");
 
-			Pit.ChangeFileCleanupGrace = TimeSpan.FromSeconds(2);
+			TicketFixture.SetCleanupGrace(TimeSpan.FromSeconds(2));
 
 			// First pass: merge + canonical save. CR021 cleanup eligibility is measured
 			// from each immutable receipt's first canonicalization timestamp. Receipts
@@ -269,7 +259,7 @@ public sealed class RemoteSyncTests : IDisposable
 				.ToList();
 			output.WriteLine($"Phase 6  Change files after first receipt-aware cleanup: {stillPresent.Count}");
 
-			Thread.Sleep(2500); // let the shortened post-save grace elapse
+			Thread.Sleep(timing.PitSync + timing.Buffer + TimeSpan.FromSeconds(3));
 
 			// Second pass: revalidates exact master authority and canonical health, then deletes.
 			masterPit.MergeChanges();
@@ -288,7 +278,7 @@ public sealed class RemoteSyncTests : IDisposable
 		}
 		finally
 		{
-			Pit.ChangeFileCleanupGrace = originalGrace;
+			TicketFixture.SetCleanupGrace(originalGrace);
 			masterPit.Dispose();
 		}
 
@@ -348,7 +338,7 @@ public sealed class RemoteSyncTests : IDisposable
 		{
 			try
 			{
-				var bytes = System.IO.File.ReadAllBytes(pitFile.FullName);
+				var bytes = pitFile.ReadAllBytes();
 				if (bytes.Length > 1)
 				{
 					output.WriteLine($"  canonical locally readable ({bytes.Length} bytes) after {sw.Elapsed.TotalSeconds:F1} s");
@@ -440,43 +430,9 @@ public sealed class RemoteSyncTests : IDisposable
 
 	#region SSH helper
 
-	private void WaitForFreshMasterOnMzansi(Pit master, string remoteFlag)
+	private string SeedOnMzansi(string sourceFile)
 	{
-		output.WriteLine("Waiting for a fresh, active Nkosikazi lease on Mzansi while renewing through the cloud ...");
-		var elapsed = Stopwatch.StartNew();
-		while (elapsed.ElapsedMilliseconds < SyncTimeoutMs)
-		{
-			Assert.True(master.TryAcquireMaster(), "Nkosikazi must retain its exact-process lease during propagation");
-			var expectedOwner = master.MasterFlag().Originator;
-			var text = SshExec($"cat \"{remoteFlag}\"").Trim();
-			var parts = text.Split('|');
-			if (parts.Length == 2 && parts[0] == expectedOwner &&
-				DateTimeOffset.TryParseExact(parts[1], "o", System.Globalization.CultureInfo.InvariantCulture,
-					System.Globalization.DateTimeStyles.RoundtripKind, out var timestamp))
-			{
-				var age = DateTimeOffset.UtcNow - timestamp;
-				if (age >= TimeSpan.Zero && age < TimeSpan.FromSeconds(20))
-				{
-					output.WriteLine($"  fresh remote lease age {age.TotalSeconds:F1} s after {elapsed.Elapsed.TotalSeconds:F1} s");
-					return;
-				}
-			}
-			Thread.Sleep(SyncPollMs);
-		}
-		Assert.Fail("The configured cloud did not deliver a fresh active master lease within the synchronization timeout.");
-	}
-
-	private string SeedOnMzansi(string sourceFile, Pit activeMaster = null)
-	{
-		var seed = System.Threading.Tasks.Task.Run(() => SshSystem.ExecuteRemoteCommand(
-			MzansiHost, BuildRemotePitsSeedCommand(sourceFile), timeoutMilliseconds: 120_000));
-		while (!seed.IsCompleted)
-		{
-			if (activeMaster is not null)
-				Assert.True(activeMaster.TryAcquireMaster(), "Nkosikazi must renew its lease while the remote client runs");
-			Thread.Sleep(1000);
-		}
-		var result = seed.GetAwaiter().GetResult();
+		var result = SshSystem.ExecuteRemoteCommand(MzansiHost, BuildRemotePitsSeedCommand(sourceFile), timeoutMilliseconds: 120_000);
 		Assert.True(result.Succeeded,
 			$"Remote seed failed: exit={result.ExitCode}, timedOut={result.TimedOut}, stdout={result.StandardOutput}, stderr={result.StandardError}");
 		return result.Output;
