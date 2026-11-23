@@ -19,11 +19,11 @@ replication, in `RAIkeep/jsonpit-remote-sync-tests/{testId}` and
 `RAIkeep/jsonpit-cr003-remote/{testId}`. Run these separately from high-frequency
 local verification; they require the genuine remote channel.
 
-## 4.7.0
+## 4.7.1
 
-Coordinated 4.7.0 release; public behavior is aligned with the synchronized platform.
+Coordinated 4.7.1 release; public behavior is aligned with the synchronized platform.
 
-Latest release notes: [JsonPit 4.7.0 release notes](https://github.com/Burkhardt/RAIkeep/blob/main/doc/releases/v4.x/JsonPit_RELEASE_NOTES_4.x.md#470).
+Latest release notes: [JsonPit 4.7.1 release notes](https://github.com/Burkhardt/RAIkeep/blob/main/doc/releases/v4.x/JsonPit_RELEASE_NOTES_4.x.md#471).
 
 ## Previous Versions
 
@@ -34,13 +34,13 @@ For release notes and changelogs of earlier releases, see the [JsonPit 4.x Relea
 ### .NET CLI
 
 ```bash
-dotnet add package JsonPit --version 4.7.0
+dotnet add package JsonPit --version 4.7.1
 ```
 
 ### PackageReference
 
 ```xml
-<PackageReference Include="JsonPit" Version="4.7.0" />
+<PackageReference Include="JsonPit" Version="4.7.1" />
 ```
 
 JsonPit stores JSON documents with value history across processes, machines, and servers using [asynchronous persistence with eventual durability](https://github.com/Burkhardt/RAIkeep/blob/main/MANIFESTO.md#asynchronous-persistence-with-eventual-durability). Change requests and release notes are kept in the RAIkeep [documentation archive](https://github.com/Burkhardt/RAIkeep/tree/main/doc).
@@ -49,9 +49,9 @@ JsonPit stores JSON documents with value history across processes, machines, and
 
 ## Start Here
 
-For the 4.7.0 live-reference behavior, read [MUTATION_TRACKING.md](https://github.com/Burkhardt/JsonPit/blob/main/MUTATION_TRACKING.md). It defines the supported mutation API, per-instance tracking modes, and detection-time timestamps for fallback edits. Agents and contributors should also read [AGENTS.md](https://github.com/Burkhardt/JsonPit/blob/main/AGENTS.md).
+For the 4.7.1 live-reference behavior, read [MUTATION_TRACKING.md](https://github.com/Burkhardt/JsonPit/blob/main/MUTATION_TRACKING.md). It defines the supported mutation API, per-instance tracking modes, and detection-time timestamps for fallback edits. Agents and contributors should also read [AGENTS.md](https://github.com/Burkhardt/JsonPit/blob/main/AGENTS.md).
 
-If you want to use JsonPit 4.7.0 from NuGet in another service or agent workflow, start with [GettingStarted.md](https://github.com/Burkhardt/JsonPit/blob/main/GettingStarted.md).
+If you want to use JsonPit 4.7.1 from NuGet in another service or agent workflow, start with [GettingStarted.md](https://github.com/Burkhardt/JsonPit/blob/main/GettingStarted.md).
 
 That guide now covers:
 
