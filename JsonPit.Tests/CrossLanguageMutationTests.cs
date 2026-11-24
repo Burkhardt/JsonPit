@@ -33,7 +33,8 @@ public sealed class CrossLanguageMutationTests
 		{
 			EnvironmentOverrides = new System.Collections.Generic.Dictionary<string, string>
 			{
-				["PYTHONPATH"] = (repo / "JsonPit.Python").FullPath
+				["PYTHONPATH"] = string.Join(OperatingSystem.IsWindows() ? ";" : ":",
+					new[] { "inqaba", "umgodi-json", "vikela" }.Select(name => (repo / name).FullPath))
 			}
 		};
 		var result = replica.ExecResult(60_000);
