@@ -231,30 +231,30 @@ public sealed class ReceiptMaintenanceTests : IDisposable
 	}
 
 	[Fact]
-	public void ConfiguredCloud_ReceiptSurvivesRestart_AndGraceExpiryRemovesBothArtifacts()
+	public void Local_ReceiptSurvivesRestart_AndGraceExpiryRemovesBothArtifacts()
 	{
-		var cloudRoot = ConfiguredCloudPits.RequirePitRoot(
+		var localRoot = RAIkeepTestEnvironment.LocalPath(
 			"cr021-receipts", $"receipt-{Guid.NewGuid():N}");
 		try
 		{
-			cloudRoot.mkdir();
+			localRoot.mkdir();
 			RaiFile change;
 			DateTimeOffset receiptTime;
 			TicketFixture.SetCleanupGrace(TimeSpan.FromHours(1));
 
-			using (var first = new Pit(cloudRoot, readOnly: false, unflagged: true, autoload: false))
+			using (var first = new Pit(localRoot, readOnly: false, unflagged: true, autoload: false))
 			{
 				first.Add(new PitItem("CloudBase"));
 				first.Save(force: true);
 				var fragment = new PitItem("CloudPeer");
-				fragment.SetProperty(new { Value = "persisted through configured cloud storage" });
+				fragment.SetProperty(new { Value = "persisted through local storage" });
 				change = first.CreateChangeFile(fragment, "RemotePeer-cloud-4242");
 				var canonicalized = first.Maintain(apply: true);
 				Assert.Equal(1, canonicalized.ReceiptsCreated);
 				receiptTime = new ReceiptFile(change.FullName).Time;
 			}
 
-			using var reopened = new Pit(cloudRoot, readOnly: false, unflagged: true, autoload: true);
+			using var reopened = new Pit(localRoot, readOnly: false, unflagged: true, autoload: true);
 			Assert.Equal(receiptTime, new ReceiptFile(change.FullName).Time);
 			Assert.NotNull(reopened["CloudPeer"]);
 
@@ -268,7 +268,7 @@ public sealed class ReceiptMaintenanceTests : IDisposable
 		}
 		finally
 		{
-			ConfiguredCloudPits.Cleanup(cloudRoot);
+			ConfiguredCloudPits.Cleanup(localRoot);
 		}
 	}
 

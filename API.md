@@ -1,8 +1,10 @@
 # JsonPit API Reference
 
-This document provides a foldable overview of the public JsonPit 4.7.2 API. JsonPit participates in the synchronized CR049 line (live ID validation and 4-character change checksums) and carries forward CR047 strict patch validation, CR040 protected sparse-mutation boundaries, CR041 clean change filenames, CR024 deterministic process-flag cleanup, immutable recovery-event compaction, archive-transparent audit reads, accepted CR021 durable cleanup, and CR022 non-creating maintenance inspection.
+This document provides a foldable overview of the public JsonPit 4.7.3 API. JsonPit participates in the synchronized CR049 line (live ID validation and 4-character change checksums) and carries forward CR047 strict patch validation, CR040 protected sparse-mutation boundaries, CR041 clean change filenames, CR024 deterministic process-flag cleanup, immutable recovery-event compaction, archive-transparent audit reads, accepted CR021 durable cleanup, and CR022 non-creating maintenance inspection.
 
 ## Pit lifecycle and persistence
+
+`SaveWithOutcome()` and `SaveWithOutcomeAsync()` return a `PitSaveResult` with the outcome, fragment count and `WaitedMs`. This last field measures time spent waiting for the cloud write window. Local flag arbitration still requires a valid ticket and yields zero propagation wait. See [ticket timing and cooldown](GettingStarted.md).
 
 - <details>
   <summary><code>Pit</code>: live eventually persistent JSON store</summary>

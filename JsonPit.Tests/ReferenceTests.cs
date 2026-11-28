@@ -13,7 +13,7 @@ public class ReferenceTests
 	public void ArrayOperator_ReturnsAddedItem()
 	{
 		using var pit = new Pit(
-			RAIkeepTestEnvironment.CloudPath(nameof(ArrayOperator_ReturnsAddedItem)),
+			RAIkeepTestEnvironment.LocalPath(nameof(ArrayOperator_ReturnsAddedItem)),
 			readOnly: false,
 			autoload: false);
 

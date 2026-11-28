@@ -7,24 +7,23 @@ namespace JsonPit.Tests
 	public class JsonPitRealWorldIntegrationTests
 	{
 		/// <summary>
-		/// This tests the integration of JsonPit with cloud storage providers and the ability to repeatedly import the same json5
+		/// This tests the integration of JsonPit with local storage and the ability to repeatedly import the same json5
 		/// file into the same Pit instance without throwing an exception or changing the state of the Pit since the data stays the same,
 		/// only time changed. This is therefore also a test of idempotency.
 		/// </summary>
 		[Fact]
-		public void WWWA_IntegrationTest_CloudDrive_Idempotency()
+		public void WWWA_IntegrationTest_LocalImport()
 		{
 			var testRootName = "WwwaTests-" + Guid.NewGuid().ToString("N");
-			if (!TryPrepareCloudIntegrationRoot(testRootName, out var testDirInCloud, out var reason))
-				Assert.Skip($"Cloud integration test skipped: {reason}");
+			var testDir = RAIkeepTestEnvironment.LocalPath(testRootName).mkdir();
 
 			try
 			{
 				var sampleDir = GetLocalSampleDirectory();
-				var placePitFile = new PitFile(testDirInCloud, "Place");
-				var personPitFile = new PitFile(testDirInCloud, "Person");
-				var objectPitFile = new PitFile(testDirInCloud, "Object");
-				var activityPitFile = new PitFile(testDirInCloud, "Activity");
+				var placePitFile = new PitFile(testDir, "Place");
+				var personPitFile = new PitFile(testDir, "Person");
+				var objectPitFile = new PitFile(testDir, "Object");
+				var activityPitFile = new PitFile(testDir, "Activity");
 				Assert.EndsWith($"{Os.DIR}Place{Os.DIR}Place.pit", placePitFile.FullName);
 				// When the destination Pit does exist, the Pit is loaded and importing the same file leads to a sequence of Add operations
 				// that do not change the state of the Pit since the data stays the same;
@@ -35,7 +34,7 @@ namespace JsonPit.Tests
 				// Importing the data from the JSON5 files into the Pit
 				var placeData = new TextFile(sampleDir, "Place", "json5").ReadAllText();
 				placePit.AddItems(placeData);
-				placePit.Save();    // just to make sure we can inspect the data in the cloud storage
+				placePit.Save();    // just to make sure we can inspect the data in the test directory
 				var personData = new TextFile(sampleDir, "Person", "json5").ReadAllText();
 				personPit.AddItems(personData);
 				personPit.Save();
@@ -79,7 +78,7 @@ namespace JsonPit.Tests
 			}
 			finally
 			{
-				testDirInCloud.rmdir(depth: 10, deleteFiles: true);
+				testDir.rmdir(depth: 10, deleteFiles: true);
 			}
 		}
 		private static RaiPath GetLocalSampleDirectory()
@@ -88,54 +87,6 @@ namespace JsonPit.Tests
 			if (!sampleDir.Exists())
 				throw new System.IO.DirectoryNotFoundException($"Expected sample fixtures under '{sampleDir.Path}'.");
 			return sampleDir;
-		}
-		private static bool TryPrepareCloudIntegrationRoot(string relativeDirectory, out RaiPath root, out string reason)
-		{
-			if (ConfiguredCloudPits.ProviderNameOrNull() is null)
-			{
-				root = null;
-				reason = "Os.TestCloud is unconfigured or unavailable; no live-provider fallback";
-				return false;
-			}
-			root = ConfiguredCloudPits.RequirePitRoot(relativeDirectory);
-			reason = string.Empty;
-			try
-			{
-				root.mkdir();
-				return TryVerifyDirectoryWritable(root, out reason);
-			}
-			catch (UnauthorizedAccessException ex)
-			{
-				reason = $"cloud root is not writable: {ex.Message}";
-			}
-			catch (System.IO.IOException ex)
-			{
-				reason = $"cloud root is not writable: {ex.Message}";
-			}
-			return false;
-		}
-		private static bool TryVerifyDirectoryWritable(RaiPath root, out string reason)
-		{
-			var probe = new TextFile(root, "write-probe-" + Guid.NewGuid().ToString("N"), "tmp");
-			try
-			{
-				probe.Lines = ["probe"];
-				probe.Changed = true;
-				probe.Save();
-				if (probe.Exists())
-					probe.rm();
-				reason = string.Empty;
-				return true;
-			}
-			catch (UnauthorizedAccessException ex)
-			{
-				reason = $"root is not writable: {ex.Message}";
-			}
-			catch (System.IO.IOException ex)
-			{
-				reason = $"root is not writable: {ex.Message}";
-			}
-			return false;
 		}
 	}
 }

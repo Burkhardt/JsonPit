@@ -16,15 +16,16 @@ namespace JsonPit.Tests;
 ///
 /// Prerequisites (each missing one produces an explicit skip; a skip is never
 /// release-acceptance evidence):
-///   - run on Nkosikazi, OneDrive configured in Os.Config.Cloud
+///   - run on Nkosikazi, available TestCloud
 ///   - SSH access to Mzansi without password prompt
 /// </summary>
+[Trait("Category", "CloudEffect")]
 public sealed class RemoteCloudConcurrencyTests : IDisposable
 {
 	private readonly ITestOutputHelper output;
 	private readonly string testId;
-	private readonly RaiPath localRoot;
-	private readonly string mzansiRoot;
+	private RaiPath localRoot;
+	private string mzansiRoot;
 	private const string PitName = "SplitMaster";
 	private const string MzansiHost = "Mzansi";
 	private const int SyncPollMs = 5_000;
@@ -36,12 +37,7 @@ public sealed class RemoteCloudConcurrencyTests : IDisposable
 		this.output = output;
 		testId = $"split-{DateTimeOffset.UtcNow:yyyyMMddHHmmss}-{Environment.ProcessId}";
 		Pit.RecoveryDebounce = TimeSpan.FromMilliseconds(500);
-		var localOneDrive = (string)Os.Config?.Cloud?["OneDrive"];
-		if (!string.IsNullOrWhiteSpace(localOneDrive))
-		{
-			localRoot = new RaiPath(localOneDrive) / "RAIkeep" / "jsonpit-cr003-remote" / testId;
-			mzansiRoot = $"/srv/ServerData/OneDriveData/RAIkeep/jsonpit-cr003-remote/{testId}";
-		}
+
 	}
 
 	public void Dispose()
@@ -53,7 +49,7 @@ public sealed class RemoteCloudConcurrencyTests : IDisposable
 				new RaiFile(localRoot.Path).rmdir(depth: 10, deleteFiles: true);
 		}
 		catch { }
-		try { SshExec($"rm -rf \"{mzansiRoot}\""); }
+		try { if (mzansiRoot != null) SshExec($"rm -rf \"{mzansiRoot}\""); }
 		catch { }
 	}
 
@@ -72,7 +68,7 @@ public sealed class RemoteCloudConcurrencyTests : IDisposable
 		localRoot.mkdir();
 		var stopwatch = Stopwatch.StartNew();
 		output.WriteLine($"Test id  : {testId}");
-		output.WriteLine($"Provider : OneDrive");
+		output.WriteLine($"Provider : {Os.TestCloud}");
 		output.WriteLine($"Machines : {Environment.MachineName} (local claimant) / {MzansiHost} (remote claimant)");
 
 		// ── Phase 1: the local process claims master and canonically persists ──────
@@ -156,14 +152,11 @@ public sealed class RemoteCloudConcurrencyTests : IDisposable
 
 	private void SkipIfPrerequisitesNotMet()
 	{
-		if (Environment.MachineName != "Nkosikazi")
-			Assert.Skip("This CR003 remote scenario must run on Nkosikazi (the configured local claimant).");
-		if (string.IsNullOrWhiteSpace((string)Os.Config?.Cloud?["OneDrive"]))
-			Assert.Skip("OneDrive is not configured in Os.Config.Cloud on this machine.");
-		if (localRoot is null)
-			Assert.Skip("Could not resolve the local OneDrive test root.");
+		if (Environment.MachineName != "Nkosikazi") Assert.Skip("Run the fleet case on Nkosikazi.");
+		localRoot = ConfiguredCloudPits.RequirePitRoot(testId);
 		if (!CanSshTo(MzansiHost))
 			Assert.Skip($"Cannot reach {MzansiHost} via SSH without a password prompt.");
+		mzansiRoot = ConfiguredCloudPits.PeerTestRoot(MzansiHost, testId);
 	}
 
 	private static bool CanSshTo(string host)

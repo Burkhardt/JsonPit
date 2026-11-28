@@ -64,15 +64,33 @@ public class JsonPitBase
 	/// <param name="ownerLeaseValid">Whether the recorded owner's lease is currently valid.</param>
 	protected virtual void OnMasterAuthorityEvaluated(bool acquired, string recordedOwner, bool ownerLeaseValid) { }
 	private readonly object claimGate = new();
-	private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, DateTimeOffset> bans = new();
+	private static readonly System.Collections.Concurrent.ConcurrentDictionary<(string Path, string Writer), DateTimeOffset> bans = new();
+	private (string, string) CooldownKey => (JsonFile.FullName, JsonFile.Path.Cloud ? Environment.MachineName : ExactProcessIdentity);
 	private PitTiming claimTiming;
 	protected PitTiming Timing => claimTiming ?? PitTiming.Load(JsonFile.Path);
 	protected DateTimeOffset claimTime;
 	public (bool Acquired, DateTimeOffset EarliestWriteUtc) TryAcquireMaster()
 	{
 		if (!Monitor.TryEnter(claimGate)) return (false, default);
-		try { return ClaimAvailableTicket(); }
+		try
+		{
+			var turn = ReadOnly || unflagged || JsonFile.Path.Cloud ? ClaimAvailableTicket() : ClaimLocalTicket();
+			if (turn.Acquired && !unflagged) OnMasterAuthorityEvaluated(true, ExactProcessIdentity, true);
+			return turn;
+		}
 		finally { Monitor.Exit(claimGate); }
+	}
+
+	private (bool Acquired, DateTimeOffset EarliestWriteUtc) ClaimLocalTicket()
+	{
+		// Serialize the ticket read and replacement across processes. Contenders never queue.
+		var pathBytes = System.Text.Encoding.UTF8.GetBytes(JsonFile.FullName.ToUpperInvariant());
+		var pathHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(pathBytes));
+		using var gate = new Mutex(false, "JsonPitClaim-" + pathHash);
+		try { if (!gate.WaitOne(0)) return (false, default); }
+		catch (AbandonedMutexException) { /* Ownership transfers to this thread. */ }
+		try { return ClaimAvailableTicket(); }
+		finally { gate.ReleaseMutex(); }
 	}
 
 	private (bool Acquired, DateTimeOffset EarliestWriteUtc) ClaimAvailableTicket()
@@ -86,10 +104,13 @@ public class JsonPitBase
 		var timing = PitTiming.Load(JsonFile.Path);
 		var window = timing.PitSync + timing.Buffer;
 		var now = DateTimeOffset.UtcNow;
+		bool cloud = JsonFile.Path.Cloud;
+		bool previousWriter = cloud
+			? string.Equals(previous?.Machine, Environment.MachineName, StringComparison.OrdinalIgnoreCase)
+			: previous?.Owner == ExactProcessIdentity;
 		if (previous is { State: "Held" } && now < previous.Claimed + timing.Ticket ||
-			previous is { State: "Returned" } && string.Equals(previous.Machine, Environment.MachineName,
-				StringComparison.OrdinalIgnoreCase) && now < previous.Written + window ||
-			bans.TryGetValue(JsonFile.FullName, out var until) && now < until)
+			previous is { State: "Returned" } && previousWriter && now < previous.Written + window ||
+			bans.TryGetValue(CooldownKey, out var until) && now < until)
 			return (false, default);
 		var pitReady = previous switch
 		{
@@ -102,8 +123,7 @@ public class JsonPitBase
 		claimTiming = timing;
 		claimTime = now;
 		ProcessFlag().Update(now);
-		OnMasterAuthorityEvaluated(true, ExactProcessIdentity, true);
-		return (true, pitReady > flagReady ? pitReady : flagReady);
+		return (true, cloud ? (pitReady > flagReady ? pitReady : flagReady) : now);
 	}
 
 	protected bool OwnsClaim()
@@ -123,7 +143,7 @@ public class JsonPitBase
 		if (!OwnsClaim()) return false;
 		MasterFlag().WriteTicket(new("Returned", ExactProcessIdentity, claimTime, now, Environment.MachineName));
 		lastLoadedUtc = now;
-		bans[JsonFile.FullName] = now + Timing.PitSync + Timing.Buffer;
+		bans[CooldownKey] = now + Timing.PitSync + Timing.Buffer;
 		return true;
 	}
 	#endregion

@@ -26,7 +26,7 @@ namespace JsonPit.Tests
 		/// by initializing Seconds in the beginning of the test suite run and by incrementing Seconds in the beginning of each test.
 		/// I make sure Seconds stays the same within a test.
 		private long Seconds = (long)(DateTime.Now - new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Local)).TotalSeconds;
-		private static RaiPath PitPath = RAIkeepTestEnvironment.CloudPath("ObjectPit");
+		private static RaiPath PitPath = RAIkeepTestEnvironment.LocalPath("ObjectPit");
 		private Pit pit = Open_ObjectPit_Pit();
 		private static Pit Open_ObjectPit_Pit()
 		{
@@ -131,7 +131,7 @@ namespace JsonPit.Tests
 		public void JsonPit_StepByStepExample_Test()
 		{
 			// Initialize the JsonPit
-			using var examplesPit = new Pit(pitDirectory: RAIkeepTestEnvironment.CloudPath("Examples"), readOnly: false);
+			using var examplesPit = new Pit(pitDirectory: RAIkeepTestEnvironment.LocalPath("Examples"), readOnly: false);
 			// no file not found exception will be thrown if the path does not exist
 			// Create a PitItem
 			var pitItem = new PitItem("RSB");
@@ -170,7 +170,7 @@ namespace JsonPit.Tests
 		public void DirectAccess_Test()
 		{
 			// Pit 
-			using var Families = new Pit(RAIkeepTestEnvironment.CloudPath("UnitTest"), readOnly: false);
+			using var Families = new Pit(RAIkeepTestEnvironment.LocalPath("UnitTest"), readOnly: false);
 			var Burkhardt = new PitItem("Burkhardt");
 			Burkhardt["Address"] = "123 Main St";
 			Burkhardt["Father"] = "John Doe";

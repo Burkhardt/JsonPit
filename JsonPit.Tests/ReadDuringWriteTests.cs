@@ -12,7 +12,7 @@ using Xunit;
 namespace JsonPit.Tests;
 
 /// <summary>
-/// CR003 §5 — agreed v3.13.2 read-during-write contract on real configured cloud-root
+/// CR003 §5 — agreed v3.13.2 read-during-write contract on local
 /// pits. The canonical writer of another process is represented by direct in-place
 /// writes to the canonical file — exactly the bytes the exact master would produce.
 /// </summary>
@@ -30,7 +30,7 @@ public sealed class ReadDuringWriteTests : IDisposable
 
 	private RaiPath NewPitRoot(string label)
 	{
-		var root = ConfiguredCloudPits.RequirePitRoot("read-during-write", $"{label}-{Guid.NewGuid():N}");
+		var root = RAIkeepTestEnvironment.LocalPath("read-during-write", $"{label}-{Guid.NewGuid():N}");
 		root.mkdir();
 		cleanup.Add(root);
 		return root;

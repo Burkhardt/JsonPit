@@ -1,8 +1,8 @@
-# Getting Started with JsonPit 4.7.2
+# Getting Started with JsonPit 4.7.3
 
 This guide is written for practical implementation work, especially when you want to use JsonPit from NuGet packages in another service such as OTW / AfricaStage.
 
-It is based on the current JsonPit 4.7.2 code and tests in this repository.
+It is based on the current JsonPit 4.7.3 code and tests in this repository.
 
 ## 4.x key decisions
 
@@ -43,7 +43,7 @@ It is not trying to replace a transactional database.
 
 ## Package Setup
 
-Use the coordinated NuGet package ids at version `4.7.2`:
+Use the coordinated NuGet package ids at version `4.7.3`:
 
 - `JsonPit`
 - `RaiUtils`
@@ -52,9 +52,9 @@ Use the coordinated NuGet package ids at version `4.7.2`:
 Typical install commands:
 
 ```bash
-dotnet add package JsonPit --version 4.7.2
-dotnet add package RaiUtils --version 4.7.2
-dotnet add package OsLibCore --version 4.7.2
+dotnet add package JsonPit --version 4.7.3
+dotnet add package RaiUtils --version 4.7.3
+dotnet add package OsLibCore --version 4.7.3
 ```
 
 Typical namespaces in code:
@@ -731,3 +731,11 @@ client fragments; projected-state equality is not substituted.
 C# `Dispose` / `ChangeFilesPublished` audit events record current UTC when validated
 recovery-file publication is reported. The timestamp is not original mutation time,
 a universal ledger of canonical saves, or confirmation of remote replication.
+
+### Flagged saves and ticket return (CR095)
+
+A successful canonical write returns the ticket with its exact originator, claim time, completion time and machine in `Master.flag`. An active held ticket protects the canonical file on either kind of storage. A refused saver can publish pending edits as change files.
+
+On a local path an eligible owner writes immediately. The returning originator yields for `SyncPitDurationSeconds + BufferSeconds`, including across a reopen in the same process. A different local PID can use the returned ticket immediately. Local timing lookup uses `JsonPit/timing.json5` under the pit directory’s grandparent. Without overrides the cooldown is 60 + 5 = 65 seconds. The propagation wait for a local winner is zero throughout.
+
+On a cloud path timing comes from `<configured cloud root>/JsonPit/timing.json5`. The whole returning machine yields for the cooldown. A new winner serves the CR090 flag and pit propagation windows and rechecks its claim before writing. Both save APIs expose the time spent waiting as `PitSaveResult.WaitedMs` in milliseconds.

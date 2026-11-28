@@ -14,6 +14,7 @@ internal static class TicketFixture
 
 #pragma warning disable RAI019 // A simulated peer must be able to install an expired or foreign ticket.
 	internal static MasterFlagFile PeerFlag(RaiPath directory, string server) => new MasterFlagFile(directory, "Master", server);
+	internal static void WritePeerTicket(MasterFlagFile flag, MasterTicket ticket) => flag.WriteTicket(ticket);
 	internal static void WriteMaster(MasterFlagFile flag, DateTimeOffset? time = null, string originator = null) =>
 		flag.Update(time, originator);
 #pragma warning restore RAI019

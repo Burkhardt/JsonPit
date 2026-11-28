@@ -13,7 +13,7 @@ namespace JsonPit.Tests
 	public class RAIkeepConcurrencyRegressionTests
 	{
 		private static RaiPath CreateRegressionRoot(string label) =>
-			RAIkeepTestEnvironment.CloudPath("ConcurrencyRegression", label, Guid.NewGuid().ToString("N"));
+			RAIkeepTestEnvironment.LocalPath("ConcurrencyRegression", label, Guid.NewGuid().ToString("N"));
 
 		private static PitItem CreateSnapshot(string id, object payload = null)
 		{

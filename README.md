@@ -2,28 +2,17 @@
 
 ## Automated cloud test isolation
 
-Local automated cloud fixtures use `Os.Config.Cloud.Dropbox`, under a unique
-`RAIkeep.Test.<run-id>/` directory per test process. They never fall back to
-OneDrive or alter `DefaultCloudOrder`. Missing Dropbox prerequisites produce an
-explicit skip; a skipped integration test is not release-acceptance evidence.
-Fixtures clean only their own roots; startup never deletes another run's data.
-Residual run directories may be removed after their owning test processes finish.
+Local serialization, merge, reload and process turn-taking tests use isolated non-cloud directories.
+Cloud-effect tests resolve the TestCloud role from the real RAIkeep configuration and use a unique
+`RAIkeep.Test.<run-id>/` under that provider. SSH replication tests require the same configured
+TestCloud on both hosts. Missing prerequisites produce an explicit skip. Select the cloud cases
+with `dotnet test JsonPit.Tests --filter 'Category=CloudEffect'`.
 
-Live AIA and AfricaStage quartets remain on OneDrive. Explicit discovery remains
-`pits -h -r AIA -c OneDrive` and `pits -h -r AfricaStage -c OneDrive` (likewise
-`jpit` with `-c OneDrive`). Local-only unit fixtures may use `Os.TempDir`.
+## 4.7.3
 
-**Remote replication exception:** `RemoteSyncTests` and
-`RemoteCloudConcurrencyTests` deliberately retain Nkosikazi ↔ Mzansi OneDrive
-replication, in `RAIkeep/jsonpit-remote-sync-tests/{testId}` and
-`RAIkeep/jsonpit-cr003-remote/{testId}`. Run these separately from high-frequency
-local verification; they require the genuine remote channel.
+Coordinated 4.7.3 release; public behavior is aligned with the synchronized platform.
 
-## 4.7.2
-
-Coordinated 4.7.2 release; public behavior is aligned with the synchronized platform.
-
-Latest release notes: [JsonPit 4.7.2 release notes](https://github.com/Burkhardt/RAIkeep/blob/main/doc/releases/v4.x/JsonPit_RELEASE_NOTES_4.x.md#472).
+Latest release notes: [JsonPit 4.7.3 release notes](https://github.com/Burkhardt/RAIkeep/blob/main/doc/releases/v4.x/JsonPit_RELEASE_NOTES_4.x.md#473).
 
 ## Previous Versions
 
@@ -34,13 +23,13 @@ For release notes and changelogs of earlier releases, see the [JsonPit 4.x Relea
 ### .NET CLI
 
 ```bash
-dotnet add package JsonPit --version 4.7.2
+dotnet add package JsonPit --version 4.7.3
 ```
 
 ### PackageReference
 
 ```xml
-<PackageReference Include="JsonPit" Version="4.7.2" />
+<PackageReference Include="JsonPit" Version="4.7.3" />
 ```
 
 JsonPit stores JSON documents with value history across processes, machines, and servers using [asynchronous persistence with eventual durability](https://github.com/Burkhardt/RAIkeep/blob/main/MANIFESTO.md#asynchronous-persistence-with-eventual-durability). Change requests and release notes are kept in the RAIkeep [documentation archive](https://github.com/Burkhardt/RAIkeep/tree/main/doc).
@@ -49,9 +38,9 @@ JsonPit stores JSON documents with value history across processes, machines, and
 
 ## Start Here
 
-For the 4.7.2 live-reference behavior, read [MUTATION_TRACKING.md](https://github.com/Burkhardt/JsonPit/blob/main/MUTATION_TRACKING.md). It defines the supported mutation API, per-instance tracking modes, and detection-time timestamps for fallback edits. Agents and contributors should also read [AGENTS.md](https://github.com/Burkhardt/JsonPit/blob/main/AGENTS.md).
+For the 4.7.3 live-reference behavior, read [MUTATION_TRACKING.md](https://github.com/Burkhardt/JsonPit/blob/main/MUTATION_TRACKING.md). It defines the supported mutation API, per-instance tracking modes, and detection-time timestamps for fallback edits. Agents and contributors should also read [AGENTS.md](https://github.com/Burkhardt/JsonPit/blob/main/AGENTS.md).
 
-If you want to use JsonPit 4.7.2 from NuGet in another service or agent workflow, start with [GettingStarted.md](https://github.com/Burkhardt/JsonPit/blob/main/GettingStarted.md).
+If you want to use JsonPit 4.7.3 from NuGet in another service or agent workflow, start with [GettingStarted.md](https://github.com/Burkhardt/JsonPit/blob/main/GettingStarted.md).
 
 That guide now covers:
 

@@ -7,7 +7,7 @@ using Xunit;
 
 namespace JsonPit.Tests;
 
-/// <summary>Two actual processes, one configured cloud path, two stale replica views.
+/// <summary>Two actual processes, one local path, two stale replica views.
 /// This checks C#/Python mutation and persistence interoperability; the separate
 /// RemoteSync/RemoteCloudConcurrency suites establish cross-machine propagation.
 /// </summary>
@@ -47,7 +47,7 @@ public sealed class CrossLanguageMutationTests
 	[InlineData(MutationTrackingMode.TrackedChangesWithFallback)]
 	public void StaleReplicaWritesKeepOtherFieldsAndPersistTombstones(MutationTrackingMode mode)
 	{
-		var root = ConfiguredCloudPits.RequirePitRoot("cr077-parity", Guid.NewGuid().ToString("N"));
+		var root = RAIkeepTestEnvironment.LocalPath("cr077-parity", Guid.NewGuid().ToString("N"));
 		var previous = Pit.DefaultMutationTrackingMode;
 		try
 		{

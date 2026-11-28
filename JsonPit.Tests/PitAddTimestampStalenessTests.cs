@@ -37,7 +37,7 @@ public class PitAddTimestampStalenessTests
 
 	private static Pit NewPit(string label)
 	{
-		var dir = RAIkeepTestEnvironment.CloudPath("PitAddStaleness", label + "-" + Guid.NewGuid().ToString("N"));
+		var dir = RAIkeepTestEnvironment.LocalPath("PitAddStaleness", label + "-" + Guid.NewGuid().ToString("N"));
 		dir.mkdir();
 		return new Pit(dir, readOnly: false, autoload: false);
 	}

@@ -279,8 +279,11 @@ public partial class Pit
 		var turn = BeginSave(backup, force);
 		if (turn.Completed is { } completed) return completed;
 		var delay = turn.Ready - DateTimeOffset.UtcNow;
-		if (delay > TimeSpan.Zero) await Task.Delay(delay).ConfigureAwait(false);
-		return Store(turn.Ready, turn.Claimed);
+		if (delay <= TimeSpan.Zero) return FinishStore(turn.Claimed);
+		var timer = Stopwatch.StartNew();
+		await Task.Delay((int)Math.Ceiling(delay.TotalMilliseconds)).ConfigureAwait(false);
+		var waited = timer.ElapsedMilliseconds;
+		return FinishStore(turn.Claimed) with { WaitedMs = waited };
 	}
 
 	private PitSaveResult? CheckClaimForSave()
@@ -300,7 +303,15 @@ public partial class Pit
 	private PitSaveResult Store(DateTimeOffset earliestWriteUtc, DateTimeOffset expectedClaim, PitMaintenanceResult result = null)
 	{
 		var delay = earliestWriteUtc - DateTimeOffset.UtcNow;
-		if (delay > TimeSpan.Zero) Thread.Sleep((int)Math.Ceiling(delay.TotalMilliseconds));
+		if (delay <= TimeSpan.Zero) return FinishStore(expectedClaim, result);
+		var timer = Stopwatch.StartNew();
+		Thread.Sleep((int)Math.Ceiling(delay.TotalMilliseconds));
+		var waited = timer.ElapsedMilliseconds;
+		return FinishStore(expectedClaim, result) with { WaitedMs = waited };
+	}
+
+	private PitSaveResult FinishStore(DateTimeOffset expectedClaim, PitMaintenanceResult result = null)
+	{
 		lock (_locker)
 		{
 			if (disposed || HistoricItems == null) return new(PitSaveOutcome.PitNotLoaded);

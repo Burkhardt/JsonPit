@@ -11,7 +11,7 @@ using Xunit;
 namespace JsonPit.Tests;
 
 /// <summary>
-/// CR003 §3 — explicit in-process concurrency tests on real configured cloud-root pits.
+/// CR003 §3 — explicit in-process concurrency tests on local pits.
 /// These tests create controlled races deliberately; they do not rely on incidental
 /// test-runner parallelism.
 /// </summary>
@@ -27,7 +27,7 @@ public sealed class InProcessConcurrencyTests : IDisposable
 
 	private RaiPath NewPitRoot(string label)
 	{
-		var root = ConfiguredCloudPits.RequirePitRoot("in-process", $"{label}-{Guid.NewGuid():N}");
+		var root = RAIkeepTestEnvironment.LocalPath("in-process", $"{label}-{Guid.NewGuid():N}");
 		root.mkdir();
 		cleanup.Add(root);
 		return root;

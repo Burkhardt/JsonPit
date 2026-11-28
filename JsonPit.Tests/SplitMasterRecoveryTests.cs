@@ -37,10 +37,10 @@ public sealed class SplitMasterRecoveryTests : IDisposable
 			ConfiguredCloudPits.Cleanup(root);
 	}
 
-	private RaiPath NewPitRoot(string label)
+	private RaiPath NewPitRoot(string label, bool cloud = false)
 	{
-		var root = ConfiguredCloudPits.RequirePitRoot("split-master", $"{label}-{Guid.NewGuid():N}");
-		root.mkdir();
+		var name = $"{label}-{Guid.NewGuid():N}";
+		var root = cloud ? ConfiguredCloudPits.CreateTimedPitRoot("split-master", name) : (Os.TempDir / name).mkdir();
 		cleanup.Add(root);
 		return root;
 	}
@@ -77,14 +77,15 @@ public sealed class SplitMasterRecoveryTests : IDisposable
 	}
 
 	[Fact]
+	[Trait("Category", "CloudEffect")]
 	public void LiveLoser_WatcherDetectsConflict_PublishesWriteSet_RetiresOnlyItsLongerFlag()
 	{
-		var root = NewPitRoot("live-loser");
+		var root = NewPitRoot("live-loser", cloud: true);
 		var statuses = new List<RecoveryStatus>();
 		using var pit = new Pit(root, readOnly: false, autoload: false, subscriber: "cr003");
 		pit.RecoveryStatusChanged += status => { lock (statuses) statuses.Add(status); };
 
-		// A master tenure with canonically persisted fragments — the recovery write set.
+		// Complete a canonical turn before a later conflict arrives.
 		var itemA = new PitItem("TenureA"); itemA.SetProperty(new { Payload = "a" });
 		var itemB = new PitItem("TenureB"); itemB.SetProperty(new { Payload = "b" });
 		pit.Add(itemA);
@@ -104,15 +105,14 @@ public sealed class SplitMasterRecoveryTests : IDisposable
 		Assert.True(WaitFor(() => !new RaiFile(root, "Master (1)", "flag").Exists()),
 			"The live loser must retire its own longer conflict flag after its recovery files validate locally.");
 
-		// The union of the tenure write set and dirty fragments became ordinary,
-		// hash-validated change files — not one bulk pit dump.
+		// The returned turn is already durable. Only the later dirty edit needs recovery.
 		var changeFiles = root.EnumerateFiles("*.json")
 			.Where(f => f.Name != pit.JsonFile.Name)
 			.Where(f => ChangeFile.IdentityOf(f.Name) == pit.ExactProcessIdentity)
 			.ToList();
-		Assert.True(changeFiles.Count >= 3, $"Expected the tenure write set plus dirty fragments as small change files; found {changeFiles.Count}.");
-		foreach (var file in changeFiles)
-			Assert.NotNull(ChangeFile.ReadValidated(new RaiFile(file.FullName)));
+		Assert.Equal("DirtyC", (string)Assert.Single(ChangeFile.ReadValidated(Assert.Single(changeFiles)))["Id"]);
+		Assert.Contains("TenureA", new TextFile(pit.JsonFile.FullName).ReadFromDisk());
+		Assert.Contains("TenureB", new TextFile(pit.JsonFile.FullName).ReadFromDisk());
 
 		// Exact canonical Master.flag was never deleted or altered by the loser.
 		Assert.Equal(foreignWinner, new MasterFlagFile(root, "Master").Originator);
@@ -129,46 +129,52 @@ public sealed class SplitMasterRecoveryTests : IDisposable
 		var events = EventDirectory.Events(root);
 		Assert.Contains(events, entry => entry.Key.EndsWith("_ConflictDetected.event", StringComparison.Ordinal)
 			&& (string)entry.Value["Stage"] == nameof(RecoveryStage.ConflictDetected));
-		Assert.Contains(events, entry => entry.Key.EndsWith("_Completed.event", StringComparison.Ordinal)
-			&& (string)entry.Value["Stage"] == nameof(RecoveryStage.Completed));
+		lock (statuses) Assert.Contains(statuses, status => status.Stage == RecoveryStage.Completed);
+	}
+
+	private static void AssertReloadRecovery(Pit pit, RecoveryRole role, RecoveryStage stage)
+	{
+#pragma warning disable RAI013 // The pinned 4.6.7 analyzer predates CR095. Reload is the boundary under test.
+		pit.Reload();
+#pragma warning restore RAI013
+		var status = pit.LastRecoveryStatus;
+		Assert.NotNull(status);
+		Assert.Equal(nameof(Pit.Reload), status.Operation);
+		Assert.Equal(role, status.Role);
+		Assert.Equal(stage, status.Stage);
 	}
 
 	[Fact]
+	[Trait("Category", "CloudEffect")]
 	public void MissedWatcherNotification_IsRecoveredAtTheNextOperationBoundary_WithoutPolling()
 	{
-		var root = NewPitRoot("missed-signal");
-		Pit.RecoveryDebounce = TimeSpan.FromHours(1); // watcher signal effectively never arrives
-		try
-		{
-			using var pit = new Pit(root, readOnly: false, autoload: false, subscriber: "cr003");
-			pit.Add(new PitItem("Tenure"));
-			pit.Save(force: true);
+		var root = NewPitRoot("missed-signal", cloud: true);
+		Pit.RecoveryDebounce = TimeSpan.FromHours(1); // Defer the watcher until after the synchronous assertions.
+		using var pit = new Pit(root, readOnly: false, autoload: false, subscriber: "cr003");
+		pit.Add(new PitItem("Tenure"));
+		Assert.Equal(PitSaveOutcome.Wrote, pit.SaveWithOutcome(force: true).Outcome);
+		Assert.Equal("Returned", pit.MasterFlag().ReadTicket().State);
 
-			TicketFixture.WriteMaster(pit.MasterFlag(), originator: "OtherServer-cr003-424242");
-			PlantConflictFlag(root, "Master (1)", pit.ExactProcessIdentity, DateTimeOffset.UtcNow);
-			Thread.Sleep(300);
-			Assert.True(new RaiFile(root, "Master (1)", "flag").Exists(), "Precondition: the signal was not consumed yet.");
+		const string foreignWinner = "OtherServer-cr003-424242";
+		TicketFixture.WriteMaster(pit.MasterFlag(), originator: foreignWinner);
+		PlantConflictFlag(root, "Master (1)", pit.ExactProcessIdentity, DateTimeOffset.UtcNow);
+		var conflict = new RaiFile(root, "Master (1)", "flag");
+		pit.Add(new PitItem("TriggersBoundaryScan"));
+		Assert.True(conflict.Exists());
 
-			pit.Add(new PitItem("TriggersBoundaryScan"));
-			pit.Save(); // Save's operation-boundary scan performs the recovery synchronously
+		AssertReloadRecovery(pit, RecoveryRole.Loser, RecoveryStage.Completed);
 
-			Assert.False(new RaiFile(root, "Master (1)", "flag").Exists(),
-				"The operation-boundary scan must recover a missed watcher notification without any polling loop.");
-			Assert.Equal(RecoveryStage.Completed, pit.LastRecoveryStatus.Stage);
-		}
-		finally
-		{
-			Pit.RecoveryDebounce = TimeSpan.FromMilliseconds(200);
-		}
+		Assert.False(conflict.Exists());
+		Assert.Equal(foreignWinner, pit.MasterFlag().Originator);
 	}
 
 	[Fact]
+	[Trait("Category", "CloudEffect")]
 	public void CurrentMaster_LeavesStillLiveLosersConflictEvidenceAlone()
 	{
-		var root = NewPitRoot("live-claimant");
+		var root = NewPitRoot("live-claimant", cloud: true);
 		using var pit = new Pit(root, readOnly: false, autoload: false, subscriber: "cr003");
-		pit.Add(new PitItem("MasterData"));
-		pit.Save(force: true); // this process is the exact canonical master
+		Assert.True(TicketFixture.AttemptClaim(pit).Acquired);
 
 		var liveClaimant = $"{Environment.MachineName}-ghost-424242";
 		PlantConflictFlag(root, "Master (1)", liveClaimant, DateTimeOffset.UtcNow);
@@ -181,36 +187,36 @@ public sealed class SplitMasterRecoveryTests : IDisposable
 	}
 
 	[Fact]
+	[Trait("Category", "CloudEffect")]
 	public void OrphanedConflictFlag_IsRetiredOnlyAfterExpiryPlusGrace_WithValidatedCriticalEvidence()
 	{
-		var root = NewPitRoot("orphan");
-		Pit.OrphanedConflictFlagGrace = TimeSpan.FromSeconds(1);
+		var root = NewPitRoot("orphan", cloud: true);
+		Pit.RecoveryDebounce = TimeSpan.FromHours(1);
+		Pit.OrphanedConflictFlagGrace = TimeSpan.FromMinutes(2);
 		using var pit = new Pit(root, readOnly: false, autoload: false, subscriber: "cr003");
-		pit.Add(new PitItem("MasterData"));
-		pit.Save(force: true); // this process is the exact canonical master
+		Assert.True(TicketFixture.AttemptClaim(pit).Acquired);
+		var held = pit.MasterFlag().ReadTicket();
+		Assert.Equal("Held", held.State);
+		Assert.Equal(pit.ExactProcessIdentity, held.Owner);
 
 		var deadClaimant = $"{Environment.MachineName}-ghost-424242";
+		var conflict = new RaiFile(root, "Master (1)", "flag");
+		var expiryBoundary = DateTimeOffset.UtcNow - MasterFlagFile.TicketDuration;
 
-		// Not yet eligible: the claim is recent, so expiry plus grace has not elapsed.
-		PlantConflictFlag(root, "Master (1)", deadClaimant, DateTimeOffset.UtcNow);
-		pit.Save();
-		Assert.True(new RaiFile(root, "Master (1)", "flag").Exists(),
-			"An orphaned signal must survive until process-window expiry plus the safety grace.");
+		// The claimant has expired, but is still inside the grace period.
+		PlantConflictFlag(root, "Master (1)", deadClaimant, expiryBoundary - TimeSpan.FromSeconds(1));
+		AssertReloadRecovery(pit, RecoveryRole.Master, RecoveryStage.CleanupPending);
+		Assert.True(conflict.Exists());
 
-		// Eligible: claim and (absent) window lie beyond TicketDuration plus grace.
-		PlantConflictFlag(root, "Master (1)", deadClaimant, DateTimeOffset.UtcNow - MasterFlagFile.TicketDuration - TimeSpan.FromMinutes(2));
-		pit.Save();
+		// Scan again under the same held ticket once the evidence is older than expiry plus grace.
+		PlantConflictFlag(root, "Master (1)", deadClaimant, expiryBoundary - Pit.OrphanedConflictFlagGrace - TimeSpan.FromSeconds(1));
+		AssertReloadRecovery(pit, RecoveryRole.Master, RecoveryStage.Completed);
 
-		Assert.False(new RaiFile(root, "Master (1)", "flag").Exists(),
-			"Only the exact current master may retire the orphaned longer flag after expiry plus grace.");
-		// Exact canonical Master.flag remains untouched and still names this process.
-		Assert.Equal(pit.ExactProcessIdentity, new MasterFlagFile(root, "Master").Originator);
-		// The validated Critical evidence event exists and names the conflicting file.
-		var events = EventDirectory.Events(root);
-		var critical = events.Values.Where(e => (string)e["Level"] == "Critical").ToList();
-		Assert.NotEmpty(critical);
-		Assert.Contains(critical, e => ((string)e["Message"]).Contains("Master (1).flag"));
-		Assert.Contains(critical, e => ((string)e["Message"]).Contains(deadClaimant));
+		Assert.False(conflict.Exists());
+		Assert.Equal(held, pit.MasterFlag().ReadTicket());
+		Assert.Contains(EventDirectory.Events(root).Values, e =>
+			(string)e["Level"] == "Critical" && (string)e["Operation"] == nameof(Pit.Reload)
+			&& ((string)e["Message"]).Contains("Master (1).flag") && ((string)e["Message"]).Contains(deadClaimant));
 	}
 
 	[Fact]
@@ -227,9 +233,10 @@ public sealed class SplitMasterRecoveryTests : IDisposable
 	}
 
 	[Fact]
+	[Trait("Category", "CloudEffect")]
 	public void DisposedPit_StopsWatcher_NoRecoveryRunsForItAfterDisposal()
 	{
-		var root = NewPitRoot("disposed-watcher");
+		var root = NewPitRoot("disposed-watcher", cloud: true);
 		var pit = new Pit(root, readOnly: false, autoload: false, subscriber: "cr003");
 		pit.Dispose(); // empty pit: disposal publishes nothing
 
@@ -242,13 +249,13 @@ public sealed class SplitMasterRecoveryTests : IDisposable
 	}
 
 	[Fact]
-	public void GracefulDisposal_PublishesWriteSetAndDirtyFragments_BeforeReleasingAuthority()
+	public void GracefulDisposal_AfterReturnPublishesOnlyOutstandingDirtyFragments()
 	{
 		var root = NewPitRoot("graceful-disposal");
 		var pit = new Pit(root, readOnly: false, autoload: false, subscriber: "cr003");
 		var persisted = new PitItem("PersistedInTenure"); persisted.SetProperty(new { Payload = 1 });
 		pit.Add(persisted);
-		pit.Save(force: true); // enters the tenure write set
+		Assert.Equal(PitSaveOutcome.Wrote, pit.SaveWithOutcome(force: true).Outcome);
 		var dirty = new PitItem("StillDirty"); dirty.SetProperty(new { Payload = 2 });
 		pit.Add(dirty); // never canonically saved before disposal
 		var exactIdentity = pit.ExactProcessIdentity;
@@ -256,15 +263,13 @@ public sealed class SplitMasterRecoveryTests : IDisposable
 
 		pit.Dispose();
 
-		// Both fragments are durable as validated ordinary change files.
+		// Verify each edit at its durability boundary after explicit return.
 		var changeFiles = root.EnumerateFiles("*.json")
 			.Where(f => f.Name != canonicalName)
 			.Where(f => ChangeFile.IdentityOf(f.Name) == exactIdentity)
 			.ToList();
-		Assert.True(changeFiles.Count >= 2,
-			$"Disposal must export the tenure write set plus dirty fragments; found {changeFiles.Count} change file(s).");
-		foreach (var file in changeFiles)
-			Assert.NotNull(ChangeFile.ReadValidated(new RaiFile(file.FullName)));
+		Assert.Equal("StillDirty", (string)Assert.Single(ChangeFile.ReadValidated(Assert.Single(changeFiles)))["Id"]);
+		Assert.Contains("PersistedInTenure", new TextFile(pit.JsonFile.FullName).ReadFromDisk());
 
 		// Authority was released only afterwards: the PID-specific process window is gone.
 		var window = new MasterFlagFile(root, ProcessFlagFile.CurrentFlagName("cr003"));

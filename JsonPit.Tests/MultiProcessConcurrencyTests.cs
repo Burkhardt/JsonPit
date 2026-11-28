@@ -8,7 +8,7 @@ using Xunit;
 namespace JsonPit.Tests;
 
 /// <summary>
-/// CR003 §5 — agreed v3.13.2 master ownership contract on real configured cloud-root
+/// CR003 §5 — agreed v3.13.2 master ownership contract on local
 /// pits. Master ownership records the exact owning process (machine, subscriber, PID);
 /// only that exact process renews directly. Other processes are represented here by
 /// their exact on-disk footprint (Master.flag lease plus PID-specific activity window),
@@ -29,7 +29,7 @@ public sealed class MultiProcessConcurrencyTests : IDisposable
 
 	private RaiPath NewPitRoot(string label)
 	{
-		var root = ConfiguredCloudPits.RequirePitRoot("multi-process", $"{label}-{Guid.NewGuid():N}");
+		var root = RAIkeepTestEnvironment.LocalPath("multi-process", $"{label}-{Guid.NewGuid():N}");
 		root.mkdir();
 		cleanup.Add(root);
 		return root;
@@ -149,7 +149,10 @@ public sealed class MultiProcessConcurrencyTests : IDisposable
 	[Fact]
 	public async System.Threading.Tasks.Task StaleWriter_DoesNotOverwriteNewerState_ChangesRemainMergeableAndDeterministic()
 	{
-		var root = NewPitRoot("stale-writer");
+		var fixture = NewPitRoot("stale-writer");
+		new TextFile((fixture / "JsonPit").mkdir(), "timing", "json5").WriteAllText(
+			"{SyncPitDurationSeconds:1,BufferSeconds:0}");
+		var root = (fixture / "Tenant" / "Person").mkdir();
 		using var pit = new Pit(root, readOnly: false, autoload: false, subscriber: "cr003");
 		pit.Add(new PitItem("Seed"));
 		pit.Save(force: true);

@@ -9,11 +9,11 @@ using Xunit;
 namespace JsonPit.Tests;
 
 /// <summary>
-/// Remote sync integration tests: Nkosikazi (master) and Mzansi (client) share a pit via OneDrive.
+/// Remote sync integration tests: Nkosikazi (master) and Mzansi (client) share a pit via TestCloud.
 ///
 /// Prerequisites:
 ///   - Run on Nkosikazi (the macOS machine)
-///   - OneDrive configured in Os.Config.Cloud["OneDrive"] on both machines
+///   - Same available TestCloud on both machines
 ///   - SSH access: <c>ssh Mzansi</c> works without password prompt
 ///   - pits CLI installed on Mzansi: <c>/usr/local/bin/pits</c>
 ///
@@ -21,12 +21,13 @@ namespace JsonPit.Tests;
 /// we SSH into Mzansi and overwrite the flag files with expired timestamps, then run pits.
 /// This deterministically simulates an expired ticket on Mzansi's local copy.
 /// </summary>
+[Trait("Category", "CloudEffect")]
 public sealed class RemoteSyncTests : IDisposable
 {
 	private readonly ITestOutputHelper output;
 	private readonly string testId;
-	private readonly RaiPath localRoot;     // OneDrive on Nkosikazi
-	private readonly string mzansiRoot;     // OneDrive on Mzansi
+	private RaiPath localRoot;     // TestCloud on Nkosikazi
+	private string mzansiRoot;     // TestCloud on Mzansi
 	private const string PitName = "SyncTest";
 	private const string MzansiHost = "Mzansi";
 	private const int SyncPollMs = 5_000;
@@ -37,13 +38,7 @@ public sealed class RemoteSyncTests : IDisposable
 		this.output = output;
 		testId = $"sync-{DateTimeOffset.UtcNow:yyyyMMddHHmmss}-{Environment.ProcessId}";
 
-		var localOneDrive = (string)Os.Config?.Cloud?["OneDrive"];
-		if (!string.IsNullOrWhiteSpace(localOneDrive))
-		{
-			localRoot = new RaiPath(localOneDrive) / "RAIkeep" / "jsonpit-remote-sync-tests" / testId;
-			// Mzansi's OneDrive root comes from its Os.Config — hardcoded here for SSH commands
-			mzansiRoot = $"/srv/ServerData/OneDriveData/RAIkeep/jsonpit-remote-sync-tests/{testId}";
-		}
+
 	}
 
 	public void Dispose()
@@ -54,7 +49,7 @@ public sealed class RemoteSyncTests : IDisposable
 				new RaiFile(localRoot.Path).rmdir(depth: 10, deleteFiles: true);
 		}
 		catch { }
-		try { SshExec($"rm -rf \"{mzansiRoot}\""); }
+		try { if (mzansiRoot != null) SshExec($"rm -rf \"{mzansiRoot}\""); }
 		catch { }
 	}
 
@@ -289,18 +284,11 @@ public sealed class RemoteSyncTests : IDisposable
 
 	private void SkipIfPrerequisitesNotMet()
 	{
-		if (Environment.MachineName != "Nkosikazi")
-			Assert.Skip("This test must run on Nkosikazi.");
-
-		var localOneDrive = (string)Os.Config?.Cloud?["OneDrive"];
-		if (string.IsNullOrWhiteSpace(localOneDrive))
-			Assert.Skip("OneDrive not configured in Os.Config.Cloud.");
-
-		if (localRoot == null)
-			Assert.Skip("Could not resolve local OneDrive test root.");
-
+		if (Environment.MachineName != "Nkosikazi") Assert.Skip("Run the fleet case on Nkosikazi.");
+		localRoot = ConfiguredCloudPits.RequirePitRoot(testId);
 		if (!CanSshTo(MzansiHost))
 			Assert.Skip($"Cannot reach {MzansiHost} via SSH.");
+		mzansiRoot = ConfiguredCloudPits.PeerTestRoot(MzansiHost, testId);
 
 		var pitsCheck = SshExec("which pits");
 		if (string.IsNullOrWhiteSpace(pitsCheck) || !pitsCheck.Contains("pits"))

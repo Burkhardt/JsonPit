@@ -6,14 +6,14 @@ namespace JsonPit.Tests
 	{
 		private static readonly Lazy<RaiPath> rootPath = new(ResolveWritableRootPath);
 		internal static RaiPath RootPath => rootPath.Value;
-		internal static RaiPath CloudPath(params string[] segments)
+		internal static RaiPath LocalPath(params string[] segments)
 		{
 			var path = RootPath;
 			foreach (var segment in segments)
 				path = path / segment;
 			return path;
 		}
-		internal static string CloudFile(params string[] segments)
+		internal static string LocalFile(params string[] segments)
 		{
 			if (segments == null || segments.Length == 0)
 				throw new ArgumentException("At least one segment is required.", nameof(segments));
@@ -24,19 +24,11 @@ namespace JsonPit.Tests
 		}
 		private static RaiPath ResolveWritableRootPath()
 		{
-			var candidate = ConfiguredCloudPits.RequirePitRoot("JsonPitTests");
-			try
-			{
-				candidate.mkdir();
-				return candidate;
-			}
-			catch (Exception ex)
-			{
-				throw new InvalidOperationException(
-					$"JsonPit tests require writable TestCloud storage at '{candidate.Path}'. " +
-					"Check Os.TestCloud before running these tests.",
-					ex);
-			}
+			var candidate = Os.TempDir / ("RAIkeep.Tests-" + Guid.NewGuid().ToString("N"));
+			if (candidate.Cloud) throw new InvalidOperationException("Local tests require a non-cloud temp directory.");
+			candidate.mkdir();
+			AppDomain.CurrentDomain.ProcessExit += (_, _) => ConfiguredCloudPits.Cleanup(candidate);
+			return candidate;
 		}
 	}
 }

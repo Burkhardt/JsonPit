@@ -25,7 +25,7 @@ public sealed class MultiPitInstanceConcurrencyTests : IDisposable
 
 	private RaiPath NewPitRoot(string label)
 	{
-		var root = ConfiguredCloudPits.RequirePitRoot("multi-instance", $"{label}-{Guid.NewGuid():N}");
+		var root = RAIkeepTestEnvironment.LocalPath("multi-instance", $"{label}-{Guid.NewGuid():N}");
 		root.mkdir();
 		cleanup.Add(root);
 		return root;
